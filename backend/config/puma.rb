@@ -47,7 +47,7 @@ pidfile ENV["PIDFILE"] if ENV["PIDFILE"]
 # when the DB already has Shopify data.
 #
 # Disable with SKIP_BOOTSTRAP=true.
-if !ENV["SKIP_BOOTSTRAP"].to_s.downcase.in?(%w[true 1])
+unless %w[true 1].include?(ENV["SKIP_BOOTSTRAP"].to_s.downcase)
   on_worker_boot do
     Thread.new do
       sleep 10  # give Puma a moment to settle

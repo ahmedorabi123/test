@@ -18,54 +18,101 @@ namespace :bootstrap do
       log.call "SHOPIFY_WEBHOOK_BASE_URL not set — skipping webhook registration"
     end
 
-    # ── 2. Backfill — only when needed. ──
+    # ── 2. Backfill — per-entity, independent checks. ──
+    #     Each entity is pulled when its own table has nothing from Shopify
+    #     (or when FORCE_BACKFILL=true). This way a deploy that imported only
+    #     products on a previous run will still pick up customers/orders/inventory
+    #     on the next run. Webhooks keep everything live afterwards.
     unless ENV["SHOPIFY_SHOP_DOMAIN"].present? && ENV["SHOPIFY_ADMIN_ACCESS_TOKEN"].present?
       log.call "Shopify creds not set — skipping data backfill"
       next
     end
 
-    force            = ENV["FORCE_BACKFILL"].to_s.downcase == "true"
-    shopify_products = Product.where.not(shopify_product_id: nil).count
-    shopify_orders   = Order.where.not(shopify_order_id: nil).count
-
-    if !force && (shopify_products.positive? || shopify_orders.positive?)
-      log.call "DB already has Shopify data (products=#{shopify_products}, orders=#{shopify_orders}). " \
-               "Skipping backfill — webhooks will keep it in sync. " \
-               "Set FORCE_BACKFILL=true on Render to re-pull everything."
-      next
-    end
-
-    log.call(force ? "FORCE_BACKFILL=true — re-pulling all Shopify data" : "DB empty of Shopify data — running first-time backfill")
-
+    force  = ENV["FORCE_BACKFILL"].to_s.downcase == "true"
     client = ::Shopify::Client.new
+    totals = { products: 0, customers: 0, orders: 0, inventory: nil, refunds: 0, fulfillments: 0 }
 
-    log.call "Pulling products ..."
-    products = client.paginated("products.json", key: "products")
-    log.call "  fetched #{products.size}; upserting..."
-    products.each do |p|
-      Catalog::Shopify::ProductUpserter.call(p, from: :rest)
-    rescue => e
-      warn "[bootstrap] product #{p["id"]} failed: #{e.class}: #{e.message}"
+    # ── Products ──
+    if force || Product.where.not(shopify_product_id: nil).none?
+      log.call "Pulling products ..."
+      products = client.paginated("products.json", key: "products")
+      log.call "  fetched #{products.size}; upserting..."
+      products.each do |p|
+        Catalog::Shopify::ProductUpserter.call(p, from: :rest)
+        totals[:products] += 1
+      rescue => e
+        warn "[bootstrap] product #{p["id"]} failed: #{e.class}: #{e.message}"
+      end
+    else
+      log.call "Products already populated — skipping (FORCE_BACKFILL=true to re-pull)"
     end
 
-    log.call "Pulling customers ..."
-    customers = client.paginated("customers.json", key: "customers")
-    log.call "  fetched #{customers.size}; upserting..."
-    customers.each do |c|
-      CRM::Shopify::CustomerUpserter.call(c)
-    rescue => e
-      warn "[bootstrap] customer #{c["id"]} failed: #{e.class}: #{e.message}"
+    # ── Customers ──
+    customers_present =
+      if Customer.column_names.include?("shopify_customer_id")
+        Customer.where.not(shopify_customer_id: nil).any?
+      else
+        Customer.any?
+      end
+    if force || !customers_present
+      log.call "Pulling customers ..."
+      customers = client.paginated("customers.json", key: "customers")
+      log.call "  fetched #{customers.size}; upserting..."
+      customers.each do |c|
+        CRM::Shopify::CustomerUpserter.call(c)
+        totals[:customers] += 1
+      rescue => e
+        warn "[bootstrap] customer #{c["id"]} failed: #{e.class}: #{e.message}"
+      end
+    else
+      log.call "Customers already populated — skipping"
     end
 
-    log.call "Pulling orders (status=any) ..."
-    orders = client.paginated("orders.json", key: "orders", params: { status: "any" })
-    log.call "  fetched #{orders.size}; upserting..."
-    orders.each do |o|
-      Sales::Shopify::OrderUpserter.call(o, from: :rest)
-    rescue => e
-      warn "[bootstrap] order #{o["id"]} failed: #{e.class}: #{e.message}"
+    # ── Orders (includes line items, fulfillments, refunds inside payload) ──
+    if force || Order.where.not(shopify_order_id: nil).none?
+      log.call "Pulling orders (status=any) ..."
+      orders = client.paginated("orders.json", key: "orders", params: { status: "any" })
+      log.call "  fetched #{orders.size}; upserting..."
+      orders.each do |o|
+        Sales::Shopify::OrderUpserter.call(o, from: :rest)
+        totals[:orders] += 1
+
+        # Fulfillments and refunds are nested in the order payload — replay them
+        # through their dedicated upserters so all derived state lands in the DB.
+        Array(o["fulfillments"]).each do |f|
+          Shipping::Shopify::FulfillmentUpserter.call(f.merge("order_id" => o["id"]))
+          totals[:fulfillments] += 1
+        rescue => e
+          warn "[bootstrap] fulfillment #{f["id"]} failed: #{e.class}: #{e.message}"
+        end
+
+        Array(o["refunds"]).each do |r|
+          Sales::Shopify::RefundUpserter.call(r)
+          totals[:refunds] += 1
+        rescue => e
+          warn "[bootstrap] refund #{r["id"]} failed: #{e.class}: #{e.message}"
+        end
+      rescue => e
+        warn "[bootstrap] order #{o["id"]} failed: #{e.class}: #{e.message}"
+      end
+    else
+      log.call "Orders already populated — skipping"
     end
 
-    log.call "Done. Products=#{products.size} Customers=#{customers.size} Orders=#{orders.size}"
+    # ── Inventory (locations → warehouses → stock items) ──
+    if force || Warehouse.where.not(shopify_location_id: nil).none? || StockItem.none?
+      log.call "Pulling inventory (locations + levels) ..."
+      begin
+        stats = Inventory::Shopify::InventoryBackfill.call
+        totals[:inventory] = stats
+        log.call "  inventory: #{stats.inspect}"
+      rescue => e
+        warn "[bootstrap] inventory backfill failed: #{e.class}: #{e.message}"
+      end
+    else
+      log.call "Inventory already populated — skipping"
+    end
+
+    log.call "Done. #{totals.inspect}"
   end
 end
