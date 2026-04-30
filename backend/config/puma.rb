@@ -39,3 +39,27 @@ plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]
 # Specify the PID file. Defaults to tmp/pids/server.pid in development.
 # In other environments, only set the PID file if requested.
 pidfile ENV["PIDFILE"] if ENV["PIDFILE"]
+
+# ─── Post-boot Shopify bootstrap ──────────────────────────────────────────────
+# Runs `rake bootstrap:run` AFTER Puma has bound the port and started accepting
+# requests. This avoids Render's port-scan timeout (which kills the service if
+# it doesn't bind within ~90s). The bootstrap is idempotent — it auto-skips
+# when the DB already has Shopify data.
+#
+# Disable with SKIP_BOOTSTRAP=true.
+if !ENV["SKIP_BOOTSTRAP"].to_s.downcase.in?(%w[true 1])
+  on_worker_boot do
+    Thread.new do
+      sleep 10  # give Puma a moment to settle
+      begin
+        require "rake"
+        Rails.application.load_tasks unless Rake::Task.task_defined?("bootstrap:run")
+        Rake::Task["bootstrap:run"].reenable rescue nil
+        Rake::Task["bootstrap:run"].invoke
+      rescue => e
+        Rails.logger.error("[bootstrap] background run failed: #{e.class}: #{e.message}")
+        warn "[bootstrap] background run failed: #{e.class}: #{e.message}"
+      end
+    end
+  end
+end
