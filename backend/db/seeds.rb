@@ -540,3 +540,21 @@ puts ""
 puts "========================================================"
 puts "  Seed complete — app is ready for UI testing"
 puts "========================================================"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Final step: register Shopify webhooks + backfill live Shopify data into DB.
+# Self-skipping when DB already has Shopify data (idempotent across redeploys).
+# Driven by the same logic as `rails bootstrap:run` — invoked from seeds.rb so
+# it runs even if the Render dashboard's start command isn't kept in sync with
+# render.yaml.
+# ─────────────────────────────────────────────────────────────────────────────
+if ENV["SKIP_BOOTSTRAP"].to_s.downcase != "true"
+  puts ""
+  puts "== Bootstrap (Shopify webhooks + backfill) =="
+  begin
+    Rails.application.load_tasks unless Rake::Task.task_defined?("bootstrap:run")
+    Rake::Task["bootstrap:run"].invoke
+  rescue => e
+    warn "[seeds] bootstrap failed: #{e.class}: #{e.message} (continuing — set SKIP_BOOTSTRAP=true to silence)"
+  end
+end
