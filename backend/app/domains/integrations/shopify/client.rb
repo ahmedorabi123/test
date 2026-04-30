@@ -69,7 +69,17 @@ module Shopify
     # Yields or returns a flat array of all records across all pages.
     # Example: client.paginated("products.json", key: "products", params: { status: "active" })
     def paginated(path, key:, params: {})
-      results = []
+      return enum_for(:paginated_each, path, key: key, params: params).to_a unless block_given?
+
+      paginated_each(path, key: key, params: params) { |record| yield record }
+    end
+
+    # Streams each record one-at-a-time across all pages without holding the
+    # whole result set in memory. Use this for large backfills (orders,
+    # customers) on memory-constrained dynos.
+    def paginated_each(path, key:, params: {})
+      return enum_for(:paginated_each, path, key: key, params: params) unless block_given?
+
       request_params = params.merge(limit: 250)
       next_page_info = nil
 
@@ -82,7 +92,8 @@ module Shopify
 
         body  = JSON.parse(response.body)
         batch = body[key] || []
-        results.concat(batch)
+        batch.each { |record| yield record }
+        batch = nil # rubocop:disable Lint/UselessAssignment - encourage GC
 
         link_header = response.headers["link"]
         match       = link_header&.match(/<([^>]+)>;\s*rel="next"/)
@@ -92,8 +103,6 @@ module Shopify
         next_page_info = CGI.parse(next_uri.query.to_s)["page_info"]&.first
         break unless next_page_info
       end
-
-      results
     end
 
     private

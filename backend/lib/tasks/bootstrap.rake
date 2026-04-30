@@ -34,15 +34,17 @@ namespace :bootstrap do
 
     # ── Products ──
     if force || Product.where.not(shopify_product_id: nil).none?
-      log.call "Pulling products ..."
-      products = client.paginated("products.json", key: "products")
-      log.call "  fetched #{products.size}; upserting..."
-      products.each do |p|
-        Catalog::Shopify::ProductUpserter.call(p, from: :rest)
-        totals[:products] += 1
-      rescue => e
-        warn "[bootstrap] product #{p["id"]} failed: #{e.class}: #{e.message}"
+      log.call "Pulling products (streaming) ..."
+      client.paginated_each("products.json", key: "products") do |p|
+        begin
+          Catalog::Shopify::ProductUpserter.call(p, from: :rest)
+          totals[:products] += 1
+          log.call "  products upserted: #{totals[:products]}" if (totals[:products] % 100).zero?
+        rescue => e
+          warn "[bootstrap] product #{p["id"]} failed: #{e.class}: #{e.message}"
+        end
       end
+      GC.start
     else
       log.call "Products already populated — skipping (FORCE_BACKFILL=true to re-pull)"
     end
@@ -55,46 +57,56 @@ namespace :bootstrap do
         Customer.any?
       end
     if force || !customers_present
-      log.call "Pulling customers ..."
-      customers = client.paginated("customers.json", key: "customers")
-      log.call "  fetched #{customers.size}; upserting..."
-      customers.each do |c|
-        CRM::Shopify::CustomerUpserter.call(c)
-        totals[:customers] += 1
-      rescue => e
-        warn "[bootstrap] customer #{c["id"]} failed: #{e.class}: #{e.message}"
+      log.call "Pulling customers (streaming) ..."
+      client.paginated_each("customers.json", key: "customers") do |c|
+        begin
+          Crm::Shopify::CustomerUpserter.call(c)
+          totals[:customers] += 1
+          log.call "  customers upserted: #{totals[:customers]}" if (totals[:customers] % 100).zero?
+        rescue => e
+          warn "[bootstrap] customer #{c["id"]} failed: #{e.class}: #{e.message}"
+        end
       end
+      GC.start
     else
       log.call "Customers already populated — skipping"
     end
 
     # ── Orders (includes line items, fulfillments, refunds inside payload) ──
     if force || Order.where.not(shopify_order_id: nil).none?
-      log.call "Pulling orders (status=any) ..."
-      orders = client.paginated("orders.json", key: "orders", params: { status: "any" })
-      log.call "  fetched #{orders.size}; upserting..."
-      orders.each do |o|
-        Sales::Shopify::OrderUpserter.call(o, from: :rest)
-        totals[:orders] += 1
+      log.call "Pulling orders (status=any, streaming) ..."
+      client.paginated_each("orders.json", key: "orders", params: { status: "any" }) do |o|
+        begin
+          Sales::Shopify::OrderUpserter.call(o, from: :rest)
+          totals[:orders] += 1
 
-        # Fulfillments and refunds are nested in the order payload — replay them
-        # through their dedicated upserters so all derived state lands in the DB.
-        Array(o["fulfillments"]).each do |f|
-          Shipping::Shopify::FulfillmentUpserter.call(f.merge("order_id" => o["id"]))
-          totals[:fulfillments] += 1
-        rescue => e
-          warn "[bootstrap] fulfillment #{f["id"]} failed: #{e.class}: #{e.message}"
-        end
+          # Fulfillments and refunds are nested in the order payload — replay them
+          # through their dedicated upserters so all derived state lands in the DB.
+          Array(o["fulfillments"]).each do |f|
+            begin
+              Shipping::Shopify::FulfillmentUpserter.call(f.merge("order_id" => o["id"]))
+              totals[:fulfillments] += 1
+            rescue => e
+              warn "[bootstrap] fulfillment #{f["id"]} failed: #{e.class}: #{e.message}"
+            end
+          end
 
-        Array(o["refunds"]).each do |r|
-          Sales::Shopify::RefundUpserter.call(r)
-          totals[:refunds] += 1
+          Array(o["refunds"]).each do |r|
+            begin
+              Sales::Shopify::RefundUpserter.call(r)
+              totals[:refunds] += 1
+            rescue => e
+              warn "[bootstrap] refund #{r["id"]} failed: #{e.class}: #{e.message}"
+            end
+          end
+
+          log.call "  orders upserted: #{totals[:orders]}" if (totals[:orders] % 50).zero?
+          GC.start if (totals[:orders] % 100).zero?
         rescue => e
-          warn "[bootstrap] refund #{r["id"]} failed: #{e.class}: #{e.message}"
+          warn "[bootstrap] order #{o["id"]} failed: #{e.class}: #{e.message}"
         end
-      rescue => e
-        warn "[bootstrap] order #{o["id"]} failed: #{e.class}: #{e.message}"
       end
+      GC.start
     else
       log.call "Orders already populated — skipping"
     end
@@ -109,6 +121,7 @@ namespace :bootstrap do
       rescue => e
         warn "[bootstrap] inventory backfill failed: #{e.class}: #{e.message}"
       end
+      GC.start
     else
       log.call "Inventory already populated — skipping"
     end

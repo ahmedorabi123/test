@@ -54,8 +54,12 @@ unless %w[true 1].include?(ENV["SKIP_BOOTSTRAP"].to_s.downcase)
       begin
         require "rake"
         Rails.application.load_tasks unless Rake::Task.task_defined?("bootstrap:run")
-        Rake::Task["bootstrap:run"].reenable rescue nil
-        Rake::Task["bootstrap:run"].invoke
+        # Wrap in the Rails executor so autoloading, DB connection checkout,
+        # and dependency tracking behave correctly off the main thread.
+        Rails.application.executor.wrap do
+          Rake::Task["bootstrap:run"].reenable rescue nil
+          Rake::Task["bootstrap:run"].invoke
+        end
       rescue => e
         Rails.logger.error("[bootstrap] background run failed: #{e.class}: #{e.message}")
         warn "[bootstrap] background run failed: #{e.class}: #{e.message}"
