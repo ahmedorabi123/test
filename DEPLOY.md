@@ -27,6 +27,7 @@ git push -u origin main
 2. Create project → region close to Render (e.g. `us-east-1`).
 3. Copy the **pooled** connection string. It looks like:
    `postgresql://user:pwd@ep-xxx-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require`
+   postgresql://neondb_owner:npg_z1yqxS6OjvhD@ep-delicate-meadow-anqrcqs2.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
 4. Save it — you'll paste it as `DATABASE_URL` in Render.
 
 Free tier = 0.5 GB storage, suspends compute after 5 min idle but **data persists**.
@@ -38,18 +39,18 @@ First request after idle wakes in ~1s.
 2. Connect the GitHub repo. Render reads `backend/render.yaml` and proposes the service.
 3. Click **Apply**. Then open the service → **Environment** and add the secrets that aren't in YAML:
 
-| Key | Value |
-|---|---|
-| `RAILS_MASTER_KEY` | `6687fec84df3412bd0beec74532c7356` |
-| `DATABASE_URL` | (Neon string from step 2) |
-| `DEVISE_JWT_SECRET_KEY` | run `openssl rand -hex 64` locally and paste |
-| `SHOPIFY_SHOP_DOMAIN` | `your-shop.myshopify.com` |
-| `SHOPIFY_ADMIN_ACCESS_TOKEN` | `shpat_...` |
-| `SHOPIFY_API_SECRET` | (from Shopify custom-app config) |
-| `SHOPIFY_WEBHOOK_BASE_URL` | (set after first deploy — equals the Render URL, e.g. `https://shopify-erp-backend.onrender.com`) |
-| `FRONTEND_ORIGIN` | (set after Vercel deploy — e.g. `https://your-app.vercel.app`) |
-| `ADMIN_EMAIL` | `admin@erp.local` (or your own) |
-| `ADMIN_PASSWORD` | strong password — this is what testers will use |
+| Key                          | Value                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| `RAILS_MASTER_KEY`           | `6687fec84df3412bd0beec74532c7356`                                                                |
+| `DATABASE_URL`               | (Neon string from step 2)                                                                         |
+| `DEVISE_JWT_SECRET_KEY`      | run `openssl rand -hex 64` locally and paste                                                      |
+| `SHOPIFY_SHOP_DOMAIN`        | `your-shop.myshopify.com`                                                                         |
+| `SHOPIFY_ADMIN_ACCESS_TOKEN` | `shpat_...`                                                                                       |
+| `SHOPIFY_API_SECRET`         | (from Shopify custom-app config)                                                                  |
+| `SHOPIFY_WEBHOOK_BASE_URL`   | (set after first deploy — equals the Render URL, e.g. `https://shopify-erp-backend.onrender.com`) |
+| `FRONTEND_ORIGIN`            | (set after Vercel deploy — e.g. `https://your-app.vercel.app`)                                    |
+| `ADMIN_EMAIL`                | `admin@erp.local` (or your own)                                                                   |
+| `ADMIN_PASSWORD`             | strong password — this is what testers will use                                                   |
 
 4. Click **Manual Deploy** → **Deploy latest commit**. Build takes ~5 min.
 5. The start command runs `db:migrate && db:seed` automatically — this creates the `admin/ops/accountant/viewer` users in Neon.
@@ -64,40 +65,70 @@ First request after idle wakes in ~1s.
 4. Click **Deploy**.
 5. Copy the resulting `https://<app>.vercel.app` URL and paste it back into Render env as `FRONTEND_ORIGIN` → trigger Render redeploy from the dashboard.
 
-## 5) Backfill Shopify data into Neon (one-time)
+## 5) Shopify data: persistent, auto-loaded, kept live
 
-This populates the live DB so testers see real products/customers/orders.
-Run from Render's **Shell** tab (free plan supports shell):
+Neon = persistent Postgres (data survives forever, even when Render's web
+dyno sleeps). The `bootstrap:run` rake task runs on every deploy and is
+**self-deciding**:
 
-```bash
-bin/rails shopify:register_webhooks   # registers webhooks → Render URL
+- **First deploy** — DB has no Shopify rows → backfill runs:
+  paginates **all** products, customers, orders from your Shopify store and
+  upserts them into Neon.
+- **All subsequent deploys** — DB already has Shopify data → backfill is
+  **skipped** ("DB already has Shopify data … skipping backfill"). Webhooks
+  re-register every deploy and keep Neon in sync continuously.
+- **Force a re-pull** — set `FORCE_BACKFILL=true` in Render env and redeploy.
+  Remove the var afterwards.
 
-bin/rails runner '
-client = Shopify::Client.new
-products  = client.paginated("products.json",  key: "products")
-customers = client.paginated("customers.json", key: "customers")
-orders    = client.paginated("orders.json",    key: "orders", params: { status: "any" })
-puts "Pulled #{products.size} products / #{customers.size} customers / #{orders.size} orders"
-products.each  { |p| Catalog::ProductUpserter.call(p) }
-customers.each { |c| CRM::CustomerUpserter.call(c) }
-orders.each    { |o| Sales::OrderUpserter.call(o) }
-'
+No manual action needed. Just make sure these env vars are set on Render:
+
+- `SHOPIFY_SHOP_DOMAIN`, `SHOPIFY_ADMIN_ACCESS_TOKEN`
+- `SHOPIFY_WEBHOOK_BASE_URL` = your Render URL
+- `READ_ONLY_SHOPIFY=true` (already in `render.yaml` — blocks any write back to your store)
+
+Watch the **Logs** tab during deploy. Expected first-deploy output:
+
+```
+[bootstrap] Registering webhooks against https://shopify-erp-backend.onrender.com ...
++  products/create  -> https://shopify-erp-backend.onrender.com/webhooks/shopify/products/create
+... (one line per webhook topic)
+[bootstrap] DB empty of Shopify data — running first-time backfill
+[bootstrap] Pulling products ...
+[bootstrap]   fetched 213; upserting...
+[bootstrap] Pulling customers ...
+[bootstrap]   fetched 87; upserting...
+[bootstrap] Pulling orders (status=any) ...
+[bootstrap]   fetched 456; upserting...
+[bootstrap] Done. Products=213 Customers=87 Orders=456
 ```
 
-Read-only mode (`READ_ONLY_SHOPIFY=true`) blocks any write back to Shopify — confirmed by 7 specs.
-Webhook registration is whitelisted so it still works.
+Expected output on every later deploy:
+
+```
+[bootstrap] Registering webhooks against https://shopify-erp-backend.onrender.com ...
+=  products/create  (already registered)
+... (no-op for each topic)
+[bootstrap] DB already has Shopify data (products=213, orders=456). Skipping backfill — webhooks will keep it in sync. Set FORCE_BACKFILL=true to re-pull everything.
+```
+
+> **How the integration stays live:** Shopify pushes change events (product
+> updated, order created, inventory level changed, refund created, …) to
+> `https://<render>.onrender.com/webhooks/shopify/<topic>`. The handlers run
+> the same upserter classes the backfill uses, so the DB stays current
+> without polling. Re-registration on every deploy is what keeps the webhook
+> URLs pointing at the latest Render service.
 
 ## 6) Hand to testers
 
 URL: the Vercel link.
 Credentials (one of):
 
-| Role | Email | Password |
-|---|---|---|
-| admin | `admin@erp.local` | `changeme123!` (or your `ADMIN_PASSWORD` env override) |
-| ops | `ops@erp.local` | `changeme123!` |
-| accountant | `accountant@erp.local` | `changeme123!` |
-| viewer | `viewer@erp.local` | `changeme123!` |
+| Role       | Email                  | Password                                               |
+| ---------- | ---------------------- | ------------------------------------------------------ |
+| admin      | `admin@erp.local`      | `changeme123!` (or your `ADMIN_PASSWORD` env override) |
+| ops        | `ops@erp.local`        | `changeme123!`                                         |
+| accountant | `accountant@erp.local` | `changeme123!`                                         |
+| viewer     | `viewer@erp.local`     | `changeme123!`                                         |
 
 ## 7) Iterating
 
@@ -112,11 +143,11 @@ Both Render and Vercel auto-rebuild. Render also runs `db:migrate` automatically
 
 ## 8) Reverting deployment-only choices later
 
-| Knob | How to disable |
-|---|---|
-| Solid Queue in Puma | unset `SOLID_QUEUE_IN_PUMA` (production.rb falls back to Sidekiq if you re-enable Redis) |
-| Read-only Shopify | unset / set `READ_ONLY_SHOPIFY=false` |
-| Free Render → paid | upgrade plan only; no code change |
-| Free Neon → managed PG | swap `DATABASE_URL` only |
+| Knob                   | How to disable                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------- |
+| Solid Queue in Puma    | unset `SOLID_QUEUE_IN_PUMA` (production.rb falls back to Sidekiq if you re-enable Redis) |
+| Read-only Shopify      | unset / set `READ_ONLY_SHOPIFY=false`                                                    |
+| Free Render → paid     | upgrade plan only; no code change                                                        |
+| Free Neon → managed PG | swap `DATABASE_URL` only                                                                 |
 
 No code paths are hard-coded to these — everything is env-driven.
