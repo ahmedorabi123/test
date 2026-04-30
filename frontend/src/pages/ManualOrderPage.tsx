@@ -15,7 +15,7 @@ type Line = {
 
 export default function ManualOrderPage() {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [, setProducts] = useState<Product[]>([]);
   const [productMap, setProductMap] = useState<Record<string, Product>>({});
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { ordersApi, type Order } from "../api/orders";
 import ManualFulfillmentButton from "../components/shipping/ManualFulfillmentButton";
 
@@ -42,7 +42,6 @@ function formatMoney(val: string | number | undefined, currency = "USD") {
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
