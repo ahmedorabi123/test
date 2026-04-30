@@ -1,0 +1,28 @@
+version: "3.9"
+
+# ── Frontend stack: React + Vite (dev server) ─────────────────────────────────
+# Host port: http://localhost:5174
+# Connects to the backend API at VITE_API_URL (default: http://localhost:3010)
+#
+# Requires the backend stack to be running first:
+#   cd ../backend && docker compose up -d
+#
+# Usage:
+#   docker compose up -d
+#   docker compose logs -f frontend
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - .:/app
+      - node_modules_cache:/app/node_modules
+    ports:
+      - "5174:5173"
+
+volumes:
+  node_modules_cache:

@@ -1,0 +1,172 @@
+module Api
+  module V1
+    class OrdersController < ApplicationController
+      include Sortable
+      include Exportable
+      include Importable
+
+      sortable_by "placed_at", "total_price", "order_number", "customer_email",
+                  "status", "financial_status", "created_at",
+                  default: { placed_at: :desc }
+
+      before_action :set_order, only: %i[show transition]
+
+      def importer_class
+        params[:mode] == "showroom" ? Imports::ShowroomSalesImporter : Imports::OrdersImporter
+      end
+      private :importer_class
+
+      # GET /api/v1/orders
+      # Filters: search (order_number/external_number/customer_email), status,
+      # financial_status, source, from (date), to (date), page, per_page, sort, dir
+      def index
+        authorize Order
+        scope = filtered_scope
+
+        page     = [params[:page].to_i, 1].max
+        per_page = params[:per_page].to_i
+        per_page = 25  if per_page <= 0
+        per_page = 200 if per_page > 200
+
+        records = apply_sort(scope).offset((page - 1) * per_page).limit(per_page)
+        total   = scope.count
+
+        summary = {
+          total_count: total,
+          total_value: scope.sum(:total_price)
+        }
+
+        render json: {
+          data: records.map { |o| OrderSerializer.call(o, include_line_items: false) },
+          meta: { page: page, per_page: per_page, total: total, summary: summary }
+        }
+      end
+
+      # GET /api/v1/orders/:id
+      def show
+        authorize @order
+        render json: { data: OrderSerializer.call(@order) }
+      end
+
+      # POST /api/v1/orders
+      # Creates a manual or showroom order. See Sales::ManualOrderCreator.
+      def create
+        authorize Order
+        order = Sales::ManualOrderCreator.call(order_params)
+        render json: { data: OrderSerializer.call(order) }, status: :created
+      rescue Sales::ManualOrderCreator::InvalidInput => e
+        render_error(422, "unprocessable_entity", e.message)
+      end
+
+      # GET /api/v1/orders/stats?window=30
+      def stats
+        authorize Order, :index?
+        window = (params[:window].presence || 30).to_i
+        window = 30 if window <= 0 || window > 365
+        scope  = Order.where("placed_at >= ?", window.days.ago)
+
+        render json: {
+          data: {
+            window_days:   window,
+            count:         scope.count,
+            total_revenue: scope.where.not(status: "cancelled").sum(:total_price),
+            by_status:     scope.group(:status).count,
+            pending_count: scope.where(status: "pending").count
+          }
+        }
+      end
+
+      # POST /api/v1/orders/bulk  (cancel/tag — no deletion)
+      def bulk
+        authorize Order, :index?
+        ids = Array(params[:ids])
+        action_type = params[:action_type].to_s
+        scope = Order.where(id: ids)
+        count = 0
+
+        case action_type
+        when "cancel"
+          scope.where.not(status: "cancelled").find_each do |o|
+            o.update!(status: "cancelled", cancelled_at: Time.current)
+            count += 1
+          end
+        else
+          return render_error(400, "bad_request", "Unsupported action: #{action_type}")
+        end
+
+        render json: { data: { action: action_type, affected: count } }
+      end
+
+      # POST /api/v1/orders/:id/transition  { to: "paid" | "fulfilled" | "cancelled" | ... }
+      def transition
+        authorize @order
+        target = params[:to].to_s
+        return render_error(400, "bad_request", "missing 'to'") if target.blank?
+
+        order = Sales::OrderStateMachine.call(@order, to: target, actor: current_user)
+        render json: { data: OrderSerializer.call(order) }
+      rescue Sales::OrderStateMachine::InvalidTransition => e
+        render_error(422, "unprocessable_entity", e.message)
+      end
+
+      private
+
+      def set_order
+        @order = Order.find(params[:id])
+      end
+
+      def filtered_scope
+        scope = policy_scope(Order)
+
+        if params[:search].present?
+          q = "%#{params[:search]}%"
+          scope = scope.where(
+            "order_number ILIKE :q OR external_number ILIKE :q OR customer_email ILIKE :q OR customer_name ILIKE :q",
+            q: q
+          )
+        end
+
+        scope = scope.where(status:           params[:status])           if params[:status].present?
+        scope = scope.where(financial_status: params[:financial_status]) if params[:financial_status].present?
+        scope = scope.where(source:           params[:source])           if params[:source].present?
+        scope = scope.where("placed_at >= ?", Time.zone.parse(params[:from])) if params[:from].present?
+        scope = scope.where("placed_at <= ?", Time.zone.parse(params[:to]))   if params[:to].present?
+        scope
+      end
+
+      def order_params
+        params.require(:order).permit(
+          :source, :currency, :customer_id, :customer_email, :customer_name,
+          :notes, :total_shipping, :mark_paid,
+          shipping_address: {},
+          billing_address:  {},
+          line_items: [
+            :variant_id, :sku, :title, :variant_title,
+            :quantity, :price, :total_tax, :total_discount
+          ]
+        )
+      end
+
+      def export_scope
+        authorize Order
+        apply_sort(filtered_scope)
+      end
+
+      def export_columns
+        {
+          "Order #"          => :order_number,
+          "External #"       => :external_number,
+          "Source"           => :source,
+          "Status"           => :status,
+          "Financial Status" => :financial_status,
+          "Customer Email"   => :customer_email,
+          "Customer Name"    => :customer_name,
+          "Total"            => :total_price,
+          "Currency"         => :currency,
+          "Placed At"        => :placed_at,
+          "Shopify Id"       => :shopify_order_id
+        }
+      end
+    end
+  end
+end

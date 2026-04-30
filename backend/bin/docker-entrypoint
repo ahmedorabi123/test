@@ -1,0 +1,41 @@
+#!/bin/bash -e
+
+# Enable jemalloc for reduced memory usage and latency.
+if [ -z "${LD_PRELOAD+x}" ]; then
+    LD_PRELOAD=$(find /usr/lib -name libjemalloc.so.2 -print -quit)
+    export LD_PRELOAD
+fi
+
+# If the rails server is starting, prepare DB and seed.
+# Seeds use find_or_create_by! so running multiple times is always safe.
+if echo "$*" | grep -qE 'rails (server|s\b)'; then
+  rm -f tmp/pids/server.pid
+
+  # Wait for Postgres to accept connections (up to 60 s) before migrating.
+  echo "[entrypoint] Waiting for Postgres..."
+  tries=0
+  until ./bin/rails runner "ActiveRecord::Base.connection.execute('SELECT 1')" 2>/dev/null; do
+    tries=$((tries + 1))
+    if [ $tries -ge 30 ]; then
+      echo "[entrypoint] Postgres did not become ready in time — aborting."
+      exit 1
+    fi
+    sleep 2
+  done
+  echo "[entrypoint] Postgres ready."
+
+  # Create DB if missing, then run ALL pending migrations, then seed.
+  ./bin/rails db:create 2>/dev/null || true
+  if ./bin/rails db:migrate; then
+    echo "[entrypoint] Migrations OK."
+  else
+    echo "[entrypoint] WARNING: db:migrate failed — check logs above. Continuing to seed anyway." >&2
+  fi
+  if ./bin/rails db:seed; then
+    echo "[entrypoint] Seed OK."
+  else
+    echo "[entrypoint] WARNING: db:seed failed — check logs above." >&2
+  fi
+fi
+
+exec "${@}"

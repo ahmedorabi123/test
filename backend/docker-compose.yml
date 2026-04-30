@@ -1,0 +1,117 @@
+version: "3.9"
+
+# ── Backend stack: postgres · redis · opensearch · rails · sidekiq ────────────
+# Host ports are chosen to avoid conflicts with other local projects:
+#   Rails API  → http://localhost:3010
+#   PostgreSQL → localhost:54321
+#   Redis      → localhost:63791
+#   OpenSearch → http://localhost:9202
+#
+# Usage:
+#   docker compose up -d
+#   docker compose exec backend rails db:create db:migrate db:seed
+#   docker compose logs -f backend
+
+services:
+  # ── PostgreSQL 16 ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: erp_development
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "54321:5432"
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-erp} -d erp_development"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Redis 7 ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - "63791:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── OpenSearch 2 (security disabled for dev) ────────────────────────────────
+  opensearch:
+    image: opensearchproject/opensearch:2.13.0
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - plugins.security.disabled=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    ports:
+      - "9202:9200"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://localhost:9200/_cat/health | grep -q green",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  # ── Rails API ────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["./bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]
+    env_file: .env
+    environment:
+      RAILS_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+    ports:
+      - "3010:3000"
+
+  # ── Sidekiq ──────────────────────────────────────────────────────────────────
+  sidekiq:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: bundle exec sidekiq -C config/sidekiq.yml
+    env_file: .env
+    environment:
+      RAILS_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+
+volumes:
+  postgres_data:
+  redis_data:
+  opensearch_data:
+  bundle_cache:

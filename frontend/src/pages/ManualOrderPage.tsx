@@ -1,0 +1,352 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { productsApi, type Product, type Variant } from "../api/products";
+import { customersApi, type Customer } from "../api/customers";
+import { ordersApi } from "../api/orders";
+
+type Line = {
+  key: string;
+  variant_id: string;
+  title: string;
+  sku: string | null;
+  price: string;
+  quantity: number;
+};
+
+export default function ManualOrderPage() {
+  const navigate = useNavigate();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productMap, setProductMap] = useState<Record<string, Product>>({});
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [source, setSource] = useState<"manual" | "showroom">("showroom");
+  const [customerId, setCustomerId] = useState<string>("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [notes, setNotes] = useState("");
+  const [totalShipping, setTotalShipping] = useState("0.00");
+  const [markPaid, setMarkPaid] = useState(true);
+  const [lines, setLines] = useState<Line[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      setLoadingProducts(true);
+      try {
+        const { data } = await productsApi.list({
+          per_page: 100,
+          status: "active",
+        });
+        setProducts(data);
+        // fetch variants for each product (simple — catalog is small)
+        const byId: Record<string, Product> = {};
+        for (const p of data) {
+          // eslint-disable-next-line no-await-in-loop
+          const full = await productsApi.get(p.id);
+          byId[p.id] = full;
+        }
+        setProductMap(byId);
+      } catch (e) {
+        setError((e as Error).message || "Failed to load products");
+      } finally {
+        setLoadingProducts(false);
+      }
+      try {
+        const { data } = await customersApi.list({ per_page: 100 });
+        setCustomers(data);
+      } catch {
+        // optional
+      }
+    })();
+  }, []);
+
+  const allVariants = useMemo(() => {
+    const out: Array<{ product: Product; variant: Variant }> = [];
+    for (const p of Object.values(productMap)) {
+      for (const v of p.variants ?? []) out.push({ product: p, variant: v });
+    }
+    return out;
+  }, [productMap]);
+
+  const addLine = (variantId: string) => {
+    if (!variantId) return;
+    const hit = allVariants.find((x) => x.variant.id === variantId);
+    if (!hit) return;
+    setLines((prev) => [
+      ...prev,
+      {
+        key: `${Date.now()}-${Math.random()}`,
+        variant_id: hit.variant.id,
+        title: `${hit.product.title}${hit.variant.title ? " · " + hit.variant.title : ""}`,
+        sku: hit.variant.sku,
+        price: hit.variant.price,
+        quantity: 1,
+      },
+    ]);
+  };
+
+  const updateLine = (key: string, patch: Partial<Line>) =>
+    setLines((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, ...patch } : l)),
+    );
+  const removeLine = (key: string) =>
+    setLines((prev) => prev.filter((l) => l.key !== key));
+
+  const subtotal = lines.reduce(
+    (acc, l) => acc + Number(l.price) * Number(l.quantity || 0),
+    0,
+  );
+  const shipping = Number(totalShipping || 0);
+  const total = subtotal + shipping;
+
+  const canSubmit = lines.length > 0 && !submitting;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const order = await ordersApi.create({
+        source,
+        customer_id: customerId || undefined,
+        customer_email: customerEmail || undefined,
+        customer_name: customerName || undefined,
+        notes: notes || undefined,
+        total_shipping: shipping.toFixed(2),
+        mark_paid: markPaid,
+        line_items: lines.map((l) => ({
+          variant_id: l.variant_id,
+          sku: l.sku ?? undefined,
+          title: l.title,
+          quantity: l.quantity,
+          price: l.price,
+        })),
+      });
+      navigate(`/orders?created=${order.order_number}`);
+    } catch (e) {
+      type ApiErr = { response?: { data?: { error?: { detail?: string } } } };
+      const err = e as ApiErr;
+      setError(
+        err?.response?.data?.error?.detail ||
+          (e as Error).message ||
+          "Failed to create order",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-slate-900">
+          New manual order
+        </h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Create a showroom / phone-in order. Inventory and accounting are
+          updated immediately when marked paid.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-md text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+            Source
+          </label>
+          <select
+            value={source}
+            onChange={(e) => setSource(e.target.value as "manual" | "showroom")}
+            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="showroom">Showroom</option>
+            <option value="manual">Manual</option>
+          </select>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm md:col-span-2">
+          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+            Customer
+          </label>
+          <select
+            value={customerId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setCustomerId(id);
+              const c = customers.find((x) => x.id === id);
+              if (c) {
+                setCustomerEmail(c.email || "");
+                setCustomerName(c.display_name || "");
+              }
+            }}
+            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 mb-2"
+          >
+            <option value="">— Walk-in / anonymous —</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.display_name} {c.email ? `<${c.email}>` : ""}
+              </option>
+            ))}
+          </select>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="text"
+              placeholder="Customer name"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <input
+              type="email"
+              placeholder="Customer email"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              className="border border-slate-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-medium text-slate-700">Line items</div>
+          <div className="flex items-center gap-2">
+            <select
+              onChange={(e) => {
+                addLine(e.target.value);
+                e.currentTarget.value = "";
+              }}
+              className="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              defaultValue=""
+              disabled={loadingProducts || allVariants.length === 0}
+            >
+              <option value="">
+                {loadingProducts ? "Loading…" : "+ Add variant…"}
+              </option>
+              {allVariants.map(({ product, variant }) => (
+                <option key={variant.id} value={variant.id}>
+                  {product.title} · {variant.title || variant.sku} ·{" "}
+                  {variant.price}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {lines.length === 0 && (
+          <div className="text-center py-10 text-sm text-slate-400">
+            No line items yet. Pick a variant above to add one.
+          </div>
+        )}
+
+        {lines.map((l) => (
+          <div
+            key={l.key}
+            className="grid grid-cols-12 gap-2 items-center py-2 border-b border-slate-100 last:border-b-0"
+          >
+            <div className="col-span-5 text-sm text-slate-900 truncate">
+              {l.title}
+            </div>
+            <div className="col-span-2 text-xs text-slate-500 font-mono">
+              {l.sku || "—"}
+            </div>
+            <input
+              type="number"
+              min={1}
+              value={l.quantity}
+              onChange={(e) =>
+                updateLine(l.key, {
+                  quantity: Math.max(1, Number(e.target.value)),
+                })
+              }
+              className="col-span-1 border border-slate-300 rounded-md px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <input
+              type="text"
+              value={l.price}
+              onChange={(e) => updateLine(l.key, { price: e.target.value })}
+              className="col-span-2 border border-slate-300 rounded-md px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <div className="col-span-1 text-sm text-slate-700 text-right">
+              {(Number(l.price) * Number(l.quantity)).toFixed(2)}
+            </div>
+            <button
+              onClick={() => removeLine(l.key)}
+              className="col-span-1 text-rose-500 text-sm hover:text-rose-700"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+            Notes
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-600">Subtotal</span>
+            <span className="font-medium text-slate-900">
+              {subtotal.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm gap-2">
+            <span className="text-slate-600">Shipping</span>
+            <input
+              type="text"
+              value={totalShipping}
+              onChange={(e) => setTotalShipping(e.target.value)}
+              className="w-24 border border-slate-300 rounded-md px-2 py-1 text-sm text-right outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="flex items-center justify-between text-base pt-2 border-t border-slate-200">
+            <span className="text-slate-700 font-medium">Total</span>
+            <span className="font-semibold text-slate-900">
+              {total.toFixed(2)}
+            </span>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-slate-700 pt-2">
+            <input
+              type="checkbox"
+              checked={markPaid}
+              onChange={(e) => setMarkPaid(e.target.checked)}
+              className="rounded border-slate-300"
+            />
+            Mark paid & post sale journal now
+          </label>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={() => navigate("/orders")}
+          className="px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={submit}
+          disabled={!canSubmit}
+          className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {submitting ? "Creating…" : "Create order"}
+        </button>
+      </div>
+    </div>
+  );
+}

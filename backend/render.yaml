@@ -1,0 +1,39 @@
+# Render blueprint for the Shopify-ERP backend.
+# Free plan: web service backed by an external Postgres (Neon).
+# Solid Queue runs in-Puma when SOLID_QUEUE_IN_PUMA=true (set in env vars on Render).
+services:
+  - type: web
+    name: shopify-erp-backend
+    env: ruby
+    plan: free
+    rootDir: backend
+    buildCommand: bundle install && bundle exec rails assets:precompile
+    startCommand: bundle exec rails db:migrate db:seed && bundle exec puma -C config/puma.rb
+    healthCheckPath: /up
+    autoDeploy: true
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: RACK_ENV
+        value: production
+      - key: RAILS_LOG_TO_STDOUT
+        value: "true"
+      - key: RAILS_SERVE_STATIC_FILES
+        value: "true"
+      - key: SOLID_QUEUE_IN_PUMA
+        value: "true"
+      - key: READ_ONLY_SHOPIFY
+        value: "true"
+      - key: SHOPIFY_API_VERSION
+        value: "2025-01"
+      # Set the rest manually in the Render dashboard:
+      #   RAILS_MASTER_KEY            (from backend/config/master.key)
+      #   DATABASE_URL                (from Neon, must include ?sslmode=require)
+      #   DEVISE_JWT_SECRET_KEY       (random hex 64)
+      #   SHOPIFY_SHOP_DOMAIN
+      #   SHOPIFY_ADMIN_ACCESS_TOKEN
+      #   SHOPIFY_API_SECRET
+      #   SHOPIFY_WEBHOOK_BASE_URL    (= https://<this-service>.onrender.com)
+      #   FRONTEND_ORIGIN             (= https://<your-app>.vercel.app)
+      #   ADMIN_EMAIL                 (optional override for seeds.rb)
+      #   ADMIN_PASSWORD              (optional override for seeds.rb)

@@ -1,0 +1,451 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ordersApi, type Order } from "../api/orders";
+import ManualFulfillmentButton from "../components/shipping/ManualFulfillmentButton";
+
+const STATUS_STYLES: Record<string, string> = {
+  pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  processing: "bg-blue-50 text-blue-700 ring-blue-600/20",
+  fulfilled: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  cancelled: "bg-gray-100 text-gray-600 ring-gray-500/20",
+  refunded: "bg-rose-50 text-rose-700 ring-rose-600/20",
+};
+
+const FIN_STATUS_STYLES: Record<string, string> = {
+  pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  authorized: "bg-sky-50 text-sky-700 ring-sky-600/20",
+  paid: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  partially_paid: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
+  refunded: "bg-rose-50 text-rose-700 ring-rose-600/20",
+  voided: "bg-gray-100 text-gray-600 ring-gray-500/20",
+};
+
+function Badge({ value, map }: { value: string; map: Record<string, string> }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+        map[value] ?? "bg-gray-100 text-gray-600 ring-gray-500/20"
+      }`}
+    >
+      {value.replace(/_/g, " ")}
+    </span>
+  );
+}
+
+function formatMoney(val: string | number | undefined, currency = "USD") {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+  }).format(Number(val ?? 0));
+}
+
+export default function OrderDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    ordersApi
+      .get(id)
+      .then(setOrder)
+      .catch((e) => setError((e as Error).message || "Failed to load order"))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const transition = async (to: string, confirmMsg?: string) => {
+    if (!order) return;
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    setTransitioning(true);
+    try {
+      const updated = await ordersApi.transition(order.id, to);
+      setOrder(updated);
+    } catch (e) {
+      const err = e as {
+        response?: { data?: { error?: { message?: string } } };
+        message?: string;
+      };
+      alert(
+        err.response?.data?.error?.message ||
+          err.message ||
+          "Transition failed",
+      );
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  // Compute legal next states (mirrors OrderStateMachine)
+  const legalStatus: Record<string, string[]> = {
+    pending: ["processing", "fulfilled", "cancelled"],
+    processing: ["fulfilled", "cancelled"],
+    fulfilled: ["cancelled"],
+    cancelled: [],
+    refunded: [],
+  };
+  const legalFinancial: Record<string, string[]> = {
+    pending: ["authorized", "paid", "voided"],
+    authorized: ["paid", "voided"],
+    paid: ["partially_paid", "refunded"],
+    partially_paid: ["paid", "refunded"],
+    refunded: [],
+    voided: [],
+  };
+  const STATUS_LABEL: Record<string, string> = {
+    processing: "Start processing",
+    fulfilled: "Mark as fulfilled",
+    cancelled: "Cancel order",
+    authorized: "Mark as authorized",
+    paid: "Mark as paid",
+    partially_paid: "Mark partially paid",
+    refunded: "Mark as refunded",
+    voided: "Void payment",
+  };
+
+  if (loading)
+    return <div className="p-6 text-sm text-slate-500">Loading order…</div>;
+  if (error) return <div className="p-6 text-sm text-rose-600">{error}</div>;
+  if (!order) return null;
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/orders"
+              className="text-sm text-slate-500 hover:text-slate-700"
+            >
+              ← Orders
+            </Link>
+          </div>
+          <h1 className="text-2xl font-semibold text-slate-900 mt-1 font-mono">
+            {order.order_number}
+          </h1>
+          {order.external_number && (
+            <div className="text-xs text-slate-500 mt-0.5">
+              External: {order.external_number}
+            </div>
+          )}
+          <div className="flex items-center gap-2 mt-2">
+            <Badge value={order.status} map={STATUS_STYLES} />
+            <Badge value={order.financial_status} map={FIN_STATUS_STYLES} />
+            <span className="text-xs text-slate-500 uppercase tracking-wide">
+              {order.source}
+            </span>
+            {order.risk_level && order.risk_level !== "low" && (
+              <span className="inline-flex items-center rounded-md bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20 px-2 py-0.5 text-xs font-medium">
+                {order.risk_level} risk
+              </span>
+            )}
+          </div>
+          {order.tags && order.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {order.tags.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {(legalStatus[order.status] ?? []).map((next) => (
+            <button
+              key={`s-${next}`}
+              onClick={() =>
+                transition(
+                  next,
+                  next === "cancelled"
+                    ? `Cancel order ${order.order_number}?`
+                    : undefined,
+                )
+              }
+              disabled={transitioning}
+              className={
+                next === "cancelled"
+                  ? "px-3 py-2 text-sm border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-50 disabled:opacity-60"
+                  : "px-3 py-2 text-sm border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-60"
+              }
+            >
+              {STATUS_LABEL[next] ?? next}
+            </button>
+          ))}
+          {(legalFinancial[order.financial_status] ?? []).map((next) => (
+            <button
+              key={`f-${next}`}
+              onClick={() => transition(next)}
+              disabled={transitioning}
+              className="px-3 py-2 text-sm border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-50 disabled:opacity-60"
+            >
+              {STATUS_LABEL[next] ?? next}
+            </button>
+          ))}
+          <Link
+            to="/orders/new"
+            className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            New order
+          </Link>
+          <ManualFulfillmentButton
+            order={order}
+            onCreated={() => {
+              ordersApi.get(order.id).then(setOrder);
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Totals card */}
+        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
+          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+            Totals
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Subtotal</span>
+            <span>{formatMoney(order.subtotal_price, order.currency)}</span>
+          </div>
+          {Number(order.total_shipping) > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-600">Shipping</span>
+              <span>{formatMoney(order.total_shipping, order.currency)}</span>
+            </div>
+          )}
+          {Number(order.total_tax) > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-600">Tax</span>
+              <span>{formatMoney(order.total_tax, order.currency)}</span>
+            </div>
+          )}
+          {Number(order.total_discount) > 0 && (
+            <div className="flex justify-between text-sm text-rose-600">
+              <span>Discount</span>
+              <span>−{formatMoney(order.total_discount, order.currency)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm font-semibold border-t border-slate-200 pt-2">
+            <span>Total</span>
+            <span>{formatMoney(order.total_price, order.currency)}</span>
+          </div>
+          {order.total_outstanding && Number(order.total_outstanding) > 0 && (
+            <div className="flex justify-between text-xs text-amber-700 pt-1">
+              <span>Outstanding</span>
+              <span>
+                {formatMoney(order.total_outstanding, order.currency)}
+              </span>
+            </div>
+          )}
+          {order.payment_gateway_names &&
+            order.payment_gateway_names.length > 0 && (
+              <div className="text-xs text-slate-500 pt-1">
+                via {order.payment_gateway_names.join(", ")}
+              </div>
+            )}
+        </div>
+
+        {/* Customer card */}
+        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-1">
+          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+            Customer
+          </div>
+          {order.customer_name ? (
+            <div className="text-sm font-medium text-slate-900">
+              {order.customer_name}
+            </div>
+          ) : (
+            <div className="text-sm text-slate-400 italic">Guest</div>
+          )}
+          {order.customer_email && (
+            <div className="text-sm text-slate-600">{order.customer_email}</div>
+          )}
+          {order.notes && (
+            <div className="mt-2 text-xs text-slate-500 bg-slate-50 rounded p-2">
+              {order.notes}
+            </div>
+          )}
+        </div>
+
+        {/* Dates card */}
+        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-1">
+          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+            Delivery
+          </div>
+          <div className="text-sm text-slate-700">
+            {order.delivery_method || "—"}
+          </div>
+          {order.delivery_status && (
+            <div className="text-xs capitalize text-slate-500">
+              Status: {order.delivery_status.replace(/_/g, " ")}
+            </div>
+          )}
+          <div className="text-xs text-slate-500">
+            {order.items_count ?? 0} item
+            {(order.items_count ?? 0) === 1 ? "" : "s"}
+          </div>
+          {order.shopify_order_status_url && (
+            <a
+              href={order.shopify_order_status_url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-indigo-600 hover:underline"
+            >
+              View status page →
+            </a>
+          )}
+        </div>
+
+        {/* Dates card */}
+        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-1">
+          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+            Dates
+          </div>
+          <div className="text-sm text-slate-600">
+            <span className="font-medium">Placed:</span>{" "}
+            {new Date(order.placed_at).toLocaleString()}
+          </div>
+          {order.cancelled_at && (
+            <div className="text-sm text-rose-600">
+              <span className="font-medium">Cancelled:</span>{" "}
+              {new Date(order.cancelled_at).toLocaleString()}
+              {order.cancel_reason && ` (${order.cancel_reason})`}
+            </div>
+          )}
+          {order.closed_at && (
+            <div className="text-sm text-slate-600">
+              <span className="font-medium">Closed:</span>{" "}
+              {new Date(order.closed_at).toLocaleString()}
+            </div>
+          )}
+          <div className="text-sm text-slate-600">
+            <span className="font-medium">Created:</span>{" "}
+            {new Date(order.created_at).toLocaleString()}
+          </div>
+        </div>
+      </div>
+
+      {/* Line items */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-200">
+          <h2 className="text-sm font-semibold text-slate-900">Line items</h2>
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+            <tr>
+              <th className="px-4 py-2 text-left">Product / SKU</th>
+              <th className="px-4 py-2 text-right">Qty</th>
+              <th className="px-4 py-2 text-right">Price</th>
+              <th className="px-4 py-2 text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {(order.line_items ?? []).map((li) => (
+              <tr key={li.id}>
+                <td className="px-4 py-3">
+                  <div className="font-medium text-slate-900">{li.title}</div>
+                  {li.variant_title && (
+                    <div className="text-xs text-slate-500">
+                      {li.variant_title}
+                    </div>
+                  )}
+                  {li.sku && (
+                    <div className="text-xs text-slate-400 font-mono">
+                      {li.sku}
+                    </div>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {li.quantity}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {formatMoney(li.price, order.currency)}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums font-medium">
+                  {formatMoney(li.line_total, order.currency)}
+                </td>
+              </tr>
+            ))}
+            {!order.line_items?.length && (
+              <tr>
+                <td
+                  colSpan={4}
+                  className="px-4 py-4 text-center text-slate-400"
+                >
+                  No line items
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Fulfillments */}
+      {(order.fulfillments ?? []).length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Fulfillments
+            </h2>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {(order.fulfillments ?? []).map((f) => (
+              <div key={f.id} className="px-4 py-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium font-mono">
+                    {f.tracking_number ?? "—"}
+                  </span>
+                  <Badge value={f.status} map={STATUS_STYLES} />
+                </div>
+                {f.carrier && (
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {f.carrier}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Refunds */}
+      {(order.refunds ?? []).length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200">
+            <h2 className="text-sm font-semibold text-slate-900">Refunds</h2>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {(order.refunds ?? []).map((r) => (
+              <div key={r.id} className="px-4 py-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-600">
+                    {formatMoney(r.amount, order.currency)}
+                  </span>
+                  <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset bg-rose-50 text-rose-700 ring-rose-600/20">
+                    {r.partial ? "partial" : "full"} refund
+                  </span>
+                </div>
+                {r.reason && (
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {r.reason}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="pb-10" />
+    </div>
+  );
+}

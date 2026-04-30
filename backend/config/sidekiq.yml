@@ -1,0 +1,8 @@
+:concurrency: 5
+:queues:
+  - [webhooks, 10]
+  - [accounting, 8]
+  - [shopify_sync, 5]
+  - [indexer, 3]
+  - [default, 2]
+  - [low, 1]

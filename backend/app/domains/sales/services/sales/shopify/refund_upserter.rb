@@ -1,0 +1,186 @@
+module Sales
+  module Shopify
+    # Upserts a Shopify refunds/create webhook payload into a Refund row +
+    # refund_line_items, then:
+    #  - if restock requested, writes positive stock movements
+    #  - posts/reverses the appropriate accounting journal entry:
+    #      * full refund (amount >= order.total_price) → RefundReversalHandler
+    #      * partial refund                           → PartialRefundJournalHandler
+    #
+    # Payload shape (Shopify refunds/create):
+    #   {
+    #     "id" => 111, "order_id" => 98765, "note" => "bad fit",
+    #     "created_at" => "...", "processed_at" => "...",
+    #     "transactions" => [ { "amount" => "50.00", "kind" => "refund" } ],
+    #     "refund_line_items" => [
+    #       { "id" => 22, "line_item_id" => 333, "quantity" => 1,
+    #         "subtotal" => "24.99", "restock_type" => "return",
+    #         "location_id" => 111 }
+    #     ]
+    #   }
+    class RefundUpserter
+      def self.call(payload)
+        new(payload).call
+      end
+
+      def initialize(payload)
+        @payload = payload.with_indifferent_access
+      end
+
+      def call
+        order = find_order
+        return nil unless order
+
+        shopify_refund_id = @payload[:id].to_i
+        amount            = extract_amount
+        currency          = (@payload[:currency].presence || order.currency || "USD").upcase
+        restock_requested = Array(@payload[:refund_line_items]).any? do |rli|
+          rt = (rli[:restock_type] || rli["restock_type"]).to_s
+          rt == "return" || rt == "cancel"
+        end
+
+        refund = ActiveRecord::Base.transaction do
+          refund = ::Refund.find_or_initialize_by(shopify_refund_id: shopify_refund_id)
+          was_new = refund.new_record?
+
+          refund.assign_attributes(
+            order:              order,
+            amount:             amount,
+            currency:           currency,
+            reason:             @payload[:reason].presence,
+            note:               @payload[:note].presence,
+            restock:            restock_requested,
+            transactions:       Array(@payload[:transactions]).map { |t| t.is_a?(Hash) ? t.to_h : {} },
+            processed_at:       parse_time(@payload[:processed_at] || @payload[:created_at]) || Time.current,
+            shopify_updated_at: parse_time(@payload[:updated_at])
+          )
+          refund.save!
+          sync_line_items(refund)
+          [refund, was_new]
+        end.first
+
+        # Outside the refund transaction: inventory + accounting (each idempotent).
+        restock_inventory(refund)
+        update_order_financial_state(refund)
+        post_accounting(refund)
+
+        refund
+      end
+
+      private
+
+      def find_order
+        order_id = @payload[:order_id].to_i
+        return nil if order_id.zero?
+        ::Order.find_by(shopify_order_id: order_id)
+      end
+
+      def extract_amount
+        txs = Array(@payload[:transactions])
+        if txs.any?
+          txs.select { |t| (t[:kind] || t["kind"]) == "refund" && (t[:status] || t["status"]).to_s != "failure" }
+             .sum { |t| (t[:amount] || t["amount"]).to_s.to_d }
+        else
+          (@payload[:amount] || 0).to_s.to_d
+        end
+      rescue ArgumentError
+        0.to_d
+      end
+
+      def sync_line_items(refund)
+        incoming = Array(@payload[:refund_line_items])
+        keep_ids = []
+        incoming.each do |rli|
+          rh = rli.with_indifferent_access
+          line_item_shopify_id = rh[:line_item_id].to_i
+          oli = refund.order.line_items.find_by(shopify_line_item_id: line_item_shopify_id)
+
+          row = refund.refund_line_items.find_or_initialize_by(shopify_line_item_id: line_item_shopify_id)
+          rt  = rh[:restock_type].to_s.presence_in(::RefundLineItem::RESTOCK_TYPES) || "no_restock"
+          row.assign_attributes(
+            order_line_item: oli,
+            quantity:        rh[:quantity].to_i,
+            subtotal:        (rh[:subtotal] || 0).to_s.to_d,
+            restock:         rt == "return" || rt == "cancel",
+            restock_type:    rt,
+            location_id:     rh[:location_id].presence&.to_i
+          )
+          row.save!
+          keep_ids << row.id
+        end
+        refund.refund_line_items.where.not(id: keep_ids).destroy_all if incoming.any?
+      end
+
+      def restock_inventory(refund)
+        return if refund.inventory_restocked?
+        return unless refund.restock?
+
+        fallback_wh = ::Inventory::WarehouseResolver.primary
+        performed = false
+
+        refund.refund_line_items.each do |rli|
+          next unless rli.restock?
+          next if rli.quantity.to_i <= 0
+          variant = rli.order_line_item&.variant
+          next unless variant
+
+          wh = ::Inventory::WarehouseResolver.for_shopify_location(rli.location_id, fallback: fallback_wh) ||
+               fallback_wh
+          next unless wh
+
+          stock_item = ::StockItem.find_or_create_by!(variant: variant, warehouse: wh) do |si|
+            si.quantity_on_hand = 0
+          end
+
+          ::Inventory::WriteMovement.call(
+            stock_item: stock_item,
+            delta:      rli.quantity,
+            reason:     "returned",
+            reference:  refund
+          )
+          performed = true
+        end
+
+        refund.update!(inventory_restocked: true) if performed
+      end
+
+      def update_order_financial_state(refund)
+        order = refund.order
+        total_refunded = order.refunds.sum(:amount).to_d
+
+        new_state =
+          if total_refunded >= order.total_price.to_d
+            "refunded"
+          elsif total_refunded > 0
+            order.financial_status == "paid" ? "partially_refunded" : order.financial_status
+          else
+            order.financial_status
+          end
+        # Only set statuses Order model accepts; partially_refunded isn't in FINANCIAL_STATUSES yet.
+        return unless ::Order::FINANCIAL_STATUSES.include?(new_state)
+
+        attrs = { financial_status: new_state }
+        attrs[:status] = "refunded" if new_state == "refunded"
+        order.update!(attrs)
+      end
+
+      def post_accounting(refund)
+        order = refund.order
+        if refund.full?
+          ::Accounting::RefundReversalHandler.call(order)
+        else
+          ::Accounting::PartialRefundJournalHandler.call(refund)
+        end
+      rescue => e
+        Rails.logger.error("[RefundUpserter] Accounting error for refund #{refund.id}: #{e.message}")
+      end
+
+      def parse_time(v)
+        return nil if v.blank?
+        v.is_a?(Time) || v.is_a?(ActiveSupport::TimeWithZone) ? v : Time.zone.parse(v.to_s)
+      rescue ArgumentError
+        nil
+      end
+    end
+  end
+end

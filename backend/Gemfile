@@ -1,0 +1,71 @@
+source "https://rubygems.org"
+
+gem "rails", "~> 8.0.5"
+gem "pg", "~> 1.1"
+gem "puma", ">= 5.0"
+gem "bootsnap", require: false
+gem "tzinfo-data", platforms: %i[ windows jruby ]
+
+# ---------- Auth & Authz ----------
+gem "devise"
+gem "devise-jwt"
+gem "pundit"
+
+# ---------- Background jobs ----------
+gem "sidekiq", "~> 7.0"
+gem "redis", ">= 4.0.1"
+
+# ---------- HTTP / External APIs ----------
+gem "faraday"
+gem "faraday-retry"
+
+# ---------- CORS ----------
+gem "rack-cors"
+
+# ---------- Serialization ----------
+gem "blueprinter"
+
+# ---------- Pagination ----------
+gem "kaminari"
+
+# ---------- Search ----------
+gem "opensearch-ruby"
+
+# ---------- File import/export ----------
+gem "roo"          # XLSX/CSV import
+gem "caxlsx"       # XLSX export
+gem "caxlsx_rails"
+
+# ---------- Rate limiting ----------
+gem "rack-attack"
+
+# ---------- Encryption ----------
+gem "lockbox"       # encrypted columns (shipping provider credentials)
+
+# ---------- Money / Safe DB migrations ----------
+gem "money-rails"
+gem "strong_migrations"
+
+# ---------- Observability ----------
+gem "semantic_logger"
+gem "rails_semantic_logger"
+
+group :development, :test do
+  gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
+  gem "brakeman", require: false
+  gem "rubocop-rails-omakase", require: false
+  gem "bundler-audit", require: false
+  gem "rspec-rails"
+  gem "factory_bot_rails"
+  gem "shoulda-matchers"
+  gem "faker"
+  gem "dotenv-rails"
+end
+
+group :test do
+  gem "database_cleaner-active_record"
+  gem "webmock"
+  gem "vcr"
+  gem "timecop"
+  gem "prosopite"  # n+1 detection in tests
+end

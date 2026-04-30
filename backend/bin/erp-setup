@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# bin/erp-setup
+#
+# Run this any time you need to (re)create the database, run pending
+# migrations, and re-seed users/data.  Safe to run multiple times.
+#
+# Usage (from the backend/ directory):
+#   ./bin/erp-setup                    # uses running docker-compose stack
+#   ./bin/erp-setup test               # also sets up the test database
+#
+# If the containers aren't running yet:
+#   docker compose up -d && ./bin/erp-setup
+
+set -euo pipefail
+
+DC="docker compose -f $(dirname "$0")/../docker-compose.yml"
+
+echo "==> Creating / migrating development database..."
+$DC exec -T backend rails db:create 2>/dev/null || true
+$DC exec -T backend rails db:migrate
+
+echo "==> Seeding development database..."
+$DC exec -T backend rails db:seed
+
+if [[ "${1:-}" == "test" ]]; then
+  echo "==> Setting up test database..."
+  $DC exec -T -e RAILS_ENV=test backend rails db:create 2>/dev/null || true
+  $DC exec -T -e RAILS_ENV=test backend rails db:migrate
+  echo "==> Test DB ready."
+fi
+
+echo ""
+echo "✓ Done. Login credentials:"
+echo "   admin@erp.local      / changeme123!"
+echo "   ops@erp.local        / changeme123!"
+echo "   viewer@erp.local     / changeme123!"
+echo "   accountant@erp.local / changeme123!"

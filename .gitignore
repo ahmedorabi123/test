@@ -1,0 +1,22 @@
+# secrets — never commit these
+**/.env
+**/.env.*
+!**/.env.example
+backend/config/master.key
+
+# logs
+*.log
+**/log/*
+!**/log/.keep
+
+# build artefacts
+backend/tmp/*
+!backend/tmp/.keep
+frontend/dist/
+frontend/node_modules/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
