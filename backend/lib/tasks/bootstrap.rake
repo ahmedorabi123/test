@@ -35,7 +35,7 @@ namespace :bootstrap do
     # Returns the remote count from Shopify's lightweight /count.json endpoint.
     # Returns nil on error so the caller can fall back to "always pull".
     remote_count = lambda do |path, params: {}|
-      body = client.get(path, params)
+      body = client.get(path, params: params)
       body.is_a?(Hash) ? body["count"] : nil
     rescue => e
       log.call "  could not fetch #{path}: #{e.class}: #{e.message}"
