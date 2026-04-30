@@ -42,7 +42,6 @@ module Imports
 
       # Group by order number; skip orders where any line errored
       bad_rows = errors.map { |e| e[:row] }.to_set
-      grouped  = rows.each_with_index.group_by { |_, i| _1.is_a?(Hash) ? _1["Order #"] : nil }
 
       groups = rows.each_with_object({}) do |row, h|
         next if row["Order #"].blank?

@@ -40,12 +40,17 @@ Rails.application.configure do
   # Don't log any deprecations.
   config.active_support.report_deprecations = false
 
-  # Replace the default in-process memory cache store with a durable alternative.
-  config.cache_store = :solid_cache_store
+  # Cache store: Redis if REDIS_URL is set, otherwise in-memory (per-process).
+  if ENV["REDIS_URL"].present?
+    config.cache_store = :redis_cache_store, { url: ENV["REDIS_URL"] }
+  else
+    config.cache_store = :memory_store
+  end
 
-  # Replace the default in-process and non-durable queuing backend for Active Job.
-  config.active_job.queue_adapter = :solid_queue
-  config.solid_queue.connects_to = { database: { writing: :queue } }
+  # Active Job adapter: Sidekiq if Redis is present, else inline :async (single-process).
+  # The Solid Queue / Solid Cache gems are not in the Gemfile — we keep the prod stack
+  # aligned with development (Sidekiq) and degrade to :async on tiny free-tier hosts.
+  config.active_job.queue_adapter = ENV["REDIS_URL"].present? ? :sidekiq : :async
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
   # the I18n.default_locale when a translation cannot be found).

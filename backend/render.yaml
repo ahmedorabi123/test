@@ -18,8 +18,6 @@ services:
         value: production
       - key: RAILS_LOG_TO_STDOUT
         value: "true"
-      - key: SOLID_QUEUE_IN_PUMA
-        value: "true"
       - key: READ_ONLY_SHOPIFY
         value: "true"
       - key: SHOPIFY_API_VERSION
