@@ -325,6 +325,7 @@ demo_orders = [
 
 demo_orders.each do |o|
   order = Order.find_or_initialize_by(order_number: o[:num])
+  is_new = order.new_record?
 
   subtotal = o[:lines].sum { |l| l[:price].to_d * l[:qty] }
   tax      = (subtotal * 0.08).round(2)
@@ -351,9 +352,11 @@ demo_orders.each do |o|
   )
   order.save!
 
-  # Replace line items idempotently
-  order.line_items.destroy_all
-  o[:lines].each_with_index do |l, idx|
+  # Only build line items on first seed of this order. On re-seed, fulfillments
+  # and refunds may reference these rows (FK constraint), so leave them alone.
+  next unless is_new
+
+  o[:lines].each_with_index do |l, _idx|
     variant = Variant.find_by(sku: l[:sku])
     order.line_items.create!(
       variant:        variant,
