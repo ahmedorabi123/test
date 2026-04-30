@@ -7,7 +7,7 @@ services:
     env: ruby
     plan: free
     rootDir: backend
-    buildCommand: bundle install && bundle exec rails assets:precompile
+    buildCommand: bundle install
     startCommand: bundle exec rails db:migrate db:seed && bundle exec puma -C config/puma.rb
     healthCheckPath: /up
     autoDeploy: true
@@ -17,8 +17,6 @@ services:
       - key: RACK_ENV
         value: production
       - key: RAILS_LOG_TO_STDOUT
-        value: "true"
-      - key: RAILS_SERVE_STATIC_FILES
         value: "true"
       - key: SOLID_QUEUE_IN_PUMA
         value: "true"
