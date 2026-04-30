@@ -1,11 +1,10 @@
 # Render blueprint for the Shopify-ERP backend.
 # Free plan: web service backed by an external Postgres (Neon).
 #
-# On every deploy the start command runs `rails bootstrap:run` which:
-#   • re-registers Shopify webhooks (idempotent, keeps integration live)
-#   • backfills products/customers/orders ONLY when the DB is empty of Shopify data
-#     (or when FORCE_BACKFILL=true is set in env)
-# Webhooks then keep the DB in sync between deploys — no re-pull needed.
+# Bootstrap (Shopify webhook re-registration + DB backfill) runs AFTER Puma
+# binds its port — it lives in `config/puma.rb`'s on_worker_boot hook so the
+# free dyno's port-scan timeout (~90 s) is never blocked. Disable it with
+# SKIP_BOOTSTRAP=true. Force a re-pull with FORCE_BACKFILL=true.
 services:
   - type: web
     name: shopify-erp-backend
@@ -13,7 +12,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: bundle install
-    startCommand: bundle exec rails db:migrate db:seed && (bundle exec rails bootstrap:run || echo '[bootstrap] failed, continuing to boot Puma') && bundle exec puma -C config/puma.rb
+    startCommand: bundle exec rails db:migrate db:seed && bundle exec puma -C config/puma.rb
     healthCheckPath: /up
     autoDeploy: true
     envVars:
