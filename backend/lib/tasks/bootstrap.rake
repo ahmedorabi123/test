@@ -140,6 +140,34 @@ namespace :bootstrap do
       GC.start
     end
 
+    # ── Cleanup demo fulfillments/refunds that were incorrectly seeded for
+    #    real Shopify orders. The seeds.rb used to create BST-DEMO-* records
+    #    for ALL fulfilled orders, blocking the real Shopify data from being
+    #    pulled. This one-time cleanup removes those stale records so the
+    #    catch-up passes below can fetch the real data.
+    fake_fulfillment_ids = Fulfillment
+      .joins(:order)
+      .where("fulfillments.tracking_number LIKE 'BST-DEMO-%'")
+      .where.not(orders: { shopify_order_id: nil })
+      .pluck(:id)
+    if fake_fulfillment_ids.any?
+      FulfillmentLineItem.where(fulfillment_id: fake_fulfillment_ids).delete_all
+      Fulfillment.where(id: fake_fulfillment_ids).delete_all
+      log.call "Removed #{fake_fulfillment_ids.size} stale demo fulfillments from Shopify orders"
+    end
+
+    fake_refund_ids = Refund
+      .joins(:order)
+      .where(note: "Returned via Estebdal")
+      .where(shopify_refund_id: nil)
+      .where.not(orders: { shopify_order_id: nil })
+      .pluck(:id)
+    if fake_refund_ids.any?
+      RefundLineItem.where(refund_id: fake_refund_ids).delete_all
+      Refund.where(id: fake_refund_ids).delete_all
+      log.call "Removed #{fake_refund_ids.size} stale demo refunds from Shopify orders"
+    end
+
     # ── Fulfillments catch-up ──
     # Runs independently of the orders block. Detects orders that should have
     # fulfillment records locally but don't, then batch-fetches those orders

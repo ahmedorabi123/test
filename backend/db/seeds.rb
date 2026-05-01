@@ -458,9 +458,11 @@ puts "   #{Customer.count} customers seeded"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 9. Fulfillments (demo shipments through Bosta) for fulfilled orders
+# Only seed demo fulfillments for showroom/manual orders — never for real
+# Shopify orders (those have their own fulfillments pulled by the bootstrap).
 # ─────────────────────────────────────────────────────────────────────────────
 puts "== Seeding Fulfillments =="
-Order.where(fulfillment_status: "fulfilled").each_with_index do |o, idx|
+Order.where(fulfillment_status: "fulfilled").where.not(source: "shopify").each_with_index do |o, idx|
   next if o.fulfillments.any?
   f = o.fulfillments.create!(
     status:           "success",
@@ -477,9 +479,11 @@ puts "   #{Fulfillment.count} fulfillments seeded"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 10. Refunds (demo) for refunded order
+# Only seed demo refunds for showroom/manual orders — never for real Shopify
+# orders (those have their own refunds pulled by the bootstrap).
 # ─────────────────────────────────────────────────────────────────────────────
 puts "== Seeding Refunds =="
-Order.where(financial_status: "refunded").each do |o|
+Order.where(financial_status: "refunded").where.not(source: "shopify").each do |o|
   next if o.refunds.any?
   r = o.refunds.create!(
     amount:       o.total_price,
