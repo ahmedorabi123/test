@@ -34,7 +34,9 @@ if echo "$*" | grep -qE 'rails (server|s\b)'; then
   if ./bin/rails db:seed; then
     echo "[entrypoint] Seed OK."
   else
-    echo "[entrypoint] WARNING: db:seed failed — check logs above." >&2
+    echo "[entrypoint] ERROR: db:seed failed — see output above. Login users may be missing." >&2
+    # Re-run seed targeting just users as a fallback
+    ./bin/rails runner "load Rails.root.join('db/seeds.rb')" 2>&1 || true
   fi
 fi
 
