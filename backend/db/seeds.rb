@@ -422,16 +422,27 @@ coa.each do |a|
 end
 puts "   #{Account.count} accounts seeded"
 
-# Post journal entries for the 3 'paid' demo orders
+# Post journal entries for demo (non-Shopify) paid orders only.
+# Real Shopify orders have journal entries posted by the bootstrap/webhooks.
+# Running PostSaleJournalHandler on all 10k+ orders here would be extremely
+# slow and may crash on orders with edge-case data (zero totals, etc.).
 puts "== Posting demo journal entries =="
 posted = 0
-Order.where(financial_status: "paid").each do |o|
-  entry = Accounting::PostSaleJournalHandler.call(o)
-  posted += 1 if entry
+Order.where(financial_status: "paid").where.not(source: "shopify").each do |o|
+  begin
+    entry = Accounting::PostSaleJournalHandler.call(o)
+    posted += 1 if entry
+  rescue => e
+    warn "  [seeds] journal post skipped for #{o.order_number}: #{e.message}"
+  end
 end
-# Reverse the refunded order if its sale entry exists
-Order.where(financial_status: "refunded").each do |o|
-  Accounting::RefundReversalHandler.call(o)
+# Reverse refunded demo orders only
+Order.where(financial_status: "refunded").where.not(source: "shopify").each do |o|
+  begin
+    Accounting::RefundReversalHandler.call(o)
+  rescue => e
+    warn "  [seeds] refund reversal skipped for #{o.order_number}: #{e.message}"
+  end
 end
 puts "   #{posted} sale journal entries posted"
 puts "   #{JournalEntry.count} total journal entries"
