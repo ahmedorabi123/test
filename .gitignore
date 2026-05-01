@@ -15,6 +15,9 @@ backend/tmp/*
 frontend/dist/
 frontend/node_modules/
 
+# DB backups (large pg_dump files — keep locally, don't commit)
+backend/db/backups/
+
 # OS / editor
 .DS_Store
 .idea/
