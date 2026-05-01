@@ -7,10 +7,27 @@ namespace :bootstrap do
     #     This keeps the integration live across redeploys and Render URL changes.
     base = ENV["SHOPIFY_WEBHOOK_BASE_URL"].presence || ENV["WEBHOOK_BASE_URL"].presence
     if base
-      ENV["WEBHOOK_BASE_URL"] = base   # the existing rake task reads WEBHOOK_BASE_URL
       log.call "Registering webhooks against #{base} ..."
       begin
-        Rake::Task["shopify:register_webhooks"].invoke
+        wh_client = ::Shopify::Client.new
+        topics    = Shopify::EventNormalizer::SUPPORTED_TOPICS.keys
+        existing  = wh_client.get("webhooks.json").fetch("webhooks", []).index_by { |w| w["topic"] }
+        topics.each do |topic|
+          callback = "#{base}/webhooks/shopify/#{topic}"
+          if (current = existing[topic])
+            if current["address"] == callback
+              puts "=  #{topic}  (already registered)"
+              next
+            else
+              wh_client.delete("webhooks/#{current["id"]}.json")
+              puts "-  #{topic}  (deleted stale registration)"
+            end
+          end
+          wh_client.post("webhooks.json", payload: { webhook: { topic: topic, address: callback, format: "json" } })
+          puts "+  #{topic}  -> #{callback}"
+        rescue => e
+          warn "!  #{topic}  FAILED: #{e.class}: #{e.message}"
+        end
       rescue => e
         warn "[bootstrap] webhook registration failed: #{e.class}: #{e.message} (continuing)"
       end

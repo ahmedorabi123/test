@@ -4,6 +4,7 @@ RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
       build-essential \
       libpq-dev \
+      postgresql-client \
       git \
       curl \
       libssl-dev \
