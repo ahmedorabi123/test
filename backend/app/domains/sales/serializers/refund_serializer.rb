@@ -19,11 +19,19 @@ class RefundSerializer
       full:               refund.full?,
       restock:            refund.restock,
       inventory_restocked: refund.inventory_restocked,
+      journal_entry_id:    refund_journal_entry_id(refund),
       transactions:       refund.transactions,
       created_at:         refund.created_at,
       updated_at:         refund.updated_at,
       line_items: include_line_items ? refund.refund_line_items.map { |li| RefundLineItemSerializer.call(li) } : nil
     }.compact
+  end
+
+  def self.refund_journal_entry_id(refund)
+    JournalEntry.where(source_type: "refund", source_id: refund.id, entry_type: "refund")
+                .order(created_at: :desc)
+                .limit(1)
+                .pick(:id)
   end
 
   def self.order_summary(order)

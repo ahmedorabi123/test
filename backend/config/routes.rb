@@ -124,6 +124,9 @@ Rails.application.routes.draw do
           get  :export
           post :bulk
         end
+        member do
+          get :purchase_orders
+        end
       end
       resources :purchase_orders do
         collection do

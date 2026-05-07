@@ -81,6 +81,15 @@ module Sales
       if restock? && @attrs[:restock_warehouse_id].blank?
         raise InvalidInput, "restock_warehouse_id required when restock=true"
       end
+      if restock? && !line_items_selected?
+        raise InvalidInput, "line_items required when restock=true"
+      end
+    end
+
+    def line_items_selected?
+      Array(@attrs[:line_items]).any? do |li|
+        li.to_h.with_indifferent_access[:quantity].to_i.positive?
+      end
     end
 
     def restock?
@@ -103,7 +112,7 @@ module Sales
     def build_content_hash(order, amount)
       normalized_lines = Array(@attrs[:line_items]).map do |li|
         h = li.to_h.with_indifferent_access
-        [h[:order_line_item_id].to_s, h[:quantity].to_i, h[:subtotal].to_s.to_d.round(2).to_s].join(":")
+        [ h[:order_line_item_id].to_s, h[:quantity].to_i, h[:subtotal].to_s.to_d.round(2).to_s ].join(":")
       end.sort.join("|")
       Digest::SHA256.hexdigest([
         order.id,

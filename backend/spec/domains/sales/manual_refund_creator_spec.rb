@@ -48,6 +48,13 @@ RSpec.describe Sales::ManualRefundCreator do
         described_class.call(order_id: order.id, amount: "10", restock: true)
       }.to raise_error(described_class::InvalidInput, /restock_warehouse_id/)
     end
+
+    it "rejects restock without selected line items" do
+      warehouse = create(:warehouse)
+      expect {
+        described_class.call(order_id: order.id, amount: "10", restock: true, restock_warehouse_id: warehouse.id)
+      }.to raise_error(described_class::InvalidInput, /line_items/)
+    end
   end
 
   it "creates a refund and flags order partially_refunded" do
@@ -80,7 +87,7 @@ RSpec.describe Sales::ManualRefundCreator do
       refund = described_class.call(
         order_id: order.id, amount: "50.00",
         restock: true, restock_warehouse_id: warehouse.id,
-        line_items: [{ order_line_item_id: line_item.id, quantity: 2, subtotal: "50.00" }]
+        line_items: [ { order_line_item_id: line_item.id, quantity: 2, subtotal: "50.00" } ]
       )
       expect(refund.refund_line_items.count).to eq(1)
       expect(stock_item.reload.quantity_on_hand).to eq(2)

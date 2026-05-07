@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useMemo } from "react";
+import { Fragment, ReactNode, useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
 export type SortDir = "asc" | "desc";
@@ -45,6 +45,8 @@ export interface DataTableProps<T extends { id: string | number }> {
   bulkActions?: BulkAction<T>[];
   /** Optional row click handler (does not toggle selection). */
   onRowClick?: (row: T) => void;
+  /** Optional expanded row renderer. Row click toggles expansion when present. */
+  renderExpanded?: (row: T) => ReactNode;
   /** Render an extra toolbar area (e.g., filters, export bar). */
   toolbar?: ReactNode;
   /** Sync sort to URL params. Default true. */
@@ -69,6 +71,7 @@ export default function DataTable<T extends { id: string | number }>({
   selectable = false,
   bulkActions = [],
   onRowClick,
+  renderExpanded,
   toolbar,
   syncToUrl = true,
 }: DataTableProps<T>) {
@@ -141,6 +144,17 @@ export default function DataTable<T extends { id: string | number }>({
   }
   function toggleRow(id: string | number) {
     setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  const [expandedIds, setExpandedIds] = useState<Set<string | number>>(
+    new Set(),
+  );
+  function toggleExpanded(id: string | number) {
+    setExpandedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -281,38 +295,51 @@ export default function DataTable<T extends { id: string | number }>({
                 !error &&
                 rows.map((row) => {
                   const checked = selectedIds.has(row.id);
+                  const expanded = expandedIds.has(row.id);
                   return (
-                    <tr
-                      key={row.id}
-                      className={`${onRowClick ? "cursor-pointer" : ""} ${checked ? "bg-indigo-50/40" : "hover:bg-slate-50"}`}
-                      onClick={(e) => {
-                        // avoid triggering row click when clicking the checkbox
-                        if ((e.target as HTMLElement).tagName === "INPUT")
-                          return;
-                        onRowClick?.(row);
-                      }}
-                    >
-                      {selectable && (
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleRow(row.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                            aria-label={`Select row ${row.id}`}
-                          />
-                        </td>
+                    <Fragment key={row.id}>
+                      <tr
+                        className={`${onRowClick || renderExpanded ? "cursor-pointer" : ""} ${checked ? "bg-indigo-50/40" : "hover:bg-slate-50"}`}
+                        onClick={(e) => {
+                          const tag = (e.target as HTMLElement).tagName;
+                          if (["A", "BUTTON", "INPUT", "SELECT"].includes(tag))
+                            return;
+                          if (onRowClick) onRowClick(row);
+                          else if (renderExpanded) toggleExpanded(row.id);
+                        }}
+                      >
+                        {selectable && (
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleRow(row.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              aria-label={`Select row ${row.id}`}
+                            />
+                          </td>
+                        )}
+                        {columns.map((col) => (
+                          <td
+                            key={col.id}
+                            className={`px-4 py-3 text-slate-700 ${col.className ?? ""}`}
+                          >
+                            {col.render(row)}
+                          </td>
+                        ))}
+                      </tr>
+                      {renderExpanded && expanded && (
+                        <tr className="bg-slate-50/70">
+                          <td
+                            colSpan={columns.length + (selectable ? 1 : 0)}
+                            className="px-4 py-4"
+                          >
+                            {renderExpanded(row)}
+                          </td>
+                        </tr>
                       )}
-                      {columns.map((col) => (
-                        <td
-                          key={col.id}
-                          className={`px-4 py-3 text-slate-700 ${col.className ?? ""}`}
-                        >
-                          {col.render(row)}
-                        </td>
-                      ))}
-                    </tr>
+                    </Fragment>
                   );
                 })}
             </tbody>

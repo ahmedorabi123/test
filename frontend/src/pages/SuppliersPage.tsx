@@ -86,6 +86,16 @@ export default function SuppliersPage() {
         ),
       },
       {
+        id: "supplier_code",
+        header: "Code",
+        sortKey: "supplier_code",
+        render: (s) => (
+          <span className="font-mono text-xs text-slate-600">
+            {s.supplier_code || "-"}
+          </span>
+        ),
+      },
+      {
         id: "email",
         header: "Email",
         sortKey: "email",
@@ -101,6 +111,8 @@ export default function SuppliersPage() {
             className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
               s.status === "active"
                 ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+                : s.status === "on_hold"
+                  ? "bg-amber-50 text-amber-700 ring-amber-600/20"
                 : "bg-gray-100 text-gray-600 ring-gray-500/20"
             }`}
           >
@@ -170,6 +182,7 @@ export default function SuppliersPage() {
           >
             <option value="">All statuses</option>
             <option value="active">Active</option>
+            <option value="on_hold">On hold</option>
             <option value="inactive">Inactive</option>
           </select>
           <Link

@@ -66,7 +66,7 @@ export default function ManualRefundButton({
     const t = setTimeout(() => {
       api
         .get<{ data: OrderOption[] }>("/orders", {
-          params: { q: orderQuery, per_page: 10 },
+          params: { search: orderQuery, per_page: 10 },
         })
         .then((r) => setOrderResults(r.data.data))
         .catch(() => undefined);
@@ -106,6 +106,11 @@ export default function ManualRefundButton({
       setError("Pick a warehouse to restock to");
       return;
     }
+    const selectedLines = lines.filter((l) => Number(l.quantity) > 0);
+    if (restock && selectedLines.length === 0) {
+      setError("Select at least one line item to restock");
+      return;
+    }
     setSubmitting(true);
     try {
       await refundsApi.create({
@@ -116,13 +121,11 @@ export default function ManualRefundButton({
         note: note || undefined,
         restock,
         restock_warehouse_id: restock ? restockWarehouseId : undefined,
-        line_items: lines
-          .filter((l) => Number(l.quantity) > 0)
-          .map((l) => ({
-            order_line_item_id: l.order_line_item_id,
-            quantity: Number(l.quantity),
-            subtotal: l.subtotal,
-          })),
+        line_items: selectedLines.map((l) => ({
+          order_line_item_id: l.order_line_item_id,
+          quantity: Number(l.quantity),
+          subtotal: l.subtotal,
+        })),
       });
       reset();
       setOpen(false);

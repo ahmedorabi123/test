@@ -4,16 +4,16 @@ module Api
       include Sortable
       include Exportable
 
-      sortable_by "name", "email", "status", "created_at", "updated_at",
+      sortable_by "supplier_code", "name", "email", "status", "created_at", "updated_at",
                   default: { created_at: :desc }
 
-      before_action :set_supplier, only: %i[show update destroy]
+      before_action :set_supplier, only: %i[show update destroy purchase_orders]
 
       def index
         authorize Supplier
         scope = filtered_scope
 
-        page     = [params[:page].to_i, 1].max
+        page     = [ params[:page].to_i, 1 ].max
         per_page = (params[:per_page].to_i.positive? ? params[:per_page].to_i : 25).clamp(1, 200)
         records  = apply_sort(scope).offset((page - 1) * per_page).limit(per_page)
 
@@ -25,7 +25,13 @@ module Api
 
       def show
         authorize @supplier
-        render json: { data: SupplierSerializer.call(@supplier) }
+        render json: { data: SupplierSerializer.call(@supplier, include_summary: true) }
+      end
+
+      def purchase_orders
+        authorize @supplier, :show?
+        records = @supplier.purchase_orders.includes(:warehouse).order(created_at: :desc)
+        render json: { data: records.map { |po| PurchaseOrderSerializer.call(po, include_line_items: false) } }
       end
 
       def create
@@ -80,7 +86,10 @@ module Api
         scope = scope.where(status: params[:status]) if params[:status].present?
         if params[:search].present?
           q = "%#{params[:search]}%"
-          scope = scope.where("name ILIKE :q OR email ILIKE :q OR phone ILIKE :q", q: q)
+          scope = scope.where(
+            "supplier_code ILIKE :q OR name ILIKE :q OR email ILIKE :q OR phone ILIKE :q OR tax_id ILIKE :q",
+            q: q
+          )
         end
         scope
       end
@@ -90,7 +99,8 @@ module Api
       end
 
       def supplier_params
-        params.require(:supplier).permit(:name, :email, :phone, :tax_id, :currency, :status, :notes,
+        params.require(:supplier).permit(:supplier_code, :name, :email, :phone, :tax_id, :currency, :status,
+                                         :lead_time_days, :notes,
                                          address: {}, payment_terms: {})
       end
 

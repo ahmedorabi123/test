@@ -24,6 +24,7 @@ import NewPurchaseOrderPage from "./pages/NewPurchaseOrderPage";
 import PurchaseOrderDetailPage from "./pages/PurchaseOrderDetailPage";
 import SuppliersPage from "./pages/SuppliersPage";
 import NewSupplierPage from "./pages/NewSupplierPage";
+import SupplierDetailPage from "./pages/SupplierDetailPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
 import ProductionPage from "./pages/ProductionPage";
 import BomEditorPage from "./pages/BomEditorPage";
@@ -73,6 +74,7 @@ function App() {
           <Route path="/purchases/:id" element={<PurchaseOrderDetailPage />} />
           <Route path="/suppliers" element={<SuppliersPage />} />
           <Route path="/suppliers/new" element={<NewSupplierPage />} />
+          <Route path="/suppliers/:id" element={<SupplierDetailPage />} />
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/warehouses" element={<WarehousesPage />} />
           <Route path="/accounting" element={<AccountingPage />} />

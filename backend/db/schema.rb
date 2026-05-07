@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_08_121000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_08_122000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -579,8 +579,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_08_121000) do
     t.text "notes"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "supplier_code"
+    t.integer "lead_time_days"
     t.index ["name"], name: "index_suppliers_on_name"
     t.index ["status"], name: "index_suppliers_on_status"
+    t.index ["supplier_code"], name: "index_suppliers_on_supplier_code", unique: true, where: "(supplier_code IS NOT NULL)"
   end
 
   create_table "sync_cursors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

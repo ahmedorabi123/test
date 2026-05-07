@@ -9,6 +9,8 @@ import DataTable, {
 import ImportExportBar from "../components/table/ImportExportBar";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
+type RefundDetail = Refund & { journal_entry_id?: string | null };
+
 export default function RefundsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
@@ -22,6 +24,10 @@ export default function RefundsPage() {
   const status = searchParams.get("status") || "";
   const kind = searchParams.get("kind") || "";
   const source = searchParams.get("source") || "";
+  const reason = searchParams.get("reason") || "";
+  const restock = searchParams.get("restock") || "";
+  const from = searchParams.get("from") || "";
+  const to = searchParams.get("to") || "";
 
   const [searchInput, setSearchInput] = useState(search);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
@@ -59,6 +65,10 @@ export default function RefundsPage() {
         status: status || undefined,
         kind: kind || undefined,
         source: source || undefined,
+        reason: reason || undefined,
+        restock: restock ? restock === "true" : undefined,
+        from: from || undefined,
+        to: to || undefined,
         sort: sortKey,
         dir: sortDir,
       });
@@ -69,56 +79,67 @@ export default function RefundsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, search, status, kind, source, sortKey, sortDir]);
+  }, [
+    page,
+    perPage,
+    search,
+    status,
+    kind,
+    source,
+    reason,
+    restock,
+    from,
+    to,
+    sortKey,
+    sortDir,
+  ]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const applyFilterSet = (values: Record<string, string | null>) => {
+    const sp = new URLSearchParams(searchParams);
+    Object.entries(values).forEach(([key, value]) => {
+      if (!value) sp.delete(key);
+      else sp.set(key, value);
+    });
+    sp.set("page", "1");
+    setSearchParams(sp, { replace: true });
+  };
+
+  const transitionRefund = useCallback(async (row: Refund, toStatus: string) => {
+    try {
+      if (toStatus === "cancelled") await refundsApi.cancel(row.id);
+      else await refundsApi.transition(row.id, toStatus);
+      await load();
+    } catch (e) {
+      setError((e as Error).message || "Refund transition failed");
+    }
+  }, [load]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStartDate = new Date();
+  weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay());
+  const weekStart = weekStartDate.toISOString().slice(0, 10);
+
+  const money = useCallback(
+    (row: Refund) => `${Number(row.amount).toFixed(2)} ${row.currency}`,
+    [],
+  );
+
   const columns = useMemo<Column<Refund>[]>(
     () => [
       {
-        id: "amount",
-        header: "Amount",
-        sortKey: "amount",
+        id: "refund",
+        header: "Refund #",
         render: (row) => (
           <Link
             to={`/refunds/${row.id}`}
-            className="font-medium text-indigo-700 hover:underline"
+            className="font-mono text-xs font-medium text-indigo-700 hover:underline"
           >
-            {Number(row.amount).toFixed(2)} {row.currency}
+            RF-{row.id.slice(0, 8).toUpperCase()}
           </Link>
-        ),
-      },
-      {
-        id: "type",
-        header: "Type",
-        render: (row) => (
-          <span
-            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${row.full ? "bg-rose-50 text-rose-700 ring-rose-600/20" : "bg-amber-50 text-amber-700 ring-amber-600/20"}`}
-          >
-            {row.full ? "full" : "partial"}
-          </span>
-        ),
-      },
-      {
-        id: "status",
-        header: "Status",
-        sortKey: "status",
-        render: (row) => (
-          <span className="capitalize text-slate-700">
-            {row.status || "processed"}
-          </span>
-        ),
-      },
-      {
-        id: "kind",
-        header: "Source",
-        sortKey: "kind",
-        render: (row) => (
-          <span className="capitalize text-slate-700">
-            {row.kind || (row.shopify_refund_id ? "shopify" : "manual")}
-          </span>
         ),
       },
       {
@@ -144,7 +165,31 @@ export default function RefundsPage() {
         header: "Customer",
         sortKey: "customer_name",
         render: (row) => (
-          <span>{row.customer?.name || row.customer?.email || "-"}</span>
+          <div className="flex flex-col">
+            <span className="text-slate-900">
+              {row.customer?.name || row.customer?.email || "-"}
+            </span>
+            {row.customer?.email && (
+              <span className="text-xs text-slate-500">{row.customer.email}</span>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: "type",
+        header: "Type",
+        render: (row) => (
+          <span
+            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+              row.kind === "exchange"
+                ? "bg-indigo-50 text-indigo-700 ring-indigo-600/20"
+                : row.full
+                  ? "bg-rose-50 text-rose-700 ring-rose-600/20"
+                  : "bg-amber-50 text-amber-700 ring-amber-600/20"
+            }`}
+          >
+            {row.kind === "exchange" ? "exchange" : row.full ? "full" : "partial"}
+          </span>
         ),
       },
       {
@@ -154,8 +199,52 @@ export default function RefundsPage() {
         render: (row) => <span>{row.reason || "-"}</span>,
       },
       {
+        id: "amount",
+        header: "Amount",
+        sortKey: "amount",
+        className: "text-right tabular-nums",
+        headerClassName: "text-right",
+        render: (row) => <span className="font-medium">{money(row)}</span>,
+      },
+      {
+        id: "restock",
+        header: "Restock",
+        render: (row) => (
+          <span className="text-xs text-slate-700">
+            {row.restock
+              ? row.inventory_restocked
+                ? "Restocked"
+                : "Pending"
+              : "No"}
+          </span>
+        ),
+      },
+      {
+        id: "status",
+        header: "Status",
+        sortKey: "status",
+        render: (row) => {
+          const value = row.status || "processed";
+          const cls =
+            value === "processed"
+              ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+              : value === "approved"
+                ? "bg-sky-50 text-sky-700 ring-sky-600/20"
+                : value === "cancelled"
+                  ? "bg-gray-100 text-gray-600 ring-gray-500/20"
+                  : "bg-amber-50 text-amber-700 ring-amber-600/20";
+          return (
+            <span
+              className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${cls}`}
+            >
+              {value}
+            </span>
+          );
+        },
+      },
+      {
         id: "processed",
-        header: "Processed",
+        header: "Processed at",
         sortKey: "processed_at",
         render: (row) => (
           <span className="text-slate-600">
@@ -165,8 +254,45 @@ export default function RefundsPage() {
           </span>
         ),
       },
+      {
+        id: "actions",
+        header: "Actions",
+        render: (row) => {
+          const value = row.status || "processed";
+          const actionable =
+            !row.shopify_refund_id && !["processed", "cancelled"].includes(value);
+          if (!actionable) return <span className="text-xs text-slate-400">-</span>;
+          return (
+            <div className="flex flex-wrap gap-1">
+              {value === "draft" && (
+                <button
+                  type="button"
+                  onClick={() => transitionRefund(row, "approved")}
+                  className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  Approve
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => transitionRefund(row, "processed")}
+                className="rounded bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700"
+              >
+                Process
+              </button>
+              <button
+                type="button"
+                onClick={() => transitionRefund(row, "cancelled")}
+                className="rounded border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+              >
+                Cancel
+              </button>
+            </div>
+          );
+        },
+      },
     ],
-    [],
+    [money, transitionRefund],
   );
 
   return (
@@ -186,6 +312,10 @@ export default function RefundsPage() {
             status,
             kind,
             source,
+            reason,
+            restock,
+            from,
+            to,
             sort: sortKey,
             dir: sortDir,
           }}
@@ -241,6 +371,68 @@ export default function RefundsPage() {
           <option value="manual">Manual</option>
           <option value="estebdal">Estebdal</option>
         </select>
+        <select
+          value={restock}
+          onChange={(e) => {
+            setParam("restock", e.target.value);
+            setParam("page", "1");
+          }}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        >
+          <option value="">All restock</option>
+          <option value="true">Restock</option>
+          <option value="false">No restock</option>
+        </select>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => applyFilterSet({ from: today, to: null })}
+          className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={() => applyFilterSet({ from: weekStart, to: null })}
+          className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
+        >
+          This week
+        </button>
+        <button
+          type="button"
+          onClick={() => applyFilterSet({ status: "draft" })}
+          className="rounded-full border border-amber-300 px-3 py-1 text-xs text-amber-700 hover:bg-amber-50"
+        >
+          Pending approval
+        </button>
+        <button
+          type="button"
+          onClick={() => applyFilterSet({ restock: "true", status: "approved" })}
+          className="rounded-full border border-indigo-300 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-50"
+        >
+          Restock pending
+        </button>
+        {(status || kind || source || restock || from || to || reason) && (
+          <button
+            type="button"
+            onClick={() =>
+              applyFilterSet({
+                status: null,
+                kind: null,
+                source: null,
+                restock: null,
+                reason: null,
+                from: null,
+                to: null,
+              })
+            }
+            className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-500 hover:bg-slate-50"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
       <DataTable
@@ -265,8 +457,82 @@ export default function RefundsPage() {
           sp.set("page", "1");
           setSearchParams(sp, { replace: true });
         }}
+        renderExpanded={(row) => <RefundExpanded refundId={row.id} />}
         syncToUrl={false}
       />
+    </div>
+  );
+}
+
+function RefundExpanded({ refundId }: { refundId: string }) {
+  const [refund, setRefund] = useState<RefundDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    refundsApi
+      .get(refundId)
+      .then((row) => setRefund(row as RefundDetail))
+      .catch((e) => setError((e as Error).message || "Failed to load refund"));
+  }, [refundId]);
+
+  if (error) return <div className="text-sm text-rose-600">{error}</div>;
+  if (!refund) return <div className="text-sm text-slate-400">Loading...</div>;
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_260px]">
+      <div className="rounded-lg border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold uppercase text-slate-500">
+          Line items
+        </div>
+        {(refund.line_items ?? []).length > 0 ? (
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-3 py-2 text-left">Item</th>
+                <th className="px-3 py-2 text-left">SKU</th>
+                <th className="px-3 py-2 text-right">Qty</th>
+                <th className="px-3 py-2 text-right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(refund.line_items ?? []).map((item) => (
+                <tr key={item.id}>
+                  <td className="px-3 py-2 text-slate-800">
+                    {item.title || item.variant_title || "Item"}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-slate-500">
+                    {item.sku || "-"}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {item.quantity}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {Number(item.subtotal).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="px-3 py-3 text-sm text-slate-400">
+            No line items recorded
+          </div>
+        )}
+      </div>
+      <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+        <div className="text-xs font-semibold uppercase text-slate-500">
+          Accounting
+        </div>
+        <div className="mt-2 text-xs text-slate-500">Journal entry</div>
+        <div className="break-all font-mono text-xs text-slate-800">
+          {refund.journal_entry_id || "-"}
+        </div>
+        {refund.note && (
+          <div className="mt-3 whitespace-pre-wrap text-xs text-slate-600">
+            {refund.note}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
