@@ -225,6 +225,57 @@ export default function OrdersPage() {
           </span>
         ),
       },
+      {
+        id: "delivery_status",
+        header: "Delivery",
+        sortKey: "delivery_status",
+        render: (o) => {
+          const ds = o.delivery_status;
+          if (!ds) return <span className="text-xs text-slate-400">—</span>;
+          const styles: Record<string, string> = {
+            delivered: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+            in_transit: "bg-sky-50 text-sky-700 ring-sky-600/20",
+            out_for_delivery: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
+            pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
+            failed: "bg-rose-50 text-rose-700 ring-rose-600/20",
+            returned: "bg-purple-50 text-purple-700 ring-purple-600/20",
+          };
+          const cls = styles[ds] ?? "bg-slate-50 text-slate-700 ring-slate-600/20";
+          return (
+            <span
+              className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${cls}`}
+            >
+              {ds.replace(/_/g, " ")}
+            </span>
+          );
+        },
+      },
+      {
+        id: "tags",
+        header: "Tags",
+        render: (o) => {
+          const tags = o.tags ?? [];
+          if (tags.length === 0)
+            return <span className="text-xs text-slate-400">—</span>;
+          const visible = tags.slice(0, 3);
+          const extra = tags.length - visible.length;
+          return (
+            <div className="flex flex-wrap gap-1 max-w-[220px]">
+              {visible.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-700"
+                >
+                  {t}
+                </span>
+              ))}
+              {extra > 0 && (
+                <span className="text-[11px] text-slate-500">+{extra}</span>
+              )}
+            </div>
+          );
+        },
+      },
     ],
     [],
   );

@@ -57,6 +57,7 @@ module Sortable
   # Subclasses can override or the table-aware default below applies.
   def sort_alias(table_name, key)
     return "placed_at" if table_name == "orders" && key == "order_number"
+    return "last_delivery_status" if table_name == "orders" && key == "delivery_status"
 
     key
   end

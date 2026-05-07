@@ -10,6 +10,8 @@ class Fulfillment < ApplicationRecord
   validates :status, inclusion: { in: STATUSES }
 
   before_validation :coerce_tags
+  after_save        :sync_order_last_delivery_status, if: :saved_change_to_delivery_status?
+  after_destroy     :sync_order_last_delivery_status
 
   scope :successful, -> { where(status: "success") }
   scope :via_bosta,  -> { where("LOWER(tracking_company) = 'bosta'") }
@@ -26,9 +28,21 @@ class Fulfillment < ApplicationRecord
 
   def coerce_tags
     self.tags = case tags
-                when Array then tags.map(&:to_s).map(&:strip).reject(&:blank?).uniq
-                when String then tags.split(",").map(&:strip).reject(&:blank?).uniq
-                else []
-                end if respond_to?(:tags=)
+    when Array then tags.map(&:to_s).map(&:strip).reject(&:blank?).uniq
+    when String then tags.split(",").map(&:strip).reject(&:blank?).uniq
+    else []
+    end if respond_to?(:tags=)
+  end
+
+  # Denormalise the latest fulfillment's delivery_status onto the parent order
+  # so the orders list can sort/filter by it without an N+1 lookup.
+  def sync_order_last_delivery_status
+    return unless order_id
+
+    latest = Fulfillment.where(order_id: order_id)
+                        .order(created_at: :desc)
+                        .limit(1)
+                        .pick(:delivery_status)
+    Order.where(id: order_id).update_all(last_delivery_status: latest)
   end
 end

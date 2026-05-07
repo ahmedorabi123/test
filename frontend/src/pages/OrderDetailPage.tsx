@@ -4,6 +4,7 @@ import {
   ordersApi,
   type Order,
   type OrderStockAllocationLine,
+  type OrderTimelineEntry,
 } from "../api/orders";
 import ManualFulfillmentButton from "../components/shipping/ManualFulfillmentButton";
 
@@ -45,6 +46,35 @@ function formatMoney(val: string | number | undefined, currency = "USD") {
   }).format(Number(val ?? 0));
 }
 
+function timelineTitle(entry: OrderTimelineEntry) {
+  const type = entry.type.replace(/[._]/g, " ");
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+function timelineSummary(entry: OrderTimelineEntry) {
+  const payload = entry.payload ?? {};
+  const trackingCompany = payload.tracking_company;
+  const trackingNumber = payload.tracking_number;
+  const deliveryStatus = payload.delivery_status;
+  const amount = payload.amount;
+  const currency = payload.currency;
+  const reason = payload.reason;
+
+  if (trackingCompany || trackingNumber || deliveryStatus) {
+    return [trackingCompany, trackingNumber, deliveryStatus]
+      .filter((v) => typeof v === "string" && v.length > 0)
+      .join(" · ");
+  }
+
+  if (amount && typeof amount === "string") {
+    return `${formatMoney(amount, typeof currency === "string" ? currency : "USD")}${
+      typeof reason === "string" && reason.length > 0 ? ` · ${reason}` : ""
+    }`;
+  }
+
+  return "";
+}
+
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
 
@@ -55,14 +85,20 @@ export default function OrderDetailPage() {
   const [allocations, setAllocations] = useState<OrderStockAllocationLine[]>(
     [],
   );
+  const [timeline, setTimeline] = useState<OrderTimelineEntry[]>([]);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    Promise.all([ordersApi.get(id), ordersApi.stockAllocation(id)])
-      .then(([orderRow, allocationRows]) => {
+    Promise.all([
+      ordersApi.get(id),
+      ordersApi.stockAllocation(id),
+      ordersApi.timeline(id),
+    ])
+      .then(([orderRow, allocationRows, timelineRows]) => {
         setOrder(orderRow);
         setAllocations(allocationRows);
+        setTimeline(timelineRows);
       })
       .catch((e) => setError((e as Error).message || "Failed to load order"))
       .finally(() => setLoading(false));
@@ -73,9 +109,11 @@ export default function OrderDetailPage() {
     Promise.all([
       ordersApi.get(order.id),
       ordersApi.stockAllocation(order.id),
-    ]).then(([orderRow, allocationRows]) => {
+      ordersApi.timeline(order.id),
+    ]).then(([orderRow, allocationRows, timelineRows]) => {
       setOrder(orderRow);
       setAllocations(allocationRows);
+      setTimeline(timelineRows);
     });
   };
 
@@ -488,6 +526,41 @@ export default function OrderDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Timeline */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-200">
+          <h2 className="text-sm font-semibold text-slate-900">Timeline</h2>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {timeline.map((entry, index) => (
+            <div key={`${entry.type}-${entry.occurred_at}-${index}`} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-slate-900">
+                    {timelineTitle(entry)}
+                  </div>
+                  {timelineSummary(entry) && (
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {timelineSummary(entry)}
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs text-slate-400 whitespace-nowrap">
+                  {entry.occurred_at
+                    ? new Date(entry.occurred_at).toLocaleString()
+                    : "—"}
+                </div>
+              </div>
+            </div>
+          ))}
+          {timeline.length === 0 && (
+            <div className="px-4 py-4 text-sm text-slate-400">
+              No timeline events yet
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Fulfillments */}
       {(order.fulfillments ?? []).length > 0 && (

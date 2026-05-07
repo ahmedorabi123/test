@@ -34,7 +34,9 @@ class OrderSerializer
       closed_at:                order.closed_at,
       total_outstanding:        order.total_outstanding,
       shopify_order_status_url: order.shopify_order_status_url,
-      delivery_status: order.fulfillments.order(created_at: :desc).first&.delivery_status,
+      delivery_status: order.respond_to?(:last_delivery_status) && order.last_delivery_status.present? \
+                         ? order.last_delivery_status \
+                         : order.fulfillments.order(created_at: :desc).first&.delivery_status,
       created_at:         order.created_at,
       updated_at:         order.updated_at,
       line_items:   include_line_items ? order.line_items.map { |li| OrderLineItemSerializer.call(li) } : nil,

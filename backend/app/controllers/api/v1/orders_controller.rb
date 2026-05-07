@@ -7,10 +7,11 @@ module Api
 
       sortable_by "placed_at", "total_price", "order_number", "customer_email",
                   "customer_name", "status", "financial_status", "fulfillment_status",
+                  "delivery_status", "last_delivery_status",
                   "created_at", "updated_at", "items_count", "total_refunded",
                   default: { placed_at: :desc }
 
-      before_action :set_order, only: %i[show transition stock_allocation]
+      before_action :set_order, only: %i[show transition stock_allocation timeline]
 
       def importer_class
         params[:mode] == "showroom" ? Imports::ShowroomSalesImporter : Imports::OrdersImporter
@@ -24,7 +25,7 @@ module Api
         authorize Order
         scope = filtered_scope
 
-        page     = [params[:page].to_i, 1].max
+        page     = [ params[:page].to_i, 1 ].max
         per_page = params[:per_page].to_i
         per_page = 25  if per_page <= 0
         per_page = 200 if per_page > 200
@@ -78,6 +79,15 @@ module Api
       def stock_allocation
         authorize @order, :show?
         render json: { data: OrderSerializer.stock_allocation(@order) }
+      end
+
+      # GET /api/v1/orders/:id/timeline
+      # Returns a unified, chronologically-sorted activity feed for one order:
+      # domain events on the Order aggregate, fulfillment lifecycle, shipment
+      # events, and refunds. Read-only and lightweight; no pagination yet.
+      def timeline
+        authorize @order, :show?
+        render json: { data: build_timeline(@order) }
       end
 
       # GET /api/v1/orders/stats?window=30
@@ -135,6 +145,72 @@ module Api
 
       def set_order
         @order = Order.find(params[:id])
+      end
+
+      # Builds a single chronological feed for an order from heterogeneous
+      # sources. Each entry is a plain hash so the frontend can render
+      # without per-source branches.
+      def build_timeline(order)
+        entries = []
+
+        DomainEvent.where(aggregate_type: "Order", aggregate_id: order.id)
+                   .order(occurred_at: :asc)
+                   .each do |de|
+          entries << {
+            kind:       "event",
+            type:       de.event_type,
+            occurred_at: de.occurred_at,
+            payload:    de.payload || {}
+          }
+        end
+
+        order.fulfillments.order(created_at: :asc).each do |f|
+          entries << {
+            kind:       "fulfillment_created",
+            type:       "fulfillment.created",
+            occurred_at: f.created_at,
+            payload: {
+              fulfillment_id:  f.id,
+              status:          f.status,
+              delivery_status: f.delivery_status,
+              tracking_company: f.tracking_company,
+              tracking_number: f.tracking_number
+            }
+          }
+          if f.delivered_at.present?
+            entries << {
+              kind:       "fulfillment_delivered",
+              type:       "fulfillment.delivered",
+              occurred_at: f.delivered_at,
+              payload:    { fulfillment_id: f.id }
+            }
+          end
+          f.shipment_events.order(created_at: :asc).each do |ev|
+            entries << {
+              kind:       "shipment_event",
+              type:       "shipment.#{ev.kind}",
+              occurred_at: ev.created_at,
+              payload:    { fulfillment_id: f.id, kind: ev.kind, payload: ev.payload }
+            }
+          end
+        end
+
+        order.refunds.order(created_at: :asc).each do |r|
+          entries << {
+            kind:       "refund",
+            type:       "refund.#{r.status}",
+            occurred_at: r.processed_at || r.created_at,
+            payload: {
+              refund_id: r.id,
+              amount:    r.amount.to_s,
+              currency:  r.currency,
+              status:    r.status,
+              reason:    r.reason
+            }
+          }
+        end
+
+        entries.sort_by { |e| e[:occurred_at] || Time.at(0) }
       end
 
       def filtered_scope

@@ -211,4 +211,18 @@ export const ordersApi = {
         data: OrderStockAllocationLine[];
       }>(`/orders/${id}/stock_allocation`)
       .then((r) => r.data.data),
+
+  timeline: (id: string) =>
+    api
+      .get<{
+        data: OrderTimelineEntry[];
+      }>(`/orders/${id}/timeline`)
+      .then((r) => r.data.data),
 };
+
+export interface OrderTimelineEntry {
+  kind: string;
+  type: string;
+  occurred_at: string | null;
+  payload: Record<string, unknown>;
+}

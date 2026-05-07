@@ -80,6 +80,7 @@ Rails.application.routes.draw do
         member do
           post :transition
           get  :stock_allocation
+          get  :timeline
         end
       end
 

@@ -43,6 +43,7 @@ module Shipping
         fulfillment = Fulfillment.create!(
           order:            @order,
           status:           "success",
+          delivery_status:  "pending",
           tracking_company: @tracking_company,
           tracking_number:  @tracking_number,
           tracking_url:     @tracking_url,
@@ -96,7 +97,7 @@ module Shipping
       return rows if rows.present?
 
       @order.line_items.map do |line_item|
-        remaining = [line_item.quantity.to_i - line_item.fulfilled_quantity.to_i, 0].max
+        remaining = [ line_item.quantity.to_i - line_item.fulfilled_quantity.to_i, 0 ].max
         next if remaining <= 0
 
         { order_line_item_id: line_item.id, quantity: remaining }

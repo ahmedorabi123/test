@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_07_120000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_08_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -265,6 +265,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_07_120000) do
     t.decimal "total_outstanding", precision: 12, scale: 2, default: "0.0", null: false
     t.string "shopify_order_status_url"
     t.decimal "total_refunded", precision: 12, scale: 2, default: "0.0", null: false
+    t.string "last_delivery_status"
     t.index ["created_at"], name: "index_orders_on_created_at"
     t.index ["customer_email"], name: "index_orders_on_customer_email"
     t.index ["customer_id"], name: "index_orders_on_customer_id"
@@ -272,6 +273,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_07_120000) do
     t.index ["financial_status"], name: "index_orders_on_financial_status"
     t.index ["fulfillment_status"], name: "index_orders_on_fulfillment_status"
     t.index ["items_count"], name: "index_orders_on_items_count"
+    t.index ["last_delivery_status"], name: "index_orders_on_last_delivery_status"
     t.index ["order_number"], name: "index_orders_on_order_number", unique: true
     t.index ["placed_at"], name: "index_orders_on_placed_at"
     t.index ["shopify_customer_id"], name: "index_orders_on_shopify_customer_id", where: "(shopify_customer_id IS NOT NULL)"
