@@ -5,6 +5,7 @@ import DataTable, {
   type Column,
   type SortDir,
 } from "../components/table/DataTable";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 const KIND_STYLES: Record<string, string> = {
   custom: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
@@ -30,6 +31,18 @@ export default function CollectionsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(search);
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+
+  // Push debounced typing into the URL (page resets to 1 on change).
+  useEffect(() => {
+    if (debouncedSearch === search) return;
+    const sp = new URLSearchParams(searchParams);
+    if (debouncedSearch) sp.set("search", debouncedSearch);
+    else sp.delete("search");
+    sp.set("page", "1");
+    setSearchParams(sp, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const setParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams);
@@ -151,12 +164,6 @@ export default function CollectionsPage() {
         <input
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              setParam("search", searchInput || null);
-              setParam("page", "1");
-            }
-          }}
           placeholder="Search collections…"
           className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-56"
         />

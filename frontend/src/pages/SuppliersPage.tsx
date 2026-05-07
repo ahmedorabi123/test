@@ -6,6 +6,7 @@ import DataTable, {
   type Column,
   type SortDir,
 } from "../components/table/DataTable";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 export default function SuppliersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -24,6 +25,7 @@ export default function SuppliersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(search);
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
 
   const setParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams);
@@ -31,6 +33,17 @@ export default function SuppliersPage() {
     else sp.set(key, value);
     setSearchParams(sp, { replace: true });
   };
+
+  // Push debounced search into URL on change.
+  useEffect(() => {
+    if (debouncedSearch === search) return;
+    const sp = new URLSearchParams(searchParams);
+    if (debouncedSearch) sp.set("search", debouncedSearch);
+    else sp.delete("search");
+    sp.set("page", "1");
+    setSearchParams(sp, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,12 +157,6 @@ export default function SuppliersPage() {
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                setParam("page", "1");
-                setParam("search", searchInput);
-              }
-            }}
             placeholder="Search name, email…"
             className="w-64 border border-slate-300 rounded-lg px-3 py-2 text-sm"
           />
