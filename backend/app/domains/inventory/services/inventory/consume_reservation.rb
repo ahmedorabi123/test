@@ -12,16 +12,19 @@ module Inventory
 
     def call
       return nil unless order_line_item
-      return nil if already_moved?
 
       stock_item = nil
 
       ActiveRecord::Base.transaction do
+        @fulfillment_line_item.lock!
+        order_line_item.lock!
+        return nil if already_moved?
+
         reservation = order_line_item.stock_reservations.active.lock.first
         stock_item = reservation&.stock_item || fallback_stock_item
         return nil unless stock_item
 
-        consume_quantity = [@fulfillment_line_item.quantity.to_i, remaining_quantity].min
+        consume_quantity = [ @fulfillment_line_item.quantity.to_i, remaining_quantity ].min
         return nil if consume_quantity <= 0
 
         stock_item.with_lock do
@@ -60,7 +63,7 @@ module Inventory
     end
 
     def remaining_quantity
-      [order_line_item.quantity.to_i - order_line_item.fulfilled_quantity.to_i, 0].max
+      [ order_line_item.quantity.to_i - order_line_item.fulfilled_quantity.to_i, 0 ].max
     end
 
     def already_moved?

@@ -23,26 +23,31 @@ module Accounting
     end
 
     def call
-      return if @refund.amount.to_d <= 0
+      @refund.order.with_lock do
+        @refund.lock!
+        return if @refund.amount.to_d <= 0
 
-      idem_key = "#{IDEMPOTENCY_PREFIX}-#{@refund.id}"
-      return if JournalEntry.exists?(idempotency_key: idem_key)
+        idem_key = "#{IDEMPOTENCY_PREFIX}-#{@refund.id}"
+        return if JournalEntry.exists?(idempotency_key: idem_key)
 
-      lines = build_lines
-      return if lines.empty?
+        lines = build_lines
+        return if lines.empty?
 
-      JournalEntry.post!(
-        {
-          entry_date:      (@refund.processed_at&.to_date || Date.current),
-          description:     "Partial refund – #{@refund.order.order_number}",
-          currency:        @refund.currency.presence || @refund.order.currency.presence || "EGP",
-          source_type:     "refund",
-          source_id:       @refund.id,
-          entry_type:      "refund",
-          idempotency_key: idem_key
-        },
-        lines
-      )
+        JournalEntry.post!(
+          {
+            entry_date:      (@refund.processed_at&.to_date || Date.current),
+            description:     "Partial refund – #{@refund.order.order_number}",
+            currency:        @refund.currency.presence || @refund.order.currency.presence || "EGP",
+            source_type:     "refund",
+            source_id:       @refund.id,
+            entry_type:      "refund",
+            idempotency_key: idem_key
+          },
+          lines
+        )
+      end
+    rescue ActiveRecord::RecordNotUnique
+      nil
     end
 
     private
@@ -64,7 +69,7 @@ module Accounting
       # Remainder (if any) counts as shipping or misc credit reversal.
       accounted = subtotal_refunded + tax_part
       misc      = (total_refund - accounted).round(2)
-      shipping_part = [misc, 0].max
+      shipping_part = [ misc, 0 ].max
 
       lines = []
       lines << { account_code: "4000", side: "debit",  amount: subtotal_refunded,

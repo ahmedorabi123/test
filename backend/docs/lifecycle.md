@@ -110,10 +110,12 @@ POST /api/v1/orders/import          (preview)
 POST /api/v1/orders/import/commit   (commit)
                               │
                               ▼
-                   Imports::OrdersImporter
-                   - parses CSV (Shopify export schema is supported)
-                   - dedupe by external_number
+                   Imports::ShowroomSalesImporter
+                   - parses CSV/XLSX showroom rows
+                   - groups by Order #
+                   - delegates each order to Sales::ManualOrderCreator
                    - source: "showroom"
+                   - paid rows reserve stock and post sale journals
                    - returns { created, updated, errors }
 ```
 
@@ -173,14 +175,20 @@ All paths emit a `customer.upserted` DomainEvent which is consumed by
 
 Two entry points:
 
-1. **Shopify webhook** (`refunds/create`) → handled inside
-   `Sales::Shopify::OrderUpserter`. It calls
-   `Accounting::RefundReversalHandler` which posts a contra journal entry and
-   updates `financial_status` to `refunded` / `partially_paid`.
-2. **OrderStateMachine** transition `to: "refunded"` triggers the same handler.
+1. **Shopify webhook** (`refunds/create`) → `Sales::Shopify::RefundUpserter`.
+     It upserts the Refund and RefundLineItems, restocks inventory when Shopify
+     marks a line as `return`, releases cancelled reservations for `cancel`,
+     updates order financial state, and posts accounting:
+     - full refund: `Accounting::RefundReversalHandler`
+     - partial refund: `Accounting::PartialRefundJournalHandler`
+2. **Manual ERP refund** → `Sales::ManualRefundCreator`. It validates amount,
+     optional restock warehouse, and positive line items when restocking; then it
+     creates the Refund, writes restock movements, posts the partial refund
+     journal, updates order totals/status, and recomputes customer stats.
 
-Inventory restocks are NOT automatic — they require an explicit
-`Inventory::WriteMovement(delta: +qty, reason: "refund")`.
+`Accounting::PartialRefundJournalHandler` is idempotent by
+`refund-partial-<refund_id>` and locks the order and refund while checking and
+posting the journal entry.
 
 ---
 
@@ -188,13 +196,18 @@ Inventory restocks are NOT automatic — they require an explicit
 
 A fulfillment row is created either:
 
-- **Implicitly** by `OrderStateMachine` when the order moves to `fulfilled`
-  (deducts stock, no Fulfillment row yet — see TODO in Inventory module), or
-- **Explicitly** by the Shopify `fulfillments/create` webhook through
-  `HandleShopifyFulfillmentJob`.
+- **Manual ERP flow** through `Shipping::CreateManualFulfillment`, which creates
+     a Fulfillment and FulfillmentLineItems, consumes reservations, posts COGS if
+     cost data exists, records a shipment event, and transitions the order when
+     legal.
+- **Shopify webhook** (`fulfillments/create|update`) through
+     `Shipping::Shopify::FulfillmentUpserter`, which upserts the Fulfillment,
+     syncs line items, consumes inventory the first time a fulfillment becomes
+     successful, posts COGS, and records shipment events.
 
-In both cases, stock movements use `Inventory::WarehouseResolver` to map the
-Shopify `location_id` to a `Warehouse` (auto-creating `SHOPIFY-<id>` if needed).
+Reservation consumption runs through `Inventory::ConsumeReservation`, which
+locks the FulfillmentLineItem, OrderLineItem, active reservation, and StockItem
+before re-checking idempotency and writing the `fulfilled` StockMovement.
 
 ---
 
@@ -254,3 +267,18 @@ also `pending → voided`, `authorized → voided`.
 
 Enforced by `Sales::OrderStateMachine` (authoritative) — direct `update` on
 the model is also allowed but bypasses side effects.
+
+---
+
+## 11. Idempotency And Locking
+
+| Flow | Idempotency key / guard | Locking |
+| ---- | ----------------------- | ------- |
+| Shopify webhook receipt | `webhook_events(source, external_id)` | DB unique index |
+| Sale journal | `sale-journal-<order_id>` | JournalEntry unique index |
+| Partial refund journal | `refund-partial-<refund_id>` | Locks order + refund before post |
+| Full refund reversal | `refund-reversal-<order_id>` | JournalEntry unique index |
+| COGS journal | `cogs-<fulfillment_id>` | JournalEntry unique index |
+| Fulfillment inventory consume | existing `StockMovement(reference, reason="fulfilled")` | Locks fulfillment line, order line, reservation, stock item |
+| Manual refund create | explicit idempotency_key or recent content hash | DB unique index where key present |
+| Stock transfer | paired StockMovement rows under a StockItem transaction | Locks source and destination stock items |

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_08_122000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_08_123000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -166,6 +166,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_08_122000) do
     t.jsonb "carrier_data", default: {}, null: false
     t.index ["delivered_at"], name: "index_fulfillments_on_delivered_at"
     t.index ["delivery_status"], name: "index_fulfillments_on_delivery_status"
+    t.index ["order_id", "created_at"], name: "idx_fulfillments_order_created_at_desc", order: { created_at: :desc }
     t.index ["order_id"], name: "index_fulfillments_on_order_id"
     t.index ["shipped_at"], name: "index_fulfillments_on_shipped_at"
     t.index ["shopify_fulfillment_id"], name: "index_fulfillments_on_shopify_fulfillment_id", unique: true, where: "(shopify_fulfillment_id IS NOT NULL)"
@@ -411,6 +412,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_08_122000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["purchase_order_id"], name: "idx_po_line_items_po"
+    t.index ["variant_id", "created_at"], name: "idx_po_line_items_variant_created_at_desc", order: { created_at: :desc }
     t.index ["variant_id"], name: "index_purchase_order_line_items_on_variant_id"
   end
 
@@ -475,6 +477,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_08_122000) do
     t.index ["content_hash"], name: "index_refunds_on_content_hash"
     t.index ["idempotency_key"], name: "index_refunds_on_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
     t.index ["kind"], name: "index_refunds_on_kind"
+    t.index ["order_id", "processed_at"], name: "idx_refunds_order_processed_at_desc", order: { processed_at: :desc }
     t.index ["order_id"], name: "index_refunds_on_order_id"
     t.index ["processed_at"], name: "index_refunds_on_processed_at"
     t.index ["shopify_refund_id"], name: "index_refunds_on_shopify_refund_id", unique: true, where: "(shopify_refund_id IS NOT NULL)"
