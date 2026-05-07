@@ -294,6 +294,7 @@ export default function NewProductPage() {
           sku: variant.sku.trim() || null,
           price: variant.price || "0.00",
           compare_at_price: variant.compare_at_price.trim() || null,
+          cost: variant.cost_per_item.trim() || null,
           cost_per_item: variant.cost_per_item.trim() || null,
           barcode: variant.barcode.trim() || null,
           option1: variant.option1 || null,

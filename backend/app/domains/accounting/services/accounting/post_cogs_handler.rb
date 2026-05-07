@@ -1,11 +1,11 @@
 module Accounting
   # Posts COGS journal for a fulfilled shipment.
   #
-  #   DR  5000  Cost of Goods Sold      (sum of cost_per_item * qty)
+  #   DR  5000  Cost of Goods Sold      (sum of variant cost * qty)
   #   CR  1200  Inventory               (same total)
   #
   # Idempotent per fulfillment (uses idempotency_key = "cogs-{fulfillment.id}").
-  # Skips if no variants have cost_per_item configured (total = 0).
+  # Skips if no variants have configured or historical cost (total = 0).
   class PostCogsHandler
     IDEMPOTENCY_PREFIX = "cogs".freeze
 
@@ -24,7 +24,8 @@ module Accounting
       return if JournalEntry.exists?(idempotency_key: idem_key)
 
       total = @fulfillment.fulfillment_line_items.sum do |fli|
-        cost = fli.order_line_item&.variant&.cost_per_item.to_d
+        variant = fli.order_line_item&.variant
+        cost = variant&.cost.presence || variant&.cost_per_item.presence || variant&.last_purchase_cost || 0
         cost * fli.quantity.to_i
       end
 

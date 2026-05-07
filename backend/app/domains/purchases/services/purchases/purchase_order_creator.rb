@@ -31,7 +31,7 @@ module Purchases
       items.each do |li|
         variant = li[:variant_id].present? ? Variant.find(li[:variant_id]) : nil
         qty     = li[:quantity_ordered].to_i
-        cost    = (li[:unit_cost] || variant&.price || 0).to_d
+        cost    = unit_cost_for(li, variant)
 
         po.line_items.build(
           variant:           variant,
@@ -49,6 +49,12 @@ module Purchases
     end
 
     private
+
+    def unit_cost_for(line_item_attrs, variant)
+      return line_item_attrs[:unit_cost].to_d if line_item_attrs[:unit_cost].present?
+
+      variant&.cost.presence || variant&.last_purchase_cost.presence || 0.to_d
+    end
 
     def compute_totals(po)
       subtotal = po.line_items.sum { |li| li.subtotal.to_d }

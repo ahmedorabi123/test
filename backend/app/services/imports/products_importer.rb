@@ -44,7 +44,7 @@ module Imports
       end
 
       _ = is_variant_continuation
-      [errors, warnings]
+      [ errors, warnings ]
     end
 
     def persist_row(row)
@@ -104,10 +104,11 @@ module Imports
       sku   = row["Variant SKU"].to_s.strip.presence
       price = row["Variant Price"].to_s.strip.presence
       if sku.present? || price.present?
-        variant_title = [row["Option1 Value"], row["Option2 Value"], row["Option3 Value"]]
+        variant_title = [ row["Option1 Value"], row["Option2 Value"], row["Option3 Value"] ]
                           .compact.map(&:to_s).map(&:strip).reject(&:blank?).join(" / ").presence || "Default"
         variant = product.variants.find_by(sku: sku) if sku.present?
         variant ||= product.variants.find_or_initialize_by(title: variant_title)
+        cost = row["Cost per item"].to_s.strip.presence || row["Variant Cost"].to_s.strip.presence
         variant.assign_attributes(
           sku:              sku,
           title:            variant_title,
@@ -125,7 +126,8 @@ module Imports
           requires_shipping: row["Variant Requires Shipping"].to_s.strip.casecmp("false").zero? ? false : true,
           taxable:           row["Variant Taxable"].to_s.strip.casecmp("false").zero? ? false : true,
           fulfillment_service: row["Variant Fulfillment Service"].to_s.strip.presence || "manual",
-          cost_per_item:    row["Cost per item"].to_s.strip.presence || row["Variant Cost"].to_s.strip.presence,
+          cost:             cost,
+          cost_per_item:    cost,
           hs_code:          row["Variant HS Code"].to_s.strip.presence || row["HS Code"].to_s.strip.presence,
           country_of_origin: row["Variant Country of Origin"].to_s.strip.presence || row["Country of Origin"].to_s.strip.presence
         )

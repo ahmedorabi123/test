@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_08_120000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_08_121000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -647,6 +647,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_08_120000) do
     t.string "hs_code"
     t.string "country_of_origin"
     t.decimal "cost_per_item", precision: 12, scale: 2
+    t.decimal "cost", precision: 12, scale: 2
+    t.decimal "last_purchase_cost", precision: 12, scale: 2
     t.index ["product_id"], name: "index_variants_on_product_id"
     t.index ["shopify_inventory_item_id"], name: "index_variants_on_shopify_inventory_item_id"
     t.index ["shopify_variant_id"], name: "index_variants_on_shopify_variant_id", unique: true, where: "(shopify_variant_id IS NOT NULL)"

@@ -76,6 +76,8 @@ export interface Variant {
   fulfillment_service?: string | null;
   hs_code?: string | null;
   country_of_origin?: string | null;
+  cost?: string | null;
+  last_purchase_cost?: string | null;
   cost_per_item?: string | null;
   stock_items?: StockItemLocation[];
 }

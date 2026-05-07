@@ -11,6 +11,21 @@ interface Line {
   sku: string;
   quantity_ordered: number;
   unit_cost: number;
+  cost_source: string;
+}
+
+function defaultUnitCost(variant: Variant) {
+  const configuredCost = Number(variant.cost ?? 0);
+  if (configuredCost > 0) {
+    return { value: configuredCost, source: "from variant cost" };
+  }
+
+  const lastPurchaseCost = Number(variant.last_purchase_cost ?? 0);
+  if (lastPurchaseCost > 0) {
+    return { value: lastPurchaseCost, source: "from last PO" };
+  }
+
+  return { value: 0, source: "manual" };
 }
 
 export default function NewPurchaseOrderPage() {
@@ -57,6 +72,7 @@ export default function NewPurchaseOrderPage() {
   const addLine = () => {
     const v = variants.find((x) => x.id === selectedVariant);
     if (!v) return;
+    const cost = defaultUnitCost(v);
     setLines((ls) => [
       ...ls,
       {
@@ -64,7 +80,8 @@ export default function NewPurchaseOrderPage() {
         title: `${v.product_title} – ${v.title}`,
         sku: v.sku || "",
         quantity_ordered: 1,
-        unit_cost: Number(v.price) * 0.6,
+        unit_cost: cost.value,
+        cost_source: cost.source,
       },
     ]);
     setSelectedVariant("");
@@ -234,13 +251,20 @@ export default function NewPurchaseOrderPage() {
                       setLines((ls) =>
                         ls.map((x, j) =>
                           j === i
-                            ? { ...x, unit_cost: Number(e.target.value) }
+                            ? {
+                                ...x,
+                                unit_cost: Number(e.target.value),
+                                cost_source: "manual",
+                              }
                             : x,
                         ),
                       )
                     }
                     className="w-24 border rounded px-1 py-0.5 text-right"
                   />
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    {l.cost_source}
+                  </div>
                 </td>
                 <td className="px-2 py-1 text-right">
                   {(l.quantity_ordered * l.unit_cost).toFixed(2)}

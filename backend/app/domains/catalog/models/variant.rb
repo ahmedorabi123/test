@@ -10,6 +10,8 @@ class Variant < ApplicationRecord
 
   validates :title, presence: true
   validates :price, numericality: { greater_than_or_equal_to: 0 }
+  validates :cost, :last_purchase_cost,
+            numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :sku, uniqueness: { case_sensitive: false }, allow_blank: true
   validates :inventory_policy, inclusion: { in: INVENTORY_POLICIES }, allow_blank: true
   validates :weight_unit,      inclusion: { in: WEIGHT_UNITS },      allow_blank: true
@@ -20,7 +22,7 @@ class Variant < ApplicationRecord
 
   # Convenience: return the option1/2/3 triple for display.
   def option_values
-    [option1, option2, option3].compact
+    [ option1, option2, option3 ].compact
   end
 
   private

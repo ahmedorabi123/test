@@ -52,6 +52,8 @@ class VariantSerializer
       title:             variant.title,
       price:             variant.price,
       compare_at_price:  variant.compare_at_price,
+      cost:              variant.cost,
+      last_purchase_cost: variant.last_purchase_cost,
       cost_per_item:     variant.cost_per_item,
       barcode:           variant.barcode,
       position:          variant.position,

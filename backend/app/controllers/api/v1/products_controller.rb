@@ -151,10 +151,10 @@ module Api
       def set_product
         @product = Product
           .includes(
-            :collections      => [],
-            :product_options => :product_option_values,
-            :product_images   => [],
-            :variants         => { stock_items: :warehouse }
+            collections: [],
+            product_options: :product_option_values,
+            product_images: [],
+            variants: { stock_items: :warehouse }
           )
           .find(params[:id])
       end
@@ -166,20 +166,20 @@ module Api
           :published_at, :published_scope, :gift_card,
           tags: [],
           collection_ids: [],
-          metafields: [:namespace, :key, :type, :value],
+          metafields: [ :namespace, :key, :type, :value ],
           variants_attributes: [
-            :id, :sku, :title, :price, :compare_at_price, :cost_per_item,
+            :id, :sku, :title, :price, :compare_at_price, :cost, :cost_per_item,
             :barcode, :position, :_destroy,
             :option1, :option2, :option3,
             :weight, :weight_unit,
             :inventory_policy, :inventory_management,
             :requires_shipping, :taxable, :fulfillment_service,
             :hs_code, :country_of_origin,
-            stock_items_attributes: [:id, :warehouse_id, :quantity_on_hand, :low_stock_threshold]
+            stock_items_attributes: [ :id, :warehouse_id, :quantity_on_hand, :low_stock_threshold ]
           ],
           product_options_attributes: [
             :id, :name, :position, :_destroy,
-            product_option_values_attributes: [:id, :value, :position, :_destroy]
+            product_option_values_attributes: [ :id, :value, :position, :_destroy ]
           ],
           product_images_attributes: [
             :id, :src, :alt, :position, :width, :height, :variant_id, :_destroy

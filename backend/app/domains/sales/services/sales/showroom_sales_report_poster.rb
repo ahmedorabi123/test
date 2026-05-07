@@ -111,7 +111,8 @@ module Sales
       ::Accounting::PostSaleJournalHandler.call(order)
 
       total_cogs = order.line_items.sum do |li|
-        cost = li.variant&.cost_per_item.to_d
+        variant = li.variant
+        cost = variant&.cost.presence || variant&.cost_per_item.presence || variant&.last_purchase_cost || 0
         cost * li.quantity.to_i
       end
       return if total_cogs <= 0

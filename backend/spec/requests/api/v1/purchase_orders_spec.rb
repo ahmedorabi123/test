@@ -39,13 +39,62 @@ RSpec.describe "Api::V1::PurchaseOrders", type: :request do
 
     post "/api/v1/purchase_orders/#{po_id}/receive",
       params: {
-        receipts: [{ line_item_id: li_id, quantity: 5 }]
+        receipts: [ { line_item_id: li_id, quantity: 5 } ]
       }.to_json,
       headers: auth_headers(admin).merge("Content-Type" => "application/json")
 
     expect(response).to have_http_status(:ok)
     expect(json_response[:data][:status]).to eq("received")
     expect(StockItem.find_by(variant: variant, warehouse: warehouse).quantity_on_hand).to eq(5)
+    expect(variant.reload.last_purchase_cost).to eq(4.to_d)
+  end
+
+  it "defaults line unit cost from variant cost when omitted" do
+    warehouse = create(:warehouse)
+    supplier  = create(:supplier)
+    variant   = create(:variant, cost: "7.25", last_purchase_cost: "5.00", price: "99.00")
+
+    post "/api/v1/purchase_orders",
+      params: {
+        purchase_order: {
+          supplier_id: supplier.id,
+          warehouse_id: warehouse.id,
+          currency: "USD",
+          line_items: [
+            { variant_id: variant.id, quantity_ordered: 3, title: "Item" }
+          ]
+        }
+      }.to_json,
+      headers: auth_headers(admin).merge("Content-Type" => "application/json")
+
+    expect(response).to have_http_status(:created)
+    line_item = json_response[:data][:line_items].first
+    expect(line_item[:unit_cost]).to eq("7.25")
+    expect(line_item[:subtotal]).to eq("21.75")
+  end
+
+  it "falls back to last purchase cost when variant cost is unset" do
+    warehouse = create(:warehouse)
+    supplier  = create(:supplier)
+    variant   = create(:variant, cost: nil, last_purchase_cost: "6.50", price: "99.00")
+
+    post "/api/v1/purchase_orders",
+      params: {
+        purchase_order: {
+          supplier_id: supplier.id,
+          warehouse_id: warehouse.id,
+          currency: "USD",
+          line_items: [
+            { variant_id: variant.id, quantity_ordered: 2, title: "Item" }
+          ]
+        }
+      }.to_json,
+      headers: auth_headers(admin).merge("Content-Type" => "application/json")
+
+    expect(response).to have_http_status(:created)
+    line_item = json_response[:data][:line_items].first
+    expect(line_item[:unit_cost]).to eq("6.5")
+    expect(line_item[:subtotal]).to eq("13.0")
   end
 
   it "lists POs" do

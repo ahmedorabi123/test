@@ -97,6 +97,7 @@ module Purchases
       )
 
       li.update!(quantity_received: li.quantity_received + qty)
+      Variant.where(id: li.variant_id).update_all(last_purchase_cost: li.unit_cost, updated_at: Time.current)
       {
         line_item_id: li.id,
         quantity: qty,
@@ -123,7 +124,7 @@ module Purchases
       subtotal = @po.line_items.sum { |li| li.unit_cost.to_d * li.quantity_ordered }.to_d if subtotal.zero?
       return 0.to_d if subtotal.zero?
 
-      [(goods_amount / subtotal), 1.to_d].min
+      [ (goods_amount / subtotal), 1.to_d ].min
     end
 
     def receipt_idempotency_key(receipt_values)

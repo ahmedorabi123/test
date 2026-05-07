@@ -104,7 +104,9 @@ function variantToJson(v: Variant): VariantDraft {
     sku: v.sku ?? "",
     price: String(v.price),
     compare_at_price: v.compare_at_price ? String(v.compare_at_price) : "",
-    cost_per_item: v.cost_per_item ? String(v.cost_per_item) : "",
+    cost_per_item: (v.cost_per_item ?? v.cost)
+      ? String(v.cost_per_item ?? v.cost)
+      : "",
     barcode: v.barcode ?? "",
     weight: v.weight ? String(v.weight) : "",
     weight_unit: (v.weight_unit ?? "kg") as VariantDraft["weight_unit"],
@@ -214,6 +216,7 @@ export default function ProductDetailPage() {
             title: v.title.trim(),
             price: v.price,
             compare_at_price: v.compare_at_price.trim() || null,
+            cost: v.cost_per_item.trim() || null,
             cost_per_item: v.cost_per_item.trim() || null,
             barcode: v.barcode.trim() || null,
             weight: v.weight.trim() || null,

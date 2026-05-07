@@ -90,12 +90,14 @@ module Catalog
         incoming.each_with_index do |v, idx|
           vh = v.with_indifferent_access
           variant = product.variants.find_or_initialize_by(shopify_variant_id: vh[:id].to_i)
+          cost = vh[:cost]&.to_d || vh.dig(:inventory_item, :cost)&.to_d
           variant.assign_attributes(
             title:            vh[:title].presence || "Default Title",
             sku:              vh[:sku].presence,
             price:            (vh[:price] || 0).to_d,
             compare_at_price: vh[:compare_at_price]&.to_d,
-            cost_per_item:    vh[:cost]&.to_d || vh.dig(:inventory_item, :cost)&.to_d,
+            cost:             cost,
+            cost_per_item:    cost,
             barcode:          vh[:barcode],
             position:         vh[:position].presence || (idx + 1),
             option1:          vh[:option1],
