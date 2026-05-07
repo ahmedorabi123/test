@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { collectionsApi } from "../api/collections";
 import {
   productsApi,
   type Product,
   type ProductMetafield,
   type Variant,
 } from "../api/products";
+import AsyncCombobox, {
+  type AsyncComboboxOption,
+} from "../components/AsyncCombobox";
 import { htmlToText } from "../lib/htmlText";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -80,9 +84,18 @@ type Draft = Pick<
   | "published_at"
   | "published_scope"
 > & {
+  collection_ids: string[];
   variants_draft: VariantDraft[];
   metafields_draft: ProductMetafield[];
 };
+
+function collectionOptions(product: Product): AsyncComboboxOption[] {
+  return (product.collections ?? []).map((collection) => ({
+    value: collection.id,
+    label: collection.title,
+    description: collection.handle ? `/${collection.handle}` : undefined,
+  }));
+}
 
 function variantToJson(v: Variant): VariantDraft {
   return {
@@ -119,6 +132,8 @@ function toDraft(p: Product): Draft {
     seo_description: p.seo_description ?? "",
     published_at: p.published_at ?? "",
     published_scope: p.published_scope ?? "web",
+    collection_ids:
+      p.collection_ids ?? (p.collections ?? []).map((collection) => collection.id),
     variants_draft: (p.variants ?? []).map(variantToJson),
     metafields_draft: [...(p.metafields ?? [])],
   };
@@ -135,6 +150,24 @@ export default function ProductDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState(0);
   const [tagInput, setTagInput] = useState("");
+  const [selectedCollections, setSelectedCollections] = useState<
+    AsyncComboboxOption[]
+  >([]);
+
+  const loadCollectionOptions = useCallback(async (query: string) => {
+    const rows = await collectionsApi.list({
+      kind: "custom",
+      per_page: 20,
+      search: query || undefined,
+      sort: "title",
+      dir: "asc",
+    });
+    return rows.data.map((collection) => ({
+      value: collection.id,
+      label: collection.title,
+      description: collection.handle ? `/${collection.handle}` : undefined,
+    }));
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -145,6 +178,7 @@ export default function ProductDetailPage() {
         setProduct(p);
         const d = toDraft(p);
         setDraft(d);
+        setSelectedCollections(collectionOptions(p));
         originalRef.current = JSON.stringify(d);
       })
       .catch((e) => setError((e as Error).message || "Failed to load"))
@@ -170,6 +204,7 @@ export default function ProductDetailPage() {
         seo_description: draft.seo_description || null,
         published_at: draft.published_at || null,
         published_scope: draft.published_scope,
+        collection_ids: draft.collection_ids,
         metafields: draft.metafields_draft.filter(
           (row) => row.namespace.trim() && row.key.trim(),
         ),
@@ -199,6 +234,7 @@ export default function ProductDetailPage() {
       setProduct(updated);
       const d = toDraft(updated);
       setDraft(d);
+      setSelectedCollections(collectionOptions(updated));
       originalRef.current = JSON.stringify(d);
     } catch (e) {
       setError((e as Error).message || "Save failed");
@@ -211,6 +247,7 @@ export default function ProductDetailPage() {
     if (!product) return;
     const d = toDraft(product);
     setDraft(d);
+    setSelectedCollections(collectionOptions(product));
     originalRef.current = JSON.stringify(d);
   }
 
@@ -932,21 +969,19 @@ export default function ProductDetailPage() {
             <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
               Collections
             </h2>
-            {product.collections && product.collections.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {product.collections.map((collection) => (
-                  <Link
-                    key={collection.id}
-                    to={`/collections/${collection.id}`}
-                    className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
-                  >
-                    {collection.title}
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <span className="text-sm text-slate-400">No collections</span>
-            )}
+            <AsyncCombobox
+              selected={selectedCollections}
+              loadOptions={loadCollectionOptions}
+              placeholder="Search custom collections..."
+              emptyMessage="No custom collections found"
+              onChange={(selected) => {
+                setSelectedCollections(selected);
+                setDraftField(
+                  "collection_ids",
+                  selected.map((option) => option.value),
+                );
+              }}
+            />
           </div>
 
           {/* Metafields */}
