@@ -10,20 +10,20 @@ module Importable
   extend ActiveSupport::Concern
 
   def import
-    csv_string = read_uploaded_file
-    return unless csv_string
+    file = uploaded_file
+    return unless file
 
-    result = importer_class.preview(csv_string)
+    result = importer_class.preview(file)
     render json: { data: result }
   rescue StandardError => e
     render_error(422, "unprocessable_entity", "Import preview failed: #{e.message}")
   end
 
   def import_commit
-    csv_string = read_uploaded_file
-    return unless csv_string
+    file = uploaded_file
+    return unless file
 
-    result = importer_class.commit(csv_string)
+    result = importer_class.commit(file)
     render json: { data: result }
   rescue StandardError => e
     render_error(422, "unprocessable_entity", "Import commit failed: #{e.message}")
@@ -31,14 +31,13 @@ module Importable
 
   private
 
-  def read_uploaded_file
+  def uploaded_file
     file = params[:file]
     unless file.respond_to?(:read)
       render_error(400, "bad_request", "Missing file upload (multipart field 'file')")
       return nil
     end
-    content = file.read
     file.rewind if file.respond_to?(:rewind)
-    content.force_encoding("UTF-8")
+    file
   end
 end

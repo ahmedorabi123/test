@@ -8,6 +8,12 @@ export interface ImportExportBarProps {
   resource: string;
   /** Extra query params to forward on export (filters, sort, etc). */
   exportParams?: Record<string, string | number | undefined>;
+  /** Extra query params to forward on import (e.g. mode=showroom). */
+  importParams?: Record<string, string | number | undefined>;
+  /** File picker accept attribute. Default: csv only. */
+  importAccept?: string;
+  /** Optional helper text inside the import modal. */
+  importHelpText?: string;
   /** Which formats to offer. Default: csv, json, xlsx. */
   formats?: ExportFormat[];
   /** Enable import UI. Default: true. */
@@ -48,6 +54,9 @@ function apiErrorDetail(err: unknown, fallback: string) {
 export default function ImportExportBar({
   resource,
   exportParams = {},
+  importParams = {},
+  importAccept = ".csv,text/csv",
+  importHelpText,
   formats = ["csv", "json", "xlsx"],
   allowImport = true,
   onImported,
@@ -89,7 +98,8 @@ export default function ImportExportBar({
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await api.post(`/${resource}/import`, form, {
+      const qs = importQueryString();
+      const res = await api.post(`/${resource}/import${qs}`, form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setPreview(res.data.data);
@@ -107,7 +117,8 @@ export default function ImportExportBar({
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await api.post(`/${resource}/import/commit`, form, {
+      const qs = importQueryString();
+      const res = await api.post(`/${resource}/import/commit${qs}`, form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       onImported?.(res.data.data);
@@ -119,6 +130,15 @@ export default function ImportExportBar({
     } finally {
       setBusy(false);
     }
+  }
+
+  function importQueryString() {
+    const qs = new URLSearchParams();
+    Object.entries(importParams).forEach(([k, v]) => {
+      if (v !== undefined && v !== "") qs.append(k, String(v));
+    });
+    const s = qs.toString();
+    return s ? `?${s}` : "";
   }
 
   return (
@@ -189,14 +209,13 @@ export default function ImportExportBar({
               {!preview && (
                 <div>
                   <p className="text-sm text-slate-600 mb-3">
-                    Upload a CSV file. Column headers should match the Shopify
-                    export format. The system will validate every row before
-                    committing.
+                    {importHelpText ??
+                      "Upload a CSV file. Column headers should match the Shopify export format. The system will validate every row before committing."}
                   </p>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,text/csv"
+                    accept={importAccept}
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                     className="block text-sm"
                   />

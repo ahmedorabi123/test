@@ -12,6 +12,7 @@ import DataTable, {
   type SortDir,
 } from "../components/table/DataTable";
 import ImportExportBar from "../components/table/ImportExportBar";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
@@ -63,6 +64,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(search);
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+  const [importMode, setImportMode] = useState<"shopify" | "showroom">("shopify");
 
   const setParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams);
@@ -70,6 +73,17 @@ export default function OrdersPage() {
     else sp.set(key, value);
     setSearchParams(sp, { replace: true });
   };
+
+  // Push debounced search into URL on change.
+  useEffect(() => {
+    if (debouncedSearch === search) return;
+    const sp = new URLSearchParams(searchParams);
+    if (debouncedSearch) sp.set("search", debouncedSearch);
+    else sp.delete("search");
+    sp.set("page", "1");
+    setSearchParams(sp, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -248,12 +262,6 @@ export default function OrdersPage() {
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                setParam("page", "1");
-                setParam("search", searchInput);
-              }
-            }}
             placeholder="Search #, email, name…"
             className="w-64 border border-slate-300 rounded-lg px-3 py-2 text-sm"
           />
@@ -287,7 +295,15 @@ export default function OrdersPage() {
           </select>
           <ImportExportBar
             resource="orders"
-            allowImport={false}
+            allowImport={true}
+            importParams={{ mode: importMode }}
+            importAccept=".csv,text/csv,.xlsx,.xls"
+            importHelpText={
+              importMode === "showroom"
+                ? "Showroom sales CSV/XLSX. Required headers: Order #, SKU, Quantity, Price. Optional: Customer Email, Customer Name, Warehouse Code, Notes. Each unique 'Order #' becomes one EGP-priced, paid showroom order via the standard manual order pipeline (reservations + accounting included)."
+                : "Shopify orders CSV/XLSX. Column headers should match the Shopify export format. The system will validate every row before committing."
+            }
+            onImported={() => load()}
             exportParams={{
               search: search || undefined,
               status: status || undefined,
@@ -297,6 +313,17 @@ export default function OrdersPage() {
               dir: sortDir,
             }}
           />
+          <select
+            value={importMode}
+            onChange={(e) =>
+              setImportMode(e.target.value as "shopify" | "showroom")
+            }
+            title="Import mode"
+            className="border border-slate-300 rounded-lg px-2 py-2 text-xs"
+          >
+            <option value="shopify">Import as: Shopify export</option>
+            <option value="showroom">Import as: Showroom sales</option>
+          </select>
           <Link
             to="/orders/new"
             className="inline-flex items-center gap-1 bg-indigo-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-indigo-700"

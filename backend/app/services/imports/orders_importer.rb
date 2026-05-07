@@ -22,8 +22,8 @@ module Imports
       [errors, []]
     end
 
-    def self.commit(csv_string)
-      rows, parse_error = parse(csv_string)
+    def self.commit(input)
+      rows, parse_error = parse(input)
       raise ArgumentError, parse_error if parse_error
 
       created = 0
