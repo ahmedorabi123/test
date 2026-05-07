@@ -42,10 +42,16 @@ module Sortable
     req_dir = params[:dir].to_s.downcase == "desc" ? :desc : :asc
 
     if keys.include?(req_key)
-      table_name = scope.respond_to?(:table_name) ? scope.table_name : scope.klass.table_name
+      klass = scope.klass
+      table_name = klass.table_name
       effective_key = sort_alias(table_name, req_key)
-      qualified  = "#{table_name}.#{effective_key}"
-      scope.order(Arel.sql("#{qualified} #{req_dir.to_s.upcase} NULLS LAST, #{table_name}.id #{req_dir.to_s.upcase}"))
+      return scope unless klass.column_names.include?(effective_key)
+
+      table = klass.arel_table
+      primary_key = klass.primary_key || "id"
+      column_order = req_dir == :desc ? table[effective_key].desc : table[effective_key].asc
+      id_order = req_dir == :desc ? table[primary_key].desc : table[primary_key].asc
+      scope.order(column_order.nulls_last, id_order)
     elsif default.is_a?(Hash)
       scope.order(default)
     else
