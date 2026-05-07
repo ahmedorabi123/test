@@ -58,4 +58,35 @@ RSpec.describe Inventory::TransferStock do
       )
     }.to raise_error(ArgumentError, /positive/)
   end
+
+  it "honours reserved stock and refuses to transfer beyond available" do
+    si = StockItem.find_by(variant: variant, warehouse: from_wh)
+    si.update!(quantity_reserved: 8)  # available = 10 - 8 = 2
+
+    expect {
+      described_class.call(
+        variant: variant, from_warehouse: from_wh, to_warehouse: to_wh, quantity: 5
+      )
+    }.to raise_error(described_class::InsufficientStock, /only 2 available/)
+
+    # Source state unchanged on failure.
+    si.reload
+    expect(si.quantity_on_hand).to eq(10)
+    expect(si.quantity_reserved).to eq(8)
+    expect(StockMovement.count).to eq(0)
+  end
+
+  it "permits transfers up to the available amount when stock is partly reserved" do
+    si = StockItem.find_by(variant: variant, warehouse: from_wh)
+    si.update!(quantity_reserved: 6)  # available = 4
+
+    described_class.call(
+      variant: variant, from_warehouse: from_wh, to_warehouse: to_wh, quantity: 4
+    )
+
+    si.reload
+    expect(si.quantity_on_hand).to eq(6)
+    expect(si.quantity_reserved).to eq(6) # reservations untouched
+    expect(StockItem.find_by(variant: variant, warehouse: to_wh).quantity_on_hand).to eq(4)
+  end
 end

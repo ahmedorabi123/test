@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_07_102000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_07_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -235,7 +235,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_07_102000) do
     t.string "status", default: "pending", null: false
     t.string "financial_status", default: "pending", null: false
     t.string "fulfillment_status"
-    t.string "currency", default: "USD", null: false
+    t.string "currency", default: "EGP", null: false
     t.decimal "subtotal_price", precision: 12, scale: 2, default: "0.0", null: false
     t.decimal "total_tax", precision: 12, scale: 2, default: "0.0", null: false
     t.decimal "total_shipping", precision: 12, scale: 2, default: "0.0", null: false
@@ -417,7 +417,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_07_102000) do
     t.uuid "supplier_id", null: false
     t.uuid "warehouse_id"
     t.string "status", default: "draft", null: false
-    t.string "currency", default: "USD", null: false
+    t.string "currency", default: "EGP", null: false
     t.decimal "subtotal", precision: 14, scale: 2, default: "0.0", null: false
     t.decimal "total_tax", precision: 14, scale: 2, default: "0.0", null: false
     t.decimal "total_shipping", precision: 14, scale: 2, default: "0.0", null: false
@@ -456,7 +456,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_07_102000) do
     t.uuid "order_id", null: false
     t.bigint "shopify_refund_id"
     t.decimal "amount", precision: 14, scale: 2, default: "0.0", null: false
-    t.string "currency", default: "USD", null: false
+    t.string "currency", default: "EGP", null: false
     t.string "reason"
     t.text "note"
     t.boolean "restock", default: false, null: false
@@ -571,7 +571,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_07_102000) do
     t.string "phone"
     t.jsonb "address", default: {}, null: false
     t.string "tax_id"
-    t.string "currency", default: "USD", null: false
+    t.string "currency", default: "EGP", null: false
     t.jsonb "payment_terms", default: {}, null: false
     t.string "status", default: "active", null: false
     t.text "notes"
@@ -664,7 +664,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_07_102000) do
     t.string "partner_email"
     t.string "partner_phone"
     t.decimal "commission_rate", precision: 5, scale: 4
-    t.string "currency", limit: 3
+    t.string "currency", limit: 3, default: "EGP"
     t.text "notes"
     t.index ["code"], name: "index_warehouses_on_code", unique: true
     t.index ["shopify_location_id"], name: "index_warehouses_on_shopify_location_id", unique: true, where: "(shopify_location_id IS NOT NULL)"

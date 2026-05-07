@@ -87,4 +87,19 @@ RSpec.describe Sales::ManualRefundCreator do
       expect(StockMovement.where(reason: "refund_restock").count).to eq(1)
     end
   end
+
+  context "accounting failures surface (no silent rescue)" do
+    it "raises and rolls back when the partial-refund journal handler fails" do
+      allow(::Accounting::PartialRefundJournalHandler).to receive(:call)
+        .and_raise(StandardError, "missing CoA account 4000")
+
+      expect {
+        described_class.call(order_id: order.id, amount: "20.00")
+      }.to raise_error(StandardError, /missing CoA/)
+
+      # Refund row was not persisted because we raised inside the transaction.
+      expect(Refund.count).to eq(0)
+      expect(order.reload.financial_status).to eq("paid")
+    end
+  end
 end

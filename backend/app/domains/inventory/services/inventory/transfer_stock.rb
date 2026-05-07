@@ -26,14 +26,21 @@ class Inventory::TransferStock
     raise ArgumentError, "warehouses must differ" if @from_warehouse.id == @to_warehouse.id
 
     StockItem.transaction do
-      from_si = StockItem.find_by!(variant: @variant, warehouse: @from_warehouse)
+      from_si = StockItem.lock.find_by!(variant: @variant, warehouse: @from_warehouse)
       to_si   = StockItem.find_or_create_by!(variant: @variant, warehouse: @to_warehouse) do |si|
         si.quantity_on_hand = 0
       end
+      to_si.lock!
 
-      if from_si.quantity_on_hand < @quantity
+      # Honour reservations: only transfer what is actually available
+      # (on_hand - reserved - unavailable). This prevents transfers from
+      # cannibalising stock already promised to pending/processing orders.
+      available = from_si.available
+      if available < @quantity
         raise InsufficientStock,
-              "Cannot transfer #{@quantity}: only #{from_si.quantity_on_hand} on hand at #{@from_warehouse.code}"
+              "Cannot transfer #{@quantity}: only #{available} available at #{@from_warehouse.code} " \
+              "(on_hand=#{from_si.quantity_on_hand}, reserved=#{from_si.quantity_reserved}, " \
+              "unavailable=#{from_si.quantity_unavailable})"
       end
 
       Inventory::WriteMovement.call(

@@ -151,8 +151,6 @@ module Sales
 
     def post_journal(refund)
       ::Accounting::PartialRefundJournalHandler.call(refund)
-    rescue StandardError => e
-      Rails.logger.warn "[ManualRefundCreator] journal failure for refund=#{refund.id}: #{e.message}"
     end
 
     def flag_order_status(order)
