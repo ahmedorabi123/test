@@ -25,7 +25,10 @@ module Accounting
     end
 
     def call
-      return if @order.financial_status != "paid"
+      # Accept paid, partially_refunded, and refunded — all represent orders where
+      # a sale occurred. For refunded orders the sale journal is subsequently reversed
+      # by RefundReversalHandler. Idempotency key prevents double-posting.
+      return unless %w[paid partially_refunded refunded].include?(@order.financial_status)
 
       idem_key = "#{IDEMPOTENCY_PREFIX}-#{@order.id}"
       return if JournalEntry.exists?(idempotency_key: idem_key)

@@ -5,6 +5,8 @@ module Api
       include Exportable
 
       sortable_by "created_at", "updated_at", "status", "tracking_company",
+          "tracking_number", "delivery_status", "shipped_at", "delivered_at",
+          "order_number", "customer_name",
                   default: { created_at: :desc }
 
       # GET /api/v1/fulfillments?order_id=&carrier=&status=&page=&per_page=&sort=&dir=
@@ -27,9 +29,23 @@ module Api
       end
 
       def show
-        fulfillment = Fulfillment.find(params[:id])
+        fulfillment = Fulfillment.includes(:shipment_events, :fulfillment_line_items, order: :customer).find(params[:id])
         authorize fulfillment
         render json: { data: FulfillmentSerializer.call(fulfillment) }
+      end
+
+      def events
+        fulfillment = Fulfillment.find(params[:id])
+        authorize fulfillment, :show?
+        render json: { data: fulfillment.shipment_events.order(created_at: :asc).map { |event| ShipmentEventSerializer.call(event) } }
+      end
+
+      def annotation
+        fulfillment = Fulfillment.find(params[:id])
+        authorize fulfillment, :update?
+        fulfillment.update!(annotation_params)
+        Shipping::RecordShipmentEvent.call(fulfillment, kind: "annotation_updated", payload: annotation_params.to_h, actor: current_user)
+        render json: { data: FulfillmentSerializer.call(fulfillment.reload) }
       end
 
       # POST /api/v1/fulfillments
@@ -63,19 +79,58 @@ module Api
       # POST /api/v1/fulfillments/bulk (no-op stub; reserved for future)
       def bulk
         authorize Fulfillment, :index?
-        render_error(400, "bad_request", "No bulk actions supported for fulfillments")
+        ids = Array(params[:ids])
+        tag = params.dig(:payload, :tag).to_s.strip
+        return render_error(400, "bad_request", "Only add_tag is supported") unless params[:action_type].to_s == "add_tag" && tag.present?
+
+        count = 0
+        Fulfillment.where(id: ids).find_each do |fulfillment|
+          fulfillment.update!(tags: (Array(fulfillment.tags) + [tag]).uniq)
+          count += 1
+        end
+        render json: { data: { action: "add_tag", affected: count } }
       end
 
       private
 
       def filtered_scope
-        scope = policy_scope(Fulfillment).includes(:order)
+        scope = policy_scope(Fulfillment).includes(order: :customer)
         scope = scope.where(order_id: params[:order_id]) if params[:order_id].present?
         scope = scope.where(status:   params[:status])   if params[:status].present?
+        scope = scope.where(delivery_status: params[:delivery_status]) if params[:delivery_status].present?
+        scope = scope.where("fulfillments.created_at >= ?", Time.zone.parse(params[:from])) if params[:from].present?
+        scope = scope.where("fulfillments.created_at <= ?", Time.zone.parse(params[:to])) if params[:to].present?
         if params[:carrier].present?
           scope = scope.where("LOWER(tracking_company) = ?", params[:carrier].to_s.downcase)
         end
+        case params[:source].to_s
+        when "shopify"
+          scope = scope.where.not(shopify_fulfillment_id: nil)
+        when "manual"
+          scope = scope.where(shopify_fulfillment_id: nil)
+        when "bosta"
+          scope = scope.where("LOWER(tracking_company) = ? OR service = ?", "bosta", "bosta")
+        end
+        if params[:search].present?
+          q = "%#{params[:search]}%"
+          scope = scope.left_joins(:order).where(
+            "fulfillments.tracking_number ILIKE :q OR fulfillments.tracking_company ILIKE :q OR orders.order_number ILIKE :q OR orders.external_number ILIKE :q OR orders.customer_email ILIKE :q OR orders.customer_name ILIKE :q",
+            q: q
+          )
+        end
         scope
+      end
+
+      def apply_sort(scope)
+        dir = params[:dir].to_s.downcase == "desc" ? "DESC" : "ASC"
+        case params[:sort].to_s
+        when "order_number"
+          scope.left_joins(:order).order(Arel.sql("orders.order_number #{dir} NULLS LAST, fulfillments.id #{dir}"))
+        when "customer_name"
+          scope.left_joins(:order).order(Arel.sql("orders.customer_name #{dir} NULLS LAST, fulfillments.id #{dir}"))
+        else
+          super
+        end
       end
 
       def export_scope
@@ -94,6 +149,10 @@ module Api
           "Delivered At"     => :delivered_at,
           "Created At"       => :created_at
         }
+      end
+
+      def annotation_params
+        params.require(:fulfillment).permit(:notes, tags: [])
       end
 
       def create_params

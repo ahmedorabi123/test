@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { productsApi, type Product } from "../api/products";
-import ProductFormModal from "../components/products/ProductFormModal";
 import DataTable, {
   type BulkAction,
   type Column,
@@ -33,8 +32,6 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(search);
-
-  const [modal, setModal] = useState<"new" | string | null>(null);
 
   const setParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams);
@@ -116,89 +113,40 @@ export default function ProductsPage() {
       {
         id: "inventory",
         header: "Inventory",
+        sortKey: "inventory_total",
         render: (p) => (
           <span className="text-xs text-slate-600">
+            {p.inventory_total ?? 0} in stock
+            {" · "}
             {p.variants_count ?? 0} variant
             {(p.variants_count ?? 0) === 1 ? "" : "s"}
           </span>
         ),
       },
       {
-        id: "type",
-        header: "Type",
-        render: (p) => (
-          <span className="text-xs text-slate-600">
-            {p.product_type || "—"}
-          </span>
-        ),
-      },
-      {
-        id: "vendor",
-        header: "Vendor",
-        sortKey: "vendor",
-        render: (p) => (
-          <span className="text-xs text-slate-600">{p.vendor || "—"}</span>
-        ),
-      },
-      {
-        id: "tags",
-        header: "Tags",
-        render: (p) =>
-          p.tags && p.tags.length > 0 ? (
-            <div className="flex flex-wrap gap-1 max-w-[200px]">
-              {p.tags.slice(0, 2).map((t) => (
-                <span
-                  key={t}
-                  className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
-                >
-                  {t}
-                </span>
-              ))}
-              {p.tags.length > 2 && (
-                <span className="text-xs text-slate-500">
-                  +{p.tags.length - 2}
-                </span>
-              )}
-            </div>
-          ) : (
-            <span className="text-xs text-slate-400">—</span>
-          ),
-      },
-      {
         id: "source",
         header: "Source",
-        render: (p) =>
-          p.shopify_product_id ? (
-            <span className="inline-flex items-center rounded-md bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20 px-2 py-0.5 text-xs font-medium">
-              Shopify
-            </span>
-          ) : (
-            <span className="text-slate-400 text-xs">Local</span>
-          ),
-      },
-      {
-        id: "updated",
-        header: "Updated",
-        sortKey: "updated_at",
+        sortKey: "source",
         render: (p) => (
-          <span className="text-xs text-slate-600">
-            {new Date(p.updated_at).toLocaleDateString()}
+          <span
+            className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+              p.source === "shopify"
+                ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+                : "bg-slate-100 text-slate-600 ring-slate-500/20"
+            }`}
+          >
+            {p.source === "shopify" ? "Shopify" : "Manual"}
           </span>
         ),
       },
       {
-        id: "actions",
-        header: "",
+        id: "category",
+        header: "Category",
+        sortKey: "product_type",
         render: (p) => (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setModal(p.id);
-            }}
-            className="rounded-md bg-white border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition"
-          >
-            Edit
-          </button>
+          <span className="text-xs text-slate-600">
+            {p.primary_category || p.product_type || "—"}
+          </span>
         ),
       },
     ],
@@ -292,25 +240,14 @@ export default function ProductsPage() {
             }}
             onImported={() => load()}
           />
-          <button
+          <Link
+            to="/products/new"
             className="inline-flex items-center gap-1 bg-indigo-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-indigo-700"
-            onClick={() => setModal("new")}
           >
             + New product
-          </button>
+          </Link>
         </div>
       </div>
-
-      {modal !== null && (
-        <ProductFormModal
-          productId={modal === "new" ? undefined : modal}
-          onClose={() => setModal(null)}
-          onSaved={() => {
-            setModal(null);
-            load();
-          }}
-        />
-      )}
 
       <DataTable<Product>
         rows={rows}
@@ -327,8 +264,16 @@ export default function ProductsPage() {
         }}
         sort={{ key: sortKey, dir: sortDir }}
         onSortChange={(s) => {
-          setParam("sort", s?.key ?? null);
-          setParam("dir", s?.dir ?? null);
+          const sp = new URLSearchParams(searchParams);
+          if (s) {
+            sp.set("sort", s.key);
+            sp.set("dir", s.dir);
+          } else {
+            sp.delete("sort");
+            sp.delete("dir");
+          }
+          sp.set("page", "1");
+          setSearchParams(sp, { replace: true });
         }}
         selectable
         bulkActions={bulkActions}

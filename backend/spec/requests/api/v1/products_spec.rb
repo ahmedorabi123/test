@@ -173,4 +173,55 @@ RSpec.describe "Api::V1::Products", type: :request do
       expect(JSON.parse(response.body)["data"].size).to eq(1)
     end
   end
+
+  describe "GET /api/v1/products with collection_id filter" do
+    it "returns only products in the given collection" do
+      collection = create(:collection)
+      p1 = create(:product)
+      p2 = create(:product)
+      collection.products << p1
+      get "/api/v1/products", params: { collection_id: collection.id }, headers: auth_headers(admin)
+      expect(response).to have_http_status(:ok)
+      ids = JSON.parse(response.body)["data"].map { |d| d["id"] }
+      expect(ids).to include(p1.id)
+      expect(ids).not_to include(p2.id)
+    end
+  end
+
+  describe "product serializer inventory fields" do
+    it "includes inventory_total and variants_count" do
+      product = create(:product, :with_variant)
+      get "/api/v1/products/#{product.id}", headers: auth_headers(admin)
+      body = JSON.parse(response.body)["data"]
+      expect(body).to have_key("inventory_total")
+      expect(body).to have_key("variants_count")
+    end
+  end
+
+  describe "DELETE /api/v1/products/:id soft-archive when referenced" do
+    it "archives instead of deleting when variant is referenced by an order line item" do
+      product = create(:product, :with_variant)
+      variant = product.variants.first
+      order   = create(:order)
+      order.line_items.create!(
+        variant: variant,
+        title:    product.title,
+        quantity: 1,
+        price:    "10.00"
+      )
+
+      delete "/api/v1/products/#{product.id}", headers: auth_headers(admin)
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["meta"]["archived"]).to be true
+      expect(product.reload.status).to eq("archived")
+    end
+
+    it "hard-deletes when no references exist" do
+      product = create(:product, :with_variant)
+      delete "/api/v1/products/#{product.id}", headers: auth_headers(admin)
+      expect(response).to have_http_status(:no_content)
+      expect(Product.find_by(id: product.id)).to be_nil
+    end
+  end
 end

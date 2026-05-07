@@ -30,6 +30,7 @@ module Shipping
           fulfillment = ::Fulfillment.find_or_initialize_by(shopify_fulfillment_id: shopify_id)
           was_new        = fulfillment.new_record?
           was_successful = !was_new && fulfillment.status == "success"
+          previous_status = fulfillment.status
 
           fulfillment.assign_attributes(
             order:              order,
@@ -46,18 +47,13 @@ module Shipping
           )
           fulfillment.save!
           sync_line_items(fulfillment)
+          record_event(fulfillment, was_new: was_new, previous_status: previous_status)
 
-          # Only deduct inventory the first time this fulfillment becomes successful.
+          # Only consume inventory the first time this fulfillment becomes successful.
           if fulfillment.status == "success" && (was_new || !was_successful)
-            deduct_inventory(fulfillment)
+            consume_inventory(fulfillment)
             post_cogs_journal(fulfillment)
           end
-
-          # Keep the order fulfillment_status in sync (doesn't alter financial state).
-          order.update!(
-            fulfillment_status: "fulfilled",
-            status:             order.status == "pending" ? "fulfilled" : order.status
-          ) if fulfillment.status == "success" && order.fulfillment_status != "fulfilled"
 
           fulfillment
         end
@@ -101,7 +97,7 @@ module Shipping
         fulfillment.fulfillment_line_items.where.not(id: keep_ids).destroy_all if incoming.any?
       end
 
-      def deduct_inventory(fulfillment)
+      def consume_inventory(fulfillment)
         fallback_wh = ::Inventory::WarehouseResolver.primary
         warehouse   = ::Inventory::WarehouseResolver.for_shopify_location(
           fulfillment.location_id, fallback: fallback_wh
@@ -110,20 +106,30 @@ module Shipping
         return unless warehouse
 
         fulfillment.fulfillment_line_items.each do |fli|
-          variant = fli.order_line_item&.variant
-          next unless variant
-
-          stock_item = ::StockItem.find_or_create_by!(variant: variant, warehouse: warehouse) do |si|
-            si.quantity_on_hand = 0
-          end
-
-          ::Inventory::WriteMovement.call(
-            stock_item: stock_item,
-            delta:      -fli.quantity,
-            reason:     "fulfilled",
-            reference:  fulfillment
-          )
+          ::Inventory::ConsumeReservation.call(fli, warehouse: warehouse)
         end
+      end
+
+      def record_event(fulfillment, was_new:, previous_status:)
+        kind = was_new ? "created" : "updated"
+        if previous_status.present? && previous_status != fulfillment.status
+          kind = "status_changed"
+        elsif fulfillment.delivered_at.present?
+          kind = "delivered"
+        end
+
+        ::Shipping::RecordShipmentEvent.call(
+          fulfillment,
+          kind: kind,
+          payload: {
+            status: fulfillment.status,
+            previous_status: previous_status,
+            delivery_status: fulfillment.delivery_status,
+            tracking_number: fulfillment.tracking_number,
+            shopify_updated_at: fulfillment.shopify_updated_at
+          },
+          dedupe_key: "shopify-fulfillment:#{fulfillment.shopify_fulfillment_id}:#{kind}:#{fulfillment.shopify_updated_at || Time.current.to_f}"
+        )
       end
 
       def post_cogs_journal(fulfillment)

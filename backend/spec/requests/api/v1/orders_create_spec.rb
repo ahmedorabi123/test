@@ -4,6 +4,11 @@ RSpec.describe "Api::V1::Orders POST (manual order)", type: :request do
   let(:admin) { create(:user, :admin) }
   let(:product) { create(:product) }
   let(:variant) { create(:variant, product: product, price: "25.00") }
+  let(:warehouse) { create(:warehouse) }
+
+  before do
+    create(:stock_item, variant: variant, warehouse: warehouse, quantity_on_hand: 10)
+  end
 
   it "creates a manual order with line items" do
     expect {
@@ -13,6 +18,7 @@ RSpec.describe "Api::V1::Orders POST (manual order)", type: :request do
             source: "manual",
             customer_email: "walkin@x.com",
             customer_name: "Walk-in",
+            warehouse_id: warehouse.id,
             line_items: [
               { variant_id: variant.id, title: "Item", quantity: 2, price: "25.00" }
             ]
@@ -34,6 +40,7 @@ RSpec.describe "Api::V1::Orders POST (manual order)", type: :request do
         order: {
           source: "showroom",
           mark_paid: true,
+          warehouse_id: warehouse.id,
           line_items: [
             { variant_id: variant.id, quantity: 1, price: "99.99" }
           ]

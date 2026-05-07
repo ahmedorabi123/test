@@ -4,7 +4,9 @@ module Api
       include Sortable
       include Exportable
 
-      sortable_by "quantity_on_hand", "low_stock_threshold", "updated_at", "created_at",
+      sortable_by "quantity_on_hand", "quantity_reserved", "quantity_unavailable",
+                  "low_stock_threshold", "updated_at", "created_at",
+                  "product_title", "variant_sku", "warehouse_name", "available",
                   default: { updated_at: :desc }
 
       before_action :set_stock_item, only: %i[show update destroy]
@@ -33,6 +35,26 @@ module Api
         render json: { data: StockItemSerializer.call(@stock_item) }
       end
 
+      def apply_sort(scope)
+        dir = params[:dir].to_s.downcase == "desc" ? "DESC" : "ASC"
+
+        case params[:sort].to_s
+        when "product_title"
+          scope.left_joins(variant: :product)
+               .order(Arel.sql("products.title #{dir} NULLS LAST, variants.title #{dir} NULLS LAST, stock_items.id #{dir}"))
+        when "variant_sku"
+          scope.left_joins(:variant)
+               .order(Arel.sql("variants.sku #{dir} NULLS LAST, variants.title #{dir} NULLS LAST, stock_items.id #{dir}"))
+        when "warehouse_name"
+          scope.left_joins(:warehouse)
+               .order(Arel.sql("warehouses.name #{dir} NULLS LAST, stock_items.id #{dir}"))
+        when "available"
+          scope.order(Arel.sql("(stock_items.quantity_on_hand - stock_items.quantity_reserved - stock_items.quantity_unavailable) #{dir}, stock_items.id #{dir}"))
+        else
+          super
+        end
+      end
+
       # POST /api/v1/stock_items — initial stock creation.
       def create
         authorize StockItem
@@ -42,10 +64,8 @@ module Api
         threshold = Integer(params[:low_stock_threshold].presence || 0)
 
         si = StockItem.find_or_initialize_by(variant: variant, warehouse: warehouse)
-        if si.persisted?
-          return render_error(422, "unprocessable_entity", "Stock item already exists for this variant and warehouse")
-        end
-        si.quantity_on_hand    = 0
+        new_record = si.new_record?
+        si.quantity_on_hand ||= 0
         si.low_stock_threshold = threshold
         si.save!
 
@@ -53,7 +73,8 @@ module Api
           Inventory::WriteMovement.call(
             stock_item: si,
             delta:      qty,
-            reason:     "initial_stock"
+            reason:     new_record ? "initial_stock" : "adjusted",
+            note:       new_record ? "Initial stock" : "Manual stock addition"
           )
         end
 
@@ -67,9 +88,27 @@ module Api
         authorize @stock_item
         attrs  = stock_item_params
         before = @stock_item.quantity_on_hand
+        before_unavailable = @stock_item.quantity_unavailable
+        before_reason = @stock_item.unavailability_reason
 
         if attrs[:low_stock_threshold].present?
           @stock_item.update!(low_stock_threshold: Integer(attrs[:low_stock_threshold]))
+        end
+
+        if attrs.key?(:quantity_unavailable)
+          @stock_item.update!(
+            quantity_unavailable:  Integer(attrs[:quantity_unavailable]),
+            unavailability_reason: attrs[:unavailability_reason].presence
+          )
+
+          if @stock_item.quantity_unavailable != before_unavailable || @stock_item.unavailability_reason != before_reason
+            Inventory::WriteMovement.call(
+              stock_item: @stock_item,
+              delta: 0,
+              reason: "adjusted",
+              note: "Unavailable changed from #{before_unavailable} to #{@stock_item.quantity_unavailable}: #{@stock_item.unavailability_reason.presence || 'no reason'}"
+            )
+          end
         end
 
         if attrs[:quantity_on_hand].present?
@@ -79,7 +118,8 @@ module Api
             Inventory::WriteMovement.call(
               stock_item: @stock_item,
               delta:      delta,
-              reason:     "adjusted"
+              reason:     "adjusted",
+              note:       "Manual on-hand adjustment"
             )
           end
         end
@@ -91,6 +131,8 @@ module Api
         authorize @stock_item
         @stock_item.destroy!
         head :no_content
+      rescue ActiveRecord::RecordNotDestroyed, ActiveRecord::DeleteRestrictionError => e
+        render json: { error: { status: 400, detail: e.message } }, status: :bad_request
       end
 
       # POST /api/v1/stock_items/bulk  (set_threshold/delete)
@@ -117,10 +159,16 @@ module Api
       private
 
       def filtered_scope
-        scope = policy_scope(StockItem).includes(:variant, :warehouse)
+        scope = policy_scope(StockItem).includes(:warehouse, variant: :product)
+        if params[:search].present?
+          q = "%#{params[:search]}%"
+          scope = scope.joins(variant: :product)
+                       .where("variants.sku ILIKE :q OR products.title ILIKE :q OR variants.title ILIKE :q", q: q)
+        end
         scope = scope.where(warehouse_id: params[:warehouse_id]) if params[:warehouse_id].present?
         scope = scope.where(variant_id: params[:variant_id])     if params[:variant_id].present?
         scope = scope.low_stock                                   if params[:low_stock] == "true"
+        scope = scope.where("stock_items.quantity_unavailable > 0") if params[:has_unavailable] == "true"
         scope
       end
 
@@ -129,7 +177,8 @@ module Api
       end
 
       def stock_item_params
-        params.require(:stock_item).permit(:quantity_on_hand, :low_stock_threshold)
+        params.require(:stock_item).permit(:quantity_on_hand, :low_stock_threshold,
+                                           :quantity_unavailable, :unavailability_reason)
       end
 
       def export_scope
@@ -144,65 +193,12 @@ module Api
           "Product"       => ->(si) { si.variant&.product&.title },
           "Warehouse"     => ->(si) { si.warehouse&.name },
           "On Hand"       => :quantity_on_hand,
-          "Committed"     => :quantity_committed,
-          "Available"     => ->(si) { si.quantity_on_hand.to_i - si.quantity_committed.to_i },
+          "Reserved"      => :quantity_reserved,
+          "Unavailable"   => :quantity_unavailable,
+          "Available"     => ->(si) { si.available },
           "Low Threshold" => :low_stock_threshold,
           "Updated At"    => :updated_at
         }
-      end
-    end
-  end
-end
-module Api
-  module V1
-    class StockItemsController < ApplicationController
-      before_action :set_stock_item, only: %i[show update]
-
-      # GET /api/v1/stock_items?warehouse_id=&variant_id=&low_stock=true
-      def index
-        authorize StockItem
-        scope = policy_scope(StockItem).includes(:variant, :warehouse)
-        scope = scope.where(warehouse_id: params[:warehouse_id]) if params[:warehouse_id].present?
-        scope = scope.where(variant_id: params[:variant_id])     if params[:variant_id].present?
-        scope = scope.low_stock                                   if params[:low_stock] == "true"
-
-        render json: { data: scope.map { |si| StockItemSerializer.call(si) } }
-      end
-
-      # GET /api/v1/stock_items/:id
-      def show
-        authorize @stock_item
-        render json: { data: StockItemSerializer.call(@stock_item) }
-      end
-
-      # PATCH /api/v1/stock_items/:id (manual adjustment)
-      def update
-        authorize @stock_item
-        before = @stock_item.quantity_on_hand
-        @stock_item.update!(quantity_on_hand: Integer(stock_item_params[:quantity_on_hand]))
-        delta = @stock_item.quantity_on_hand - before
-
-        if delta != 0
-          StockMovement.create!(
-            stock_item:      @stock_item,
-            delta:           delta,
-            reason:          "adjusted",
-            snapshot_before: before,
-            snapshot_after:  @stock_item.quantity_on_hand
-          )
-        end
-
-        render json: { data: StockItemSerializer.call(@stock_item) }
-      end
-
-      private
-
-      def set_stock_item
-        @stock_item = StockItem.find(params[:id])
-      end
-
-      def stock_item_params
-        params.require(:stock_item).permit(:quantity_on_hand, :low_stock_threshold)
       end
     end
   end

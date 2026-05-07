@@ -23,7 +23,7 @@ module Crm
           return customer
         end
 
-        customer.assign_attributes(
+        attrs = {
           email:              @payload[:email].presence,
           phone:              @payload[:phone].presence,
           first_name:         @payload[:first_name].presence,
@@ -31,21 +31,32 @@ module Crm
           tags:               normalize_tags(@payload[:tags]),
           default_address:    (@payload[:default_address].is_a?(Hash) ? @payload[:default_address].to_h : {}),
           addresses:          Array(@payload[:addresses]).map { |a| a.is_a?(Hash) ? a.to_h : {} },
-          accepts_marketing:  !!@payload[:accepts_marketing],
+          accepts_marketing:  accepts_email_marketing?,
           verified_email:     !!@payload[:verified_email],
+          tax_exempt:         !!@payload[:tax_exempt],
           state:              @payload[:state].presence,
           note:               @payload[:note].presence,
           last_order_id:      @payload[:last_order_id].presence&.to_i,
           last_order_name:    @payload[:last_order_name].presence,
           orders_count:       @payload[:orders_count].to_i,
           total_spent:        (@payload[:total_spent] || 0).to_s.to_d,
-          currency:           (@payload[:currency].presence || "USD").upcase,
+          currency:           (@payload[:currency].presence || "EGP").upcase,
+          source:             "shopify",
           shopify_updated_at: updated_at
-        )
+        }
+        customer.assign_attributes(attrs)
         customer.save!
+        link_orders(customer, shopify_id)
+        recompute_stats_if_needed(customer)
+        customer
+      rescue ActiveRecord::RecordNotUnique
+        # Another concurrent process inserted the same shopify_customer_id between our
+        # find_or_initialize_by and save!. Find the existing record and update it instead.
+        customer = ::Customer.find_by!(shopify_customer_id: shopify_id)
+        customer.update!(attrs)
 
         link_orders(customer, shopify_id)
-        backfill_last_order(customer)
+        recompute_stats_if_needed(customer)
 
         customer
       end
@@ -57,6 +68,19 @@ module Crm
         return unless last
         customer.update_columns(last_order_at: last.placed_at,
                                 last_order_name: customer.last_order_name.presence || last.order_number)
+      end
+
+      def accepts_email_marketing?
+        consent = @payload[:email_marketing_consent]
+        return consent[:state].to_s == "subscribed" if consent.is_a?(Hash)
+
+        !!@payload[:accepts_marketing]
+      end
+
+      def recompute_stats_if_needed(customer)
+        return unless customer.orders.exists?
+
+        ::Crm::CustomerStatsRecomputer.call(customer)
       end
 
       def normalize_tags(raw)

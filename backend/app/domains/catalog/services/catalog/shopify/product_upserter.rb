@@ -43,13 +43,14 @@ module Catalog
           status:              map_status(payload[:status]),
           vendor:              payload[:vendor],
           product_type:        payload[:product_type],
-          description:         payload[:body_html],
+          description:         html_to_text(payload[:body_html]),
           tags:                normalize_tags(payload[:tags]),
           template_suffix:     payload[:template_suffix],
           published_at:        parse_time(payload[:published_at]),
           published_scope:     payload[:published_scope].presence || "web",
           seo_title:           payload.dig(:seo, :title) || payload[:seo_title],
-          seo_description:     payload.dig(:seo, :description) || payload[:seo_description]
+          seo_description:     payload.dig(:seo, :description) || payload[:seo_description],
+          source:              "shopify"
         }.compact
       end
 
@@ -110,6 +111,7 @@ module Catalog
             shopify_inventory_item_id: vh[:inventory_item_id]&.to_i
           )
           variant.save!
+          Inventory::ProvisionStockItemsJob.perform_later(variant.id)
           keep_ids << variant.id
         end
 
@@ -171,6 +173,13 @@ module Catalog
         v.is_a?(Time) || v.is_a?(ActiveSupport::TimeWithZone) ? v : Time.zone.parse(v.to_s)
       rescue ArgumentError
         nil
+      end
+
+      def html_to_text(value)
+        return nil if value.blank?
+
+        text = ActionView::Base.full_sanitizer.sanitize(value.to_s)
+        text.gsub(/\u00a0/, " ").gsub(/[ \t]+/, " ").gsub(/\n{3,}/, "\n\n").strip
       end
     end
   end

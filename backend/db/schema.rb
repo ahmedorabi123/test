@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_07_102000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -59,6 +59,38 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.index ["parent_variant_id"], name: "index_bom_items_on_parent_variant_id"
   end
 
+  create_table "collection_products", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "collection_id", null: false
+    t.uuid "product_id", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["collection_id", "product_id"], name: "index_collection_products_on_collection_id_and_product_id", unique: true
+    t.index ["product_id"], name: "index_collection_products_on_product_id"
+  end
+
+  create_table "collections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.bigint "shopify_collection_id"
+    t.string "handle", null: false
+    t.string "title", null: false
+    t.text "body_html"
+    t.string "image"
+    t.string "sort_order", default: "manual"
+    t.datetime "published_at"
+    t.string "published_scope", default: "web"
+    t.string "kind", default: "custom", null: false
+    t.jsonb "rules", default: []
+    t.boolean "disjunctive", default: false
+    t.datetime "shopify_updated_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "source", default: "manual", null: false
+    t.index ["handle"], name: "index_collections_on_handle", unique: true
+    t.index ["kind"], name: "index_collections_on_kind"
+    t.index ["shopify_collection_id"], name: "index_collections_on_shopify_collection_id", unique: true, where: "(shopify_collection_id IS NOT NULL)"
+    t.index ["source"], name: "index_collections_on_source"
+  end
+
   create_table "customers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "email"
     t.string "phone"
@@ -68,7 +100,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.jsonb "default_address", default: {}, null: false
     t.integer "orders_count", default: 0, null: false
     t.decimal "total_spent", precision: 14, scale: 2, default: "0.0", null: false
-    t.string "currency", default: "USD", null: false
+    t.string "currency", default: "EGP", null: false
     t.string "shopify_customer_id"
     t.datetime "shopify_updated_at"
     t.datetime "created_at", null: false
@@ -81,9 +113,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.bigint "last_order_id"
     t.string "last_order_name"
     t.datetime "last_order_at"
+    t.boolean "tax_exempt", default: false, null: false
+    t.string "source", default: "manual", null: false
     t.index ["email"], name: "index_customers_on_email"
     t.index ["phone"], name: "index_customers_on_phone"
     t.index ["shopify_customer_id"], name: "index_customers_on_shopify_customer_id", unique: true, where: "(shopify_customer_id IS NOT NULL)"
+    t.index ["source"], name: "index_customers_on_source"
   end
 
   create_table "domain_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -126,8 +161,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.datetime "updated_at", null: false
     t.string "delivery_status"
     t.string "service"
+    t.text "notes"
+    t.jsonb "tags", default: [], null: false
+    t.jsonb "carrier_data", default: {}, null: false
+    t.index ["delivered_at"], name: "index_fulfillments_on_delivered_at"
+    t.index ["delivery_status"], name: "index_fulfillments_on_delivery_status"
     t.index ["order_id"], name: "index_fulfillments_on_order_id"
+    t.index ["shipped_at"], name: "index_fulfillments_on_shipped_at"
     t.index ["shopify_fulfillment_id"], name: "index_fulfillments_on_shopify_fulfillment_id", unique: true, where: "(shopify_fulfillment_id IS NOT NULL)"
+    t.index ["tags"], name: "index_fulfillments_on_tags", using: :gin
+    t.index ["tracking_number"], name: "index_fulfillments_on_tracking_number"
   end
 
   create_table "journal_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -178,6 +221,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.bigint "shopify_line_item_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "fulfilled_quantity", default: 0, null: false
     t.index ["order_id"], name: "index_order_line_items_on_order_id"
     t.index ["shopify_line_item_id"], name: "index_order_line_items_on_shopify_line_item_id", unique: true, where: "(shopify_line_item_id IS NOT NULL)"
     t.index ["sku"], name: "index_order_line_items_on_sku"
@@ -220,15 +264,23 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.datetime "closed_at"
     t.decimal "total_outstanding", precision: 12, scale: 2, default: "0.0", null: false
     t.string "shopify_order_status_url"
+    t.decimal "total_refunded", precision: 12, scale: 2, default: "0.0", null: false
+    t.index ["created_at"], name: "index_orders_on_created_at"
     t.index ["customer_email"], name: "index_orders_on_customer_email"
     t.index ["customer_id"], name: "index_orders_on_customer_id"
+    t.index ["customer_name"], name: "index_orders_on_customer_name"
     t.index ["financial_status"], name: "index_orders_on_financial_status"
+    t.index ["fulfillment_status"], name: "index_orders_on_fulfillment_status"
+    t.index ["items_count"], name: "index_orders_on_items_count"
     t.index ["order_number"], name: "index_orders_on_order_number", unique: true
     t.index ["placed_at"], name: "index_orders_on_placed_at"
     t.index ["shopify_customer_id"], name: "index_orders_on_shopify_customer_id", where: "(shopify_customer_id IS NOT NULL)"
     t.index ["shopify_order_id"], name: "index_orders_on_shopify_order_id", unique: true, where: "(shopify_order_id IS NOT NULL)"
     t.index ["status"], name: "index_orders_on_status"
     t.index ["tags"], name: "index_orders_on_tags", using: :gin
+    t.index ["total_price"], name: "index_orders_on_total_price"
+    t.index ["total_refunded"], name: "index_orders_on_total_refunded"
+    t.index ["updated_at"], name: "index_orders_on_updated_at"
   end
 
   create_table "permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -337,8 +389,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.string "published_scope", default: "web", null: false
     t.boolean "gift_card", default: false, null: false
     t.jsonb "metafields", default: [], null: false
+    t.string "source", default: "manual", null: false
     t.index ["handle"], name: "index_products_on_handle", unique: true
     t.index ["shopify_product_id"], name: "index_products_on_shopify_product_id", unique: true, where: "(shopify_product_id IS NOT NULL)"
+    t.index ["source"], name: "index_products_on_source"
     t.index ["status"], name: "index_products_on_status"
     t.index ["tags"], name: "index_products_on_tags", using: :gin
   end
@@ -394,6 +448,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["order_line_item_id"], name: "index_refund_line_items_on_order_line_item_id"
+    t.index ["refund_id", "shopify_line_item_id"], name: "idx_refund_line_items_refund_shopify_line", unique: true, where: "(shopify_line_item_id IS NOT NULL)"
     t.index ["refund_id"], name: "index_refund_line_items_on_refund_id"
   end
 
@@ -411,8 +466,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.jsonb "transactions", default: [], null: false
+    t.string "status", default: "processed", null: false
+    t.string "kind", default: "manual", null: false
+    t.string "idempotency_key"
+    t.string "content_hash"
+    t.index ["content_hash"], name: "index_refunds_on_content_hash"
+    t.index ["idempotency_key"], name: "index_refunds_on_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
+    t.index ["kind"], name: "index_refunds_on_kind"
     t.index ["order_id"], name: "index_refunds_on_order_id"
+    t.index ["processed_at"], name: "index_refunds_on_processed_at"
     t.index ["shopify_refund_id"], name: "index_refunds_on_shopify_refund_id", unique: true, where: "(shopify_refund_id IS NOT NULL)"
+    t.index ["status"], name: "index_refunds_on_status"
   end
 
   create_table "role_permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -431,6 +495,19 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["name"], name: "index_roles_on_name", unique: true
+  end
+
+  create_table "shipment_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "fulfillment_id", null: false
+    t.string "kind", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.uuid "actor_id"
+    t.string "dedupe_key"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["dedupe_key"], name: "index_shipment_events_on_dedupe_key", unique: true, where: "(dedupe_key IS NOT NULL)"
+    t.index ["fulfillment_id", "created_at"], name: "index_shipment_events_on_fulfillment_id_and_created_at"
+    t.index ["kind"], name: "index_shipment_events_on_kind"
   end
 
   create_table "shopify_mappings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -453,6 +530,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.bigint "shopify_inventory_level_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "quantity_unavailable", default: 0, null: false
+    t.string "unavailability_reason"
     t.index ["shopify_inventory_level_id"], name: "index_stock_items_on_shopify_inventory_level_id", unique: true, where: "(shopify_inventory_level_id IS NOT NULL)"
     t.index ["variant_id", "warehouse_id"], name: "index_stock_items_on_variant_id_and_warehouse_id", unique: true
     t.index ["variant_id"], name: "index_stock_items_on_variant_id"
@@ -469,7 +548,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
     t.integer "snapshot_after", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "note"
     t.index ["stock_item_id"], name: "index_stock_movements_on_stock_item_id"
+  end
+
+  create_table "stock_reservations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "order_line_item_id", null: false
+    t.uuid "stock_item_id", null: false
+    t.integer "quantity", null: false
+    t.string "status", default: "active", null: false
+    t.string "note"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_line_item_id", "status"], name: "index_stock_reservations_on_order_line_item_id_and_status"
+    t.index ["order_line_item_id", "stock_item_id"], name: "idx_stock_reservations_active_line_stock", unique: true, where: "((status)::text = 'active'::text)"
+    t.index ["stock_item_id", "status"], name: "index_stock_reservations_on_stock_item_id_and_status"
   end
 
   create_table "suppliers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -596,6 +689,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
   add_foreign_key "accounts", "accounts", column: "parent_id"
   add_foreign_key "bom_items", "variants", column: "component_variant_id"
   add_foreign_key "bom_items", "variants", column: "parent_variant_id"
+  add_foreign_key "collection_products", "collections", on_delete: :cascade, validate: false
+  add_foreign_key "collection_products", "products", on_delete: :cascade, validate: false
   add_foreign_key "fulfillment_line_items", "fulfillments"
   add_foreign_key "fulfillment_line_items", "order_line_items"
   add_foreign_key "fulfillments", "orders"
@@ -624,9 +719,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_28_230000) do
   add_foreign_key "refunds", "orders"
   add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"
+  add_foreign_key "shipment_events", "fulfillments", on_delete: :cascade
+  add_foreign_key "shipment_events", "users", column: "actor_id"
   add_foreign_key "stock_items", "variants"
   add_foreign_key "stock_items", "warehouses"
   add_foreign_key "stock_movements", "stock_items"
+  add_foreign_key "stock_reservations", "order_line_items", on_delete: :cascade
+  add_foreign_key "stock_reservations", "stock_items", on_delete: :restrict
   add_foreign_key "user_roles", "roles"
   add_foreign_key "user_roles", "users"
   add_foreign_key "variants", "products"

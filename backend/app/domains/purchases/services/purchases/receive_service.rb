@@ -1,3 +1,5 @@
+require "digest"
+
 module Purchases
   # Receives inventory against a purchase order. For each incoming line:
   #   - resolves the stock item (variant + warehouse; creates if missing)
@@ -23,44 +25,59 @@ module Purchases
       raise InvalidInput, "receipts required" if @receipts.empty?
       raise MissingWarehouse, "warehouse required to receive inventory" if @warehouse.nil?
 
-      total_value = 0.to_d
       PurchaseOrder.transaction do
+        receipt_values = []
         @receipts.each do |r|
-          total_value += apply_receipt(r)
+          receipt_values << apply_receipt(r)
         end
         update_status!
+        receipt_values.compact!
+        post_inventory_journal!(receipt_values) if receipt_values.sum { |row| row[:goods_amount] }.positive?
         @po.reload
       end
-      post_inventory_journal!(total_value) if total_value > 0
       @po
     end
 
     private
 
-    def post_inventory_journal!(amount)
-      idem_key = "po-receive-#{@po.id}-#{Time.current.to_f}"
+    def post_inventory_journal!(receipt_values)
+      amounts = receipt_amounts(receipt_values)
+      return if amounts[:total].zero?
+
+      idem_key = receipt_idempotency_key(receipt_values)
+      return if JournalEntry.exists?(idempotency_key: idem_key)
+
+      lines = [
+        { account_code: "1200", side: "debit", amount: amounts[:inventory],
+          description: "Inventory received - PO #{@po.po_number}" }
+      ]
+      if amounts[:tax].positive?
+        lines << { account_code: "1300", side: "debit", amount: amounts[:tax],
+                   description: "Recoverable VAT - PO #{@po.po_number}" }
+      end
+      if amounts[:shipping].positive?
+        lines << { account_code: "1200", side: "debit", amount: amounts[:shipping],
+                   description: "Inbound freight capitalized - PO #{@po.po_number}" }
+      end
+      lines << { account_code: "2000", side: "credit", amount: amounts[:total],
+                 description: "A/P - #{@po.supplier&.name || @po.supplier_id}" }
+
       JournalEntry.post!(
         {
           entry_date:      Date.current,
-          description:     "Inventory received – PO #{@po.number}",
-          currency:        (@po.currency.presence || "USD").upcase,
+          description:     "Inventory received - PO #{@po.po_number}",
+          currency:        (@po.currency.presence || "EGP").upcase,
           source_type:     "purchase_order",
           source_id:       @po.id,
           entry_type:      "purchase",
           idempotency_key: idem_key
         },
-        [
-          { account_code: "1200", side: "debit",  amount: amount,
-            description: "Inventory received – PO #{@po.number}" },
-          { account_code: "2000", side: "credit", amount: amount,
-            description: "A/P – #{@po.supplier&.name || @po.supplier_id}" }
-        ]
+        lines
       )
-    rescue StandardError => e
-      Rails.logger.warn "[ReceiveService] inventory posting failed for PO=#{@po.id}: #{e.message}"
     end
 
     def apply_receipt(r)
+      r = (r.respond_to?(:to_unsafe_h) ? r.to_unsafe_h : r).with_indifferent_access
       qty = r[:quantity].to_i
       return 0.to_d if qty <= 0
 
@@ -80,7 +97,42 @@ module Purchases
       )
 
       li.update!(quantity_received: li.quantity_received + qty)
-      (li.unit_cost.to_d * qty)
+      {
+        line_item_id: li.id,
+        quantity: qty,
+        received_after: li.quantity_received,
+        goods_amount: (li.unit_cost.to_d * qty).round(2)
+      }
+    end
+
+    def receipt_amounts(receipt_values)
+      goods_amount = receipt_values.sum { |row| row[:goods_amount] }.to_d.round(2)
+      ratio = receipt_ratio(goods_amount)
+      tax_amount = (@po.total_tax.to_d * ratio).round(2)
+      shipping_amount = (@po.total_shipping.to_d * ratio).round(2)
+      {
+        inventory: goods_amount,
+        tax: tax_amount,
+        shipping: shipping_amount,
+        total: (goods_amount + tax_amount + shipping_amount).round(2)
+      }
+    end
+
+    def receipt_ratio(goods_amount)
+      subtotal = @po.subtotal.to_d
+      subtotal = @po.line_items.sum { |li| li.unit_cost.to_d * li.quantity_ordered }.to_d if subtotal.zero?
+      return 0.to_d if subtotal.zero?
+
+      [(goods_amount / subtotal), 1.to_d].min
+    end
+
+    def receipt_idempotency_key(receipt_values)
+      normalized = receipt_values
+        .sort_by { |row| row[:line_item_id].to_s }
+        .map { |row| "#{row[:line_item_id]}:#{row[:quantity]}:#{row[:received_after]}" }
+        .join("|")
+      digest = Digest::SHA256.hexdigest("#{@po.id}:#{@warehouse.id}:#{normalized}")[0, 24]
+      "po-receive-#{@po.id}-#{digest}"
     end
 
     def update_status!

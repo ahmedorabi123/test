@@ -6,6 +6,7 @@ export interface ProductImage {
   alt?: string | null;
   position?: number;
   variant_id?: string | null;
+  _destroy?: boolean;
 }
 
 export interface ProductOptionValue {
@@ -19,6 +20,38 @@ export interface ProductOption {
   name: string;
   position?: number;
   product_option_values?: ProductOptionValue[];
+}
+
+export interface StockItemLocation {
+  id: string;
+  warehouse_id: string;
+  warehouse_name: string;
+  warehouse_code: string | null;
+  quantity_on_hand: number;
+  quantity_reserved?: number;
+  quantity_unavailable?: number;
+  available?: number;
+  low_stock_threshold?: number;
+}
+
+export interface StockItemAttribute {
+  id?: string;
+  warehouse_id: string;
+  quantity_on_hand?: number | string;
+  low_stock_threshold?: number | string;
+}
+
+export interface ProductCollectionSummary {
+  id: string;
+  title: string;
+  handle: string;
+}
+
+export interface ProductMetafield {
+  namespace: string;
+  key: string;
+  type: string;
+  value: string;
 }
 
 export interface Variant {
@@ -44,6 +77,7 @@ export interface Variant {
   hs_code?: string | null;
   country_of_origin?: string | null;
   cost_per_item?: string | null;
+  stock_items?: StockItemLocation[];
 }
 
 export interface Product {
@@ -54,10 +88,15 @@ export interface Product {
   vendor: string | null;
   product_type: string | null;
   description?: string | null;
+  metafields?: ProductMetafield[];
+  category_metafields?: Record<string, string | null | undefined>;
+  source: "manual" | "shopify";
   shopify_product_id: number | null;
   created_at: string;
   updated_at: string;
   variants_count?: number;
+  inventory_total?: number;
+  variants_in_stock_count?: number;
   variants?: Variant[];
   tags?: string[];
   seo_title?: string | null;
@@ -68,6 +107,9 @@ export interface Product {
   gift_card?: boolean;
   options?: ProductOption[];
   images?: ProductImage[];
+  collections?: ProductCollectionSummary[];
+  collection_ids?: string[];
+  primary_category?: string | null;
 }
 
 export interface Paginated<T> {
@@ -82,6 +124,8 @@ export interface ProductListParams {
   status?: string;
   sort?: string;
   dir?: "asc" | "desc";
+  from_shopify?: boolean;
+  collection_id?: string;
 }
 
 export const productsApi = {
@@ -92,7 +136,14 @@ export const productsApi = {
     api.get<{ data: Product }>(`/products/${id}`).then((r) => r.data.data),
 
   create: (
-    payload: Partial<Product> & { variants_attributes?: Partial<Variant>[] },
+    payload: Partial<Product> & {
+      collection_ids?: string[];
+      variants_attributes?: (Partial<Variant> & {
+        stock_items_attributes?: StockItemAttribute[];
+      })[];
+      product_options_attributes?: ProductOption[];
+      product_images_attributes?: ProductImage[];
+    },
   ) =>
     api
       .post<{ data: Product }>("/products", { product: payload })
@@ -100,7 +151,14 @@ export const productsApi = {
 
   update: (
     id: string,
-    payload: Partial<Product> & { variants_attributes?: Partial<Variant>[] },
+    payload: Partial<Product> & {
+      collection_ids?: string[];
+      variants_attributes?: (Partial<Variant> & {
+        stock_items_attributes?: StockItemAttribute[];
+      })[];
+      product_options_attributes?: ProductOption[];
+      product_images_attributes?: ProductImage[];
+    },
   ) =>
     api
       .patch<{ data: Product }>(`/products/${id}`, { product: payload })

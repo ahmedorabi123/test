@@ -36,11 +36,12 @@ export default function AuditLogsPage() {
       });
       setRows(res.data);
       setTotal(res.meta.total);
-    } catch (e: any) {
-      if (e?.response?.status === 403) {
+    } catch (e: unknown) {
+      const err = e as { response?: { status?: number }; message?: string };
+      if (err.response?.status === 403) {
         setError("You don't have permission to view audit logs.");
       } else {
-        setError((e as Error).message || "Failed to load");
+        setError(err.message || "Failed to load");
       }
     } finally {
       setLoading(false);

@@ -55,7 +55,7 @@ RSpec.describe Shipping::Shopify::FulfillmentUpserter do
     sm = StockMovement.last
     expect(sm.delta).to eq(-3)
     expect(sm.reason).to eq("fulfilled")
-    expect(sm.reference_type).to eq("Fulfillment")
+    expect(sm.reference_type).to eq("FulfillmentLineItem")
   end
 
   it "is idempotent — second delivery does not double-deduct stock" do

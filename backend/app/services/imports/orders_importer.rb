@@ -72,7 +72,7 @@ module Imports
 
           Sales::ManualOrderCreator.call(
             source:          "manual",
-            currency:        (first["Currency"].presence || "USD").upcase,
+            currency:        (first["Currency"].presence || "EGP").upcase,
             customer_email:  first["Email"],
             customer_name:   first["Billing Name"] || first["Name"],
             notes:           "Imported from Shopify export (#{order_name})",

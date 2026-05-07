@@ -6,6 +6,8 @@ class Variant < ApplicationRecord
   has_many :stock_items, dependent: :destroy
   has_many :product_images, dependent: :nullify
 
+  accepts_nested_attributes_for :stock_items, allow_destroy: false, reject_if: :all_blank
+
   validates :title, presence: true
   validates :price, numericality: { greater_than_or_equal_to: 0 }
   validates :sku, uniqueness: { case_sensitive: false }, allow_blank: true
@@ -14,8 +16,16 @@ class Variant < ApplicationRecord
 
   scope :from_shopify, -> { where.not(shopify_variant_id: nil) }
 
+  after_commit :provision_stock_items, on: :create
+
   # Convenience: return the option1/2/3 triple for display.
   def option_values
     [option1, option2, option3].compact
+  end
+
+  private
+
+  def provision_stock_items
+    Inventory::ProvisionStockItemsJob.perform_later(id)
   end
 end

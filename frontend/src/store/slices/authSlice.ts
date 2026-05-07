@@ -40,10 +40,13 @@ export const login = createAsyncThunk(
         res.headers["authorization"]?.replace("Bearer ", "") ||
         "";
       return { token, user: res.data.data.user };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as {
+        response?: { data?: { error?: { detail?: string } | string } };
+      };
+      const payload = error.response?.data?.error;
       const detail =
-        err.response?.data?.error?.detail ??
-        err.response?.data?.error ??
+        (typeof payload === "object" ? payload.detail : payload) ??
         "Login failed";
       return rejectWithValue(
         typeof detail === "string" ? detail : "Login failed",

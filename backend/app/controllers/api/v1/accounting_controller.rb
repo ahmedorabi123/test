@@ -134,7 +134,7 @@ module Api
         period_str  = params[:period].to_s
         total       = params[:total_amount].to_s.to_d
         credit_code = (params[:credit_account_code].presence || "1000").to_s
-        currency    = (params[:currency].presence || "USD").upcase
+        currency    = (params[:currency].presence || "EGP").upcase
 
         return render json: { error: { type: "invalid", detail: "period (YYYY-MM) required" } }, status: :unprocessable_entity \
           if period_str !~ /\A\d{4}-\d{2}\z/
@@ -199,7 +199,7 @@ module Api
           {
             entry_date:  params[:entry_date].present? ? Date.parse(params[:entry_date].to_s) : Date.current,
             description: params[:description].presence || "Manual journal entry",
-            currency:    (params[:currency].presence || "USD").upcase,
+            currency:    (params[:currency].presence || "EGP").upcase,
             entry_type:  (params[:entry_type].presence || "manual"),
             source_type: params[:source_type],
             source_id:   params[:source_id]

@@ -6,8 +6,18 @@ module Api
       include Importable
 
       sortable_by "title", "handle", "vendor", "status", "product_type",
-                  "updated_at", "created_at",
+                  "updated_at", "created_at", "inventory_total", "source",
                   default: { updated_at: :desc }
+
+      INVENTORY_SORT_SQL = <<~SQL.squish.freeze
+        LEFT JOIN (
+          SELECT variants.product_id,
+                 COALESCE(SUM(stock_items.quantity_on_hand), 0) AS inv_total
+          FROM variants
+          LEFT JOIN stock_items ON stock_items.variant_id = variants.id
+          GROUP BY variants.product_id
+        ) inv_rollup ON inv_rollup.product_id = products.id
+      SQL
 
       before_action :set_product, only: %i[show update destroy]
 
@@ -31,6 +41,18 @@ module Api
         }
       end
 
+      # Override Sortable#apply_sort to handle the virtual inventory_total column.
+      def apply_sort(scope)
+        if params[:sort].to_s == "inventory_total"
+          dir = params[:dir].to_s.downcase == "desc" ? "DESC" : "ASC"
+          scope
+            .joins(INVENTORY_SORT_SQL)
+            .order(Arel.sql("inv_rollup.inv_total #{dir} NULLS LAST, products.id #{dir}"))
+        else
+          super
+        end
+      end
+
       def show
         authorize @product
         render json: { data: ProductSerializer.call(@product) }
@@ -38,21 +60,49 @@ module Api
 
       def create
         authorize Product
-        product = Product.new(product_params)
-        product.save!
+        attrs = product_params.to_h.with_indifferent_access
+        collection_ids = attrs.delete(:collection_ids)
+        product = nil
+
+        Product.transaction do
+          product = Product.new(attrs)
+          product.save!
+          Catalog::AssignCollectionsToProduct.call(product, collection_ids) if collection_ids
+          Inventory::ProvisionStockItems.call(product: product) unless nested_stock_items?(attrs)
+        end
+
         render json: { data: ProductSerializer.call(product) }, status: :created
+      rescue Catalog::AssignCollectionsToProduct::InvalidCollection => e
+        render_error(422, "unprocessable_entity", e.message)
       end
 
       def update
         authorize @product
-        @product.update!(product_params)
+        attrs = product_params.to_h.with_indifferent_access
+        collection_ids = attrs.delete(:collection_ids)
+
+        Product.transaction do
+          @product.update!(attrs)
+          Catalog::AssignCollectionsToProduct.call(@product, collection_ids) if collection_ids
+        end
+
         render json: { data: ProductSerializer.call(@product) }
+      rescue Catalog::AssignCollectionsToProduct::InvalidCollection => e
+        render_error(422, "unprocessable_entity", e.message)
       end
 
       def destroy
         authorize @product
-        @product.destroy!
-        head :no_content
+        if product_has_references?(@product)
+          @product.update!(status: "archived")
+          render json: {
+            data: ProductSerializer.call(@product, include_variants: false),
+            meta: { archived: true, reason: "Product has order history and was archived instead of deleted." }
+          }
+        else
+          @product.destroy!
+          head :no_content
+        end
       end
 
       # POST /api/v1/products/bulk
@@ -80,15 +130,33 @@ module Api
       private
 
       def filtered_scope
-        scope = policy_scope(Product).includes(:variants)
-        scope = scope.where("title ILIKE :q OR handle ILIKE :q", q: "%#{params[:search]}%") if params[:search].present?
+        scope = policy_scope(Product).includes(:collections, :product_options, :product_images, variants: :stock_items)
+        scope = scope.where("products.title ILIKE :q OR products.handle ILIKE :q", q: "%#{params[:search]}%") if params[:search].present?
         scope = scope.where(status: params[:status]) if params[:status].present?
         scope = scope.from_shopify if params[:from_shopify].to_s == "true"
+        if params[:collection_id].present?
+          scope = scope.joins(:collection_products)
+                       .where(collection_products: { collection_id: params[:collection_id] })
+        end
         scope
       end
 
+      def product_has_references?(product)
+        variant_ids = product.variant_ids
+        return false if variant_ids.empty?
+        OrderLineItem.where(variant_id: variant_ids).exists? ||
+          PurchaseOrderLineItem.where(variant_id: variant_ids).exists?
+      end
+
       def set_product
-        @product = Product.find(params[:id])
+        @product = Product
+          .includes(
+            :collections      => [],
+            :product_options => :product_option_values,
+            :product_images   => [],
+            :variants         => { stock_items: :warehouse }
+          )
+          .find(params[:id])
       end
 
       def product_params
@@ -97,6 +165,8 @@ module Api
           :seo_title, :seo_description, :template_suffix,
           :published_at, :published_scope, :gift_card,
           tags: [],
+          collection_ids: [],
+          metafields: [:namespace, :key, :type, :value],
           variants_attributes: [
             :id, :sku, :title, :price, :compare_at_price, :cost_per_item,
             :barcode, :position, :_destroy,
@@ -104,7 +174,8 @@ module Api
             :weight, :weight_unit,
             :inventory_policy, :inventory_management,
             :requires_shipping, :taxable, :fulfillment_service,
-            :hs_code, :country_of_origin
+            :hs_code, :country_of_origin,
+            stock_items_attributes: [:id, :warehouse_id, :quantity_on_hand, :low_stock_threshold]
           ],
           product_options_attributes: [
             :id, :name, :position, :_destroy,
@@ -114,6 +185,10 @@ module Api
             :id, :src, :alt, :position, :width, :height, :variant_id, :_destroy
           ]
         )
+      end
+
+      def nested_stock_items?(attrs)
+        Array(attrs[:variants_attributes]).any? { |variant_attrs| Array(variant_attrs[:stock_items_attributes]).any? }
       end
 
       def export_scope

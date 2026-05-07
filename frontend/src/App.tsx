@@ -15,7 +15,9 @@ import AccountingPage from "./pages/AccountingPage";
 import CustomersPage from "./pages/CustomersPage";
 import NewCustomerPage from "./pages/NewCustomerPage";
 import ShipmentsPage from "./pages/ShipmentsPage";
+import ShipmentDetailPage from "./pages/ShipmentDetailPage";
 import RefundsPage from "./pages/RefundsPage";
+import RefundDetailPage from "./pages/RefundDetailPage";
 import ManualOrderPage from "./pages/ManualOrderPage";
 import PurchasesPage from "./pages/PurchasesPage";
 import NewPurchaseOrderPage from "./pages/NewPurchaseOrderPage";
@@ -28,6 +30,9 @@ import BomEditorPage from "./pages/BomEditorPage";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import CustomerDetailPage from "./pages/CustomerDetailPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
+import NewProductPage from "./pages/NewProductPage";
+import CollectionsPage from "./pages/CollectionsPage";
+import CollectionDetailPage from "./pages/CollectionDetailPage";
 import UsersPage from "./pages/UsersPage";
 
 function App() {
@@ -40,7 +45,7 @@ function App() {
     if (token && !user) {
       dispatch(bootstrapUser());
     }
-  }, []);
+  }, [dispatch, token, user]);
 
   return (
     <Routes>
@@ -49,7 +54,10 @@ function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/products" element={<ProductsPage />} />
+          <Route path="/products/new" element={<NewProductPage />} />
           <Route path="/products/:id" element={<ProductDetailPage />} />
+          <Route path="/collections" element={<CollectionsPage />} />
+          <Route path="/collections/:id" element={<CollectionDetailPage />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/orders/new" element={<ManualOrderPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
@@ -57,7 +65,9 @@ function App() {
           <Route path="/customers/new" element={<NewCustomerPage />} />
           <Route path="/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/shipments" element={<ShipmentsPage />} />
+          <Route path="/shipments/:id" element={<ShipmentDetailPage />} />
           <Route path="/refunds" element={<RefundsPage />} />
+          <Route path="/refunds/:id" element={<RefundDetailPage />} />
           <Route path="/purchases" element={<PurchasesPage />} />
           <Route path="/purchases/new" element={<NewPurchaseOrderPage />} />
           <Route path="/purchases/:id" element={<PurchaseOrderDetailPage />} />

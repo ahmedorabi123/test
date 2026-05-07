@@ -33,6 +33,8 @@ export interface StockItem {
   warehouse_name?: string | null;
   quantity_on_hand: number;
   quantity_reserved: number;
+  quantity_unavailable: number;
+  unavailability_reason?: string | null;
   available: number;
   low_stock_threshold: number;
   low_stock: boolean;
@@ -43,6 +45,8 @@ export interface StockItemFilters {
   warehouse_id?: string;
   variant_id?: string;
   low_stock?: boolean;
+  has_unavailable?: boolean;
+  search?: string;
   page?: number;
   per_page?: number;
   sort?: string;
@@ -87,7 +91,12 @@ export const stockItemsApi = {
       .then((r) => r.data.data),
   update: (
     id: string,
-    payload: { quantity_on_hand?: number; low_stock_threshold?: number },
+    payload: {
+      quantity_on_hand?: number;
+      low_stock_threshold?: number;
+      quantity_unavailable?: number;
+      unavailability_reason?: string | null;
+    },
   ) =>
     api
       .patch<{ data: StockItem }>(`/stock_items/${id}`, { stock_item: payload })
@@ -103,21 +112,6 @@ export const stockItemsApi = {
       .post<{
         data: { action: string; affected: number };
       }>("/stock_items/bulk", { ids, action_type, payload })
-      .then((r) => r.data.data),
-};
-
-export const inventorySyncApi = {
-  shopifyBackfill: () =>
-    api
-      .post<{
-        data: {
-          locations: number;
-          levels: number;
-          applied: number;
-          skipped: number;
-          errors: number;
-        };
-      }>("/inventory/shopify_backfill")
       .then((r) => r.data.data),
 };
 

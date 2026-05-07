@@ -48,6 +48,18 @@ module Shopify
       case normalized[:type]
       when :shopify_product_created, :shopify_product_updated
         Catalog::HandleShopifyProductJob.perform_later(normalized[:data])
+      when :shopify_product_deleted
+        # Archive the product locally (mirror Shopify behaviour: soft-delete)
+        shopify_id = normalized[:data]["id"].to_i
+        product = Product.find_by(shopify_product_id: shopify_id)
+        product&.update(status: "archived")
+      when :shopify_collection_created, :shopify_collection_updated
+        # Determine kind from payload: smart collections have a `rules` key
+        kind = normalized[:data]["rules"].present? ? "smart" : "custom"
+        Catalog::HandleShopifyCollectionJob.perform_later(normalized[:data], kind: kind)
+      when :shopify_collection_deleted
+        shopify_id = normalized[:data]["id"].to_i
+        Collection.where(shopify_collection_id: shopify_id).destroy_all
       when :shopify_inventory_updated
         Inventory::HandleShopifyInventoryJob.perform_later(normalized[:data])
       when :shopify_order_created, :shopify_order_updated, :shopify_order_paid,

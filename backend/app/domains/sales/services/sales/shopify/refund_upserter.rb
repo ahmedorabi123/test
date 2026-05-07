@@ -33,10 +33,10 @@ module Sales
 
         shopify_refund_id = @payload[:id].to_i
         amount            = extract_amount
-        currency          = (@payload[:currency].presence || order.currency || "USD").upcase
+        currency          = (@payload[:currency].presence || order.currency || "EGP").upcase
         restock_requested = Array(@payload[:refund_line_items]).any? do |rli|
           rt = (rli[:restock_type] || rli["restock_type"]).to_s
-          rt == "return" || rt == "cancel"
+          rt == "return"
         end
 
         refund = ActiveRecord::Base.transaction do
@@ -49,6 +49,8 @@ module Sales
             currency:           currency,
             reason:             @payload[:reason].presence,
             note:               @payload[:note].presence,
+            status:             "processed",
+            kind:               exchange_order?(order) ? "exchange" : "shopify",
             restock:            restock_requested,
             transactions:       Array(@payload[:transactions]).map { |t| t.is_a?(Hash) ? t.to_h : {} },
             processed_at:       parse_time(@payload[:processed_at] || @payload[:created_at]) || Time.current,
@@ -61,6 +63,7 @@ module Sales
 
         # Outside the refund transaction: inventory + accounting (each idempotent).
         restock_inventory(refund)
+        release_cancelled_reservations(refund)
         update_order_financial_state(refund)
         post_accounting(refund)
 
@@ -101,7 +104,7 @@ module Sales
             order_line_item: oli,
             quantity:        rh[:quantity].to_i,
             subtotal:        (rh[:subtotal] || 0).to_s.to_d,
-            restock:         rt == "return" || rt == "cancel",
+            restock:         rt == "return",
             restock_type:    rt,
             location_id:     rh[:location_id].presence&.to_i
           )
@@ -135,13 +138,21 @@ module Sales
           ::Inventory::WriteMovement.call(
             stock_item: stock_item,
             delta:      rli.quantity,
-            reason:     "returned",
-            reference:  refund
+            reason:     "refund_restock",
+            reference:  rli
           )
           performed = true
         end
 
         refund.update!(inventory_restocked: true) if performed
+      end
+
+      def release_cancelled_reservations(refund)
+        refund.refund_line_items.where(restock_type: "cancel").each do |rli|
+          next unless rli.order_line_item
+
+          ::Inventory::ReleaseLineReservation.call(rli.order_line_item, quantity: rli.quantity)
+        end
       end
 
       def update_order_financial_state(refund)
@@ -159,7 +170,7 @@ module Sales
         # Only set statuses Order model accepts; partially_refunded isn't in FINANCIAL_STATUSES yet.
         return unless ::Order::FINANCIAL_STATUSES.include?(new_state)
 
-        attrs = { financial_status: new_state }
+        attrs = { financial_status: new_state, total_refunded: total_refunded }
         attrs[:status] = "refunded" if new_state == "refunded"
         order.update!(attrs)
       end
@@ -173,6 +184,10 @@ module Sales
         end
       rescue => e
         Rails.logger.error("[RefundUpserter] Accounting error for refund #{refund.id}: #{e.message}")
+      end
+
+      def exchange_order?(order)
+        Array(order.tags).any? { |tag| tag.to_s.start_with?("estebdal_exchange_of:") }
       end
 
       def parse_time(v)

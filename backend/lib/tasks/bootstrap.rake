@@ -1,7 +1,34 @@
+module ShopifySyncState
+  SYNC_STATE_FILE = Rails.root.join("tmp", "shopify_last_sync_at.txt").freeze
+
+  def self.last_sync_at
+    return nil unless SYNC_STATE_FILE.exist?
+    Time.parse(SYNC_STATE_FILE.read.strip) rescue nil
+  end
+
+  def self.save(time)
+    FileUtils.mkdir_p(SYNC_STATE_FILE.dirname)
+    SYNC_STATE_FILE.write(time.utc.iso8601)
+  end
+end
+
 namespace :bootstrap do
+  BOOTSTRAP_LOCK_FILE = Rails.root.join("tmp", "bootstrap.lock").freeze
+
   desc "Live-deploy bootstrap: always re-registers Shopify webhooks; backfills Shopify data ONLY when the DB has none (or when FORCE_BACKFILL=true)."
   task run: :environment do
     log = ->(msg) { puts "[bootstrap] #{msg}" }
+
+    # ── Exclusive file lock — prevent concurrent bootstrap runs ──────────────
+    # Uses flock(LOCK_EX | LOCK_NB): returns false immediately if another
+    # process already holds the lock, rather than blocking forever.
+    FileUtils.mkdir_p(BOOTSTRAP_LOCK_FILE.dirname)
+    lock_fh = File.open(BOOTSTRAP_LOCK_FILE, File::RDWR | File::CREAT, 0o644)
+    unless lock_fh.flock(File::LOCK_EX | File::LOCK_NB)
+      lock_fh.close
+      log.call "Another bootstrap:run is already in progress (lock held) — skipping this invocation"
+      next
+    end
 
     # ── 1. Always (re-)register webhooks. Cheap; idempotent in the rake task. ──
     #     This keeps the integration live across redeploys and Render URL changes.
@@ -59,22 +86,21 @@ namespace :bootstrap do
       nil
     end
 
-    # Decide whether to pull. Pulls when:
-    #   • FORCE_BACKFILL=true, OR
-    #   • we can't read the remote count (be safe → pull), OR
-    #   • the local count is below the remote count (DB is incomplete).
-    needs_pull = lambda do |label, local_count, remote|
+    # Decide whether to do a full pull.
+    # Full pulls are expensive — only trigger on the very first run (local==0).
+    # After that, bootstrap:catchup (updated_at_min) handles all incremental
+    # updates: new records, edits, status changes, etc.
+    #
+    # Use FORCE_BACKFILL=true to re-pull everything regardless.
+    needs_pull = lambda do |label, local_count, _remote|
       if force
         log.call "#{label}: FORCE_BACKFILL=true — pulling"
         true
-      elsif remote.nil?
-        log.call "#{label}: remote count unknown — pulling to be safe"
-        true
-      elsif local_count < remote
-        log.call "#{label}: local=#{local_count} < remote=#{remote} — pulling missing rows"
+      elsif local_count == 0
+        log.call "#{label}: local=0 — first-time pull"
         true
       else
-        log.call "#{label}: local=#{local_count} >= remote=#{remote} — up to date, skipping"
+        log.call "#{label}: local=#{local_count} — already populated, incremental catchup will handle updates"
         false
       end
     end
@@ -260,8 +286,52 @@ namespace :bootstrap do
       log.call "Refunds: all up to date — skipping catch-up"
     end
 
+    # ── Collections (custom + smart + collects memberships) ──
+    local_collections  = Collection.where.not(shopify_collection_id: nil).count
+    remote_custom_col  = remote_count.call("custom_collections/count.json")
+    remote_smart_col   = remote_count.call("smart_collections/count.json")
+    remote_collections = (remote_custom_col || 0) + (remote_smart_col || 0)
+    if needs_pull.call("Collections", local_collections, remote_collections)
+      log.call "Pulling custom collections ..."
+      client.paginated_each("custom_collections.json", key: "custom_collections") do |c|
+        begin
+          Catalog::Shopify::CollectionUpserter.call(c, kind: :custom)
+          totals[:collections] = (totals[:collections] || 0) + 1
+        rescue => e
+          warn "[bootstrap] custom_collection #{c["id"]} failed: #{e.class}: #{e.message}"
+        end
+      end
+
+      log.call "Pulling smart collections ..."
+      client.paginated_each("smart_collections.json", key: "smart_collections") do |c|
+        begin
+          Catalog::Shopify::CollectionUpserter.call(c, kind: :smart)
+          totals[:collections] = (totals[:collections] || 0) + 1
+        rescue => e
+          warn "[bootstrap] smart_collection #{c["id"]} failed: #{e.class}: #{e.message}"
+        end
+      end
+
+      log.call "Pulling collects (product memberships) ..."
+      client.paginated_each("collects.json", key: "collects") do |collect|
+        begin
+          col = Collection.find_by(shopify_collection_id: collect["collection_id"].to_i)
+          prd = Product.find_by(shopify_product_id: collect["product_id"].to_i)
+          if col && prd
+            cp = CollectionProduct.find_or_create_by!(collection: col, product: prd)
+            cp.update_column(:position, collect["position"].to_i) if collect["position"]
+          end
+        rescue => e
+          warn "[bootstrap] collect #{collect["id"]} failed: #{e.class}: #{e.message}"
+        end
+      end
+      GC.start
+      log.call "  collections: #{totals[:collections] || 0}"
+    else
+      log.call "Collections: up to date — skipping"
+    end
+
     # ── Inventory (locations → warehouses → stock items) ──
-    # Always run when forced or when we have no Shopify-linked warehouses /
     # no stock_items at all. The InventoryBackfill is itself idempotent.
     if force || Warehouse.where.not(shopify_location_id: nil).none? || StockItem.none?
       log.call "Pulling inventory (locations + levels) ..."
@@ -277,6 +347,288 @@ namespace :bootstrap do
       log.call "Inventory already populated — skipping (set FORCE_BACKFILL=true to re-pull)"
     end
 
+    # ── Incremental catch-up: fetch records updated since last sync ──
+    # This handles the case where the system was offline and records were
+    # changed in Shopify (status updates, address changes, new items, etc.)
+    # but no webhook was received. Runs after the count-based checks.
+    sync_started_at = Time.current
+    Rake::Task["bootstrap:catchup"].reenable rescue nil
+    Rake::Task["bootstrap:catchup"].invoke
+    ShopifySyncState.save(sync_started_at)
+
+    # ── Accounting backfill: post journals for orders/refunds/fulfillments missing them ──
+    # Idempotent — each handler checks its own idempotency key. Only triggers on first
+    # run (when no sale journals exist) to avoid per-order DB probes on every restart.
+    if JournalEntry.none? && Order.where(financial_status: %w[paid partially_refunded refunded]).exists?
+      log.call "No journal entries found — running accounting backfill..."
+      Rake::Task["bootstrap:backfill_accounting"].reenable rescue nil
+      Rake::Task["bootstrap:backfill_accounting"].invoke
+    else
+      log.call "Accounting: journals already present — skipping full backfill"
+    end
+
     log.call "Done. #{totals.inspect}"
+  ensure
+    # Always release the lock when finished (or on error)
+    lock_fh&.flock(File::LOCK_UN)
+    lock_fh&.close
+  end
+
+  desc "Incremental catch-up: fetch all Shopify records updated since last sync."
+  task catchup: :environment do
+    log = ->(msg) { puts "[catchup] #{msg}" }
+
+    unless ENV["SHOPIFY_SHOP_DOMAIN"].present? && ENV["SHOPIFY_ADMIN_ACCESS_TOKEN"].present?
+      log.call "Shopify creds not set — skipping"
+      next
+    end
+
+    # Determine the sync baseline:
+    #   1. Use the saved timestamp if it exists.
+    #   2. Fall back to MAX(shopify_synced_at or updated_at) across key tables —
+    #      this covers the case where the DB was restored from a backup and
+    #      the tmp file doesn't exist.
+    last_sync = ShopifySyncState.last_sync_at
+    unless last_sync
+      candidates = []
+      candidates << Order.maximum(:updated_at)
+      candidates << Customer.maximum(:updated_at)
+      candidates << Product.maximum(:updated_at)
+      last_sync = candidates.compact.min
+    end
+
+    unless last_sync
+      log.call "No previous sync timestamp — skipping incremental catch-up (first run uses count-based bootstrap)"
+      next
+    end
+
+    # Add a small overlap buffer to avoid missing records due to clock skew
+    since = (last_sync - 2.minutes).utc.iso8601
+    log.call "Fetching records updated since #{since} ..."
+
+    client  = ::Shopify::Client.new
+    totals  = { products: 0, customers: 0, orders: 0, fulfillments: 0, refunds: 0 }
+
+    # ── Updated products ──
+    begin
+      client.paginated_each("products.json", key: "products",
+                            params: { updated_at_min: since, limit: 250 }) do |p|
+        Catalog::Shopify::ProductUpserter.call(p, from: :rest)
+        totals[:products] += 1
+      rescue => e
+        warn "[catchup] product #{p["id"]} failed: #{e.class}: #{e.message}"
+      end
+      log.call "  products: #{totals[:products]} updated"
+    rescue => e
+      warn "[catchup] products fetch failed: #{e.class}: #{e.message}"
+    end
+    GC.start
+
+    # ── Updated customers ──
+    begin
+      client.paginated_each("customers.json", key: "customers",
+                            params: { updated_at_min: since, limit: 250 }) do |c|
+        Crm::Shopify::CustomerUpserter.call(c)
+        totals[:customers] += 1
+      rescue => e
+        warn "[catchup] customer #{c["id"]} failed: #{e.class}: #{e.message}"
+      end
+      log.call "  customers: #{totals[:customers]} updated"
+    rescue => e
+      warn "[catchup] customers fetch failed: #{e.class}: #{e.message}"
+    end
+    GC.start
+
+    # ── Updated orders (+ nested fulfillments/refunds) ──
+    begin
+      client.paginated_each("orders.json", key: "orders",
+                            params: { updated_at_min: since, status: "any", limit: 250 }) do |o|
+        Sales::Shopify::OrderUpserter.call(o, from: :rest)
+        totals[:orders] += 1
+
+        Array(o["fulfillments"]).each do |f|
+          Shipping::Shopify::FulfillmentUpserter.call(f.merge("order_id" => o["id"]))
+          totals[:fulfillments] += 1
+        rescue => e
+          warn "[catchup] fulfillment #{f["id"]} failed: #{e.class}: #{e.message}"
+        end
+
+        Array(o["refunds"]).each do |r|
+          Sales::Shopify::RefundUpserter.call(r)
+          totals[:refunds] += 1
+        rescue => e
+          warn "[catchup] refund #{r["id"]} failed: #{e.class}: #{e.message}"
+        end
+
+        GC.start if (totals[:orders] % 100).zero?
+      rescue => e
+        warn "[catchup] order #{o["id"]} failed: #{e.class}: #{e.message}"
+      end
+      log.call "  orders: #{totals[:orders]} updated, #{totals[:fulfillments]} fulfillments, #{totals[:refunds]} refunds"
+    rescue => e
+      warn "[catchup] orders fetch failed: #{e.class}: #{e.message}"
+    end
+    GC.start
+
+    log.call "Incremental catch-up done. #{totals.inspect}"
+  end
+
+  desc "Restore the latest (or named) DB backup then apply migrations and catch up with Shopify."
+  task :restore_and_catchup, [:filename] => :environment do |_, args|
+    log = ->(msg) { puts "[restore_and_catchup] #{msg}" }
+
+    dir = Rails.root.join("db", "backups")
+    dump_file = if args[:filename].present?
+                  Pathname.new(args[:filename]).absolute? ?
+                    Pathname.new(args[:filename]) :
+                    dir.join(args[:filename])
+                else
+                  dir.glob("*.dump").sort.last
+                end
+
+    abort "[restore_and_catchup] No backup file found in #{dir}" unless dump_file&.exist?
+
+    log.call "Restoring from #{dump_file.basename} ..."
+    # Remove the saved sync timestamp so catchup uses the DB's own updated_at
+    ShopifySyncState::SYNC_STATE_FILE.delete if ShopifySyncState::SYNC_STATE_FILE.exist?
+
+    # Invoke db:restore
+    ENV["FILENAME"] = dump_file.to_s
+    Rake::Task["db:restore"].reenable rescue nil
+    Rake::Task["db:restore"].invoke(dump_file.basename.to_s)
+
+    log.call "Running pending migrations ..."
+    Rake::Task["db:migrate"].reenable rescue nil
+    Rake::Task["db:migrate"].invoke
+
+    # Reconnect after restore
+    ActiveRecord::Base.establish_connection
+
+    log.call "Re-seeding users, roles, permissions and chart of accounts ..."
+    Rake::Task["db:seed"].reenable rescue nil
+    Rake::Task["db:seed"].invoke
+
+    log.call "Starting Shopify catch-up ..."
+    Rake::Task["bootstrap:catchup"].reenable rescue nil
+    Rake::Task["bootstrap:catchup"].invoke
+
+    log.call "Running accounting backfill after restore ..."
+    Rake::Task["bootstrap:backfill_accounting"].reenable rescue nil
+    Rake::Task["bootstrap:backfill_accounting"].invoke
+
+    ShopifySyncState.save(Time.current)
+    log.call "Done."
+  end
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # bootstrap:backfill_accounting
+  # Idempotent: posts sale / refund / COGS journal entries for every existing
+  # order, refund, and fulfillment that is still missing one.
+  # Safe to run multiple times — each handler checks its own idempotency key.
+  # ────────────────────────────────────────────────────────────────────────────
+  desc "Backfill accounting journal entries for all orders, refunds, and fulfillments."
+  task backfill_accounting: :environment do
+    log = ->(msg) { puts "[backfill_accounting] #{msg}" }
+
+    # ── 1. Sale journals for paid / partially_refunded / refunded orders ──────
+    # PostSaleJournalHandler now accepts all three statuses (sale DID happen).
+    sale_scope = Order.where(financial_status: %w[paid partially_refunded refunded])
+    sale_total = sale_scope.count
+    log.call "Checking #{sale_total} orders for missing sale journals..."
+    posted_s = 0; skipped_s = 0; errors_s = 0
+    sale_scope.find_each(batch_size: 200) do |order|
+      next if JournalEntry.exists?(idempotency_key: "sale-journal-#{order.id}")
+      begin
+        result = Accounting::PostSaleJournalHandler.call(order)
+        result ? (posted_s += 1) : (skipped_s += 1)
+      rescue => e
+        errors_s += 1
+        Rails.logger.warn "[backfill_accounting] sale #{order.id}: #{e.message}"
+      end
+    end
+    log.call "  sale journals: #{posted_s} posted, #{skipped_s} skipped (zero-amount), #{errors_s} errors"
+
+    # ── 2. Refund reversal journals for fully-refunded orders ─────────────────
+    # Must run AFTER step 1 so the sale journal already exists to be reversed.
+    rev_scope = Order.where(financial_status: "refunded")
+    rev_total = rev_scope.count
+    log.call "Checking #{rev_total} refunded orders for missing reversal journals..."
+    posted_r = 0; skipped_r = 0; errors_r = 0
+    rev_scope.find_each(batch_size: 200) do |order|
+      next if JournalEntry.exists?(idempotency_key: "refund-reversal-#{order.id}")
+      begin
+        result = Accounting::RefundReversalHandler.call(order)
+        result ? (posted_r += 1) : (skipped_r += 1)
+      rescue => e
+        errors_r += 1
+        Rails.logger.warn "[backfill_accounting] reversal #{order.id}: #{e.message}"
+      end
+    end
+    log.call "  reversal journals: #{posted_r} posted, #{skipped_r} skipped, #{errors_r} errors"
+
+    # ── 3. Partial refund journals for individual Refund records ──────────────
+    # Skip refunds whose order is fully refunded (handled by reversal above).
+    partial_scope = Refund.where("amount > 0")
+                          .joins(:order)
+                          .where.not(orders: { financial_status: "refunded" })
+    partial_total = partial_scope.count
+    log.call "Checking #{partial_total} partial refunds for missing journals..."
+    posted_p = 0; skipped_p = 0; errors_p = 0
+    partial_scope.find_each(batch_size: 200) do |refund|
+      next if JournalEntry.exists?(idempotency_key: "refund-partial-#{refund.id}")
+      begin
+        result = Accounting::PartialRefundJournalHandler.call(refund)
+        result ? (posted_p += 1) : (skipped_p += 1)
+      rescue => e
+        errors_p += 1
+        Rails.logger.warn "[backfill_accounting] partial-refund #{refund.id}: #{e.message}"
+      end
+    end
+    log.call "  partial refund journals: #{posted_p} posted, #{skipped_p} skipped, #{errors_p} errors"
+
+    # ── 4. COGS journals for successful fulfillments ───────────────────────────
+    # Only posts when variants have cost_per_item configured (total > 0).
+    cogs_scope = Fulfillment.where(status: "success")
+    cogs_total = cogs_scope.count
+    log.call "Checking #{cogs_total} fulfillments for missing COGS journals..."
+    posted_c = 0; skipped_c = 0; errors_c = 0
+    cogs_scope.find_each(batch_size: 200) do |fulfillment|
+      next if JournalEntry.exists?(idempotency_key: "cogs-#{fulfillment.id}")
+      begin
+        result = Accounting::PostCogsHandler.call(fulfillment)
+        result ? (posted_c += 1) : (skipped_c += 1)
+      rescue => e
+        errors_c += 1
+        Rails.logger.warn "[backfill_accounting] cogs #{fulfillment.id}: #{e.message}"
+      end
+    end
+    log.call "  COGS journals: #{posted_c} posted, #{skipped_c} skipped (no cost data), #{errors_c} errors"
+
+    total_new = posted_s + posted_r + posted_p + posted_c
+    log.call "Accounting backfill done. #{total_new} new journal entries created."
+  end
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # bootstrap:backfill_inventory
+  # Re-pulls Shopify inventory levels into StockItem records.
+  # Run this after products/variants are populated (bootstrap:run handles that).
+  # Safe to run multiple times — StockSyncService updates in-place.
+  # ────────────────────────────────────────────────────────────────────────────
+  desc "Backfill inventory stock levels from Shopify (locations + inventory_levels)."
+  task backfill_inventory: :environment do
+    log = ->(msg) { puts "[backfill_inventory] #{msg}" }
+
+    unless ENV["SHOPIFY_SHOP_DOMAIN"].present? && ENV["SHOPIFY_ADMIN_ACCESS_TOKEN"].present?
+      log.call "Shopify creds not set — skipping"
+      next
+    end
+
+    log.call "Running Shopify inventory backfill..."
+    begin
+      stats = Inventory::Shopify::InventoryBackfill.call
+      log.call "Done. #{stats.inspect}"
+    rescue => e
+      warn "[backfill_inventory] failed: #{e.class}: #{e.message}"
+    end
   end
 end

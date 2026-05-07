@@ -27,5 +27,30 @@ module Inventory
     def self.primary
       Warehouse.where(active: true).order(:created_at).first
     end
+
+    def self.for_order(order, warehouse: nil, warehouse_id: nil)
+      return warehouse if warehouse.present?
+      return Warehouse.find_by(id: warehouse_id) if warehouse_id.present?
+
+      if order.location_id.present?
+        resolved = for_shopify_location(order.location_id, auto_create: false)
+        return resolved if resolved
+      end
+
+      variant_ids = order.line_items.map(&:variant_id).compact
+      if variant_ids.any?
+        best_id = StockItem
+          .joins(:warehouse)
+          .where(variant_id: variant_ids, warehouses: { active: true })
+          .group(:warehouse_id)
+          .order(Arel.sql("SUM(stock_items.quantity_on_hand - stock_items.quantity_reserved - stock_items.quantity_unavailable) DESC"))
+          .limit(1)
+          .pluck(:warehouse_id)
+          .first
+        return Warehouse.find_by(id: best_id) if best_id
+      end
+
+      primary
+    end
   end
 end

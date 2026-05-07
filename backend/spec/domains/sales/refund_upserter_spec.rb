@@ -73,7 +73,7 @@ RSpec.describe Sales::Shopify::RefundUpserter do
       expect(refund.restock?).to be true
       expect(refund.partial?).to be true
       expect(stock_item.reload.quantity_on_hand).to eq(21)
-      expect(StockMovement.last.reason).to eq("returned")
+      expect(StockMovement.last.reason).to eq("refund_restock")
 
       partial_entry = JournalEntry.find_by(entry_type: "refund", idempotency_key: "refund-partial-#{refund.id}")
       expect(partial_entry).to be_present

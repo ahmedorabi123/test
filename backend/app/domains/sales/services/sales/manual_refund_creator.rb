@@ -1,3 +1,5 @@
+require "digest"
+
 module Sales
   # Sales::ManualRefundCreator
   #
@@ -34,24 +36,39 @@ module Sales
       amount = @attrs[:amount].to_d
       raise InvalidInput, "amount must be > 0" if amount <= 0
 
+      idempotency_key = @attrs[:idempotency_key].presence
+      content_hash = build_content_hash(order, amount)
+      if (existing = find_existing_refund(order, idempotency_key, content_hash))
+        return existing
+      end
+
       already_refunded = order.refunds.sum(:amount).to_d
       remaining = order.total_price.to_d - already_refunded
       raise InvalidInput, "amount exceeds remaining refundable (#{remaining})" if amount > remaining
 
       Refund.transaction do
+        status = @attrs[:status].presence_in(::Refund::STATUSES) || "processed"
+        kind = @attrs[:kind].presence_in(::Refund::KINDS) || inferred_kind
         refund = Refund.create!(
           order:        order,
           amount:       amount,
           currency:     (@attrs[:currency].presence || order.currency).upcase,
           reason:       @attrs[:reason],
           note:         @attrs[:note],
+          status:       status,
+          kind:         kind,
+          idempotency_key: idempotency_key,
+          content_hash: content_hash,
           restock:      restock?,
           processed_at: Time.current
         )
         build_line_items(refund)
-        restock!(refund) if restock?
-        post_journal(refund)
-        flag_order_status(order)
+        if refund.processed?
+          restock!(refund) if restock?
+          post_journal(refund)
+          flag_order_status(order)
+          recompute_customer_stats(order)
+        end
         refund
       end
     end
@@ -68,6 +85,34 @@ module Sales
 
     def restock?
       @attrs[:restock].to_s == "true" || @attrs[:restock] == true
+    end
+
+    def inferred_kind
+      @attrs[:reason].to_s.downcase == "estebdal" ? "estebdal" : "manual"
+    end
+
+    def find_existing_refund(order, idempotency_key, content_hash)
+      return Refund.find_by(idempotency_key: idempotency_key) if idempotency_key.present?
+
+      Refund.where(order: order, shopify_refund_id: nil, content_hash: content_hash)
+            .where("created_at >= ?", 5.minutes.ago)
+            .order(:created_at)
+            .first
+    end
+
+    def build_content_hash(order, amount)
+      normalized_lines = Array(@attrs[:line_items]).map do |li|
+        h = li.to_h.with_indifferent_access
+        [h[:order_line_item_id].to_s, h[:quantity].to_i, h[:subtotal].to_s.to_d.round(2).to_s].join(":")
+      end.sort.join("|")
+      Digest::SHA256.hexdigest([
+        order.id,
+        amount.round(2).to_s,
+        @attrs[:reason].to_s,
+        restock?,
+        @attrs[:restock_warehouse_id].to_s,
+        normalized_lines
+      ].join("|"))
     end
 
     def build_line_items(refund)
@@ -113,10 +158,18 @@ module Sales
     def flag_order_status(order)
       total_refunded = order.refunds.sum(:amount).to_d
       if total_refunded >= order.total_price.to_d
-        order.update!(financial_status: "refunded")
+        order.update!(financial_status: "refunded", total_refunded: total_refunded)
       elsif total_refunded > 0
-        order.update!(financial_status: "partially_refunded")
+        order.update!(financial_status: "partially_refunded", total_refunded: total_refunded)
       end
+    end
+
+    def recompute_customer_stats(order)
+      return unless order.customer
+
+      ::Crm::CustomerStatsRecomputer.call(order.customer)
+    rescue StandardError => e
+      Rails.logger.warn "[ManualRefundCreator] customer stats failure for order=#{order.id}: #{e.message}"
     end
   end
 end

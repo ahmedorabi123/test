@@ -189,8 +189,16 @@ export default function SuppliersPage() {
         }}
         sort={{ key: sortKey, dir: sortDir }}
         onSortChange={(s) => {
-          setParam("sort", s?.key ?? null);
-          setParam("dir", s?.dir ?? null);
+          const sp = new URLSearchParams(searchParams);
+          if (s) {
+            sp.set("sort", s.key);
+            sp.set("dir", s.dir);
+          } else {
+            sp.delete("sort");
+            sp.delete("dir");
+          }
+          sp.set("page", "1");
+          setSearchParams(sp, { replace: true });
         }}
         selectable
         bulkActions={bulkActions}

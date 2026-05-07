@@ -66,7 +66,7 @@ module Sales
     end
 
     def build_order(warehouse)
-      currency = (@attrs[:currency].presence || warehouse.currency.presence || "USD").upcase
+      currency = (@attrs[:currency].presence || warehouse.currency.presence || "EGP").upcase
       report_date = @attrs[:report_date].present? ? Date.parse(@attrs[:report_date]) : Date.current
 
       attrs = {
@@ -78,7 +78,8 @@ module Sales
           h = li.to_h.with_indifferent_access
           { variant_id: h[:variant_id], quantity: h[:quantity], price: h[:unit_price] }
         },
-        mark_paid:     false # we'll transition manually
+        mark_paid:     false, # we'll transition manually
+        skip_reservations: true
       }
       order = Sales::ManualOrderCreator.call(attrs)
       order.update!(

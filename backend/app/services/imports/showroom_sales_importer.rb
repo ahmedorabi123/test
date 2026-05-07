@@ -70,7 +70,7 @@ module Imports
 
           Sales::ManualOrderCreator.call(
             source:         "showroom",
-            currency:       "USD",
+            currency:       "EGP",
             customer_email: first["Customer Email"],
             customer_name:  first["Customer Name"],
             notes:          first["Notes"] || "Imported showroom sale #{order_num}",

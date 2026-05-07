@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../api/client";
 import {
-  inventorySyncApi,
   showroomSalesApi,
   stockTransfersApi,
   type Warehouse,
@@ -12,49 +11,6 @@ interface VariantOption {
   title: string;
   sku: string;
   product_title: string;
-}
-
-export function ShopifyBackfillButton({ onDone }: { onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const run = async () => {
-    if (
-      !confirm(
-        "Pull all inventory levels from Shopify? This may take a minute.",
-      )
-    )
-      return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      const stats = await inventorySyncApi.shopifyBackfill();
-      setMsg(
-        `OK: ${stats.applied}/${stats.levels} levels at ${stats.locations} locations`,
-      );
-      onDone();
-    } catch (e) {
-      setMsg("Failed: " + ((e as Error).message || "unknown"));
-    } finally {
-      setBusy(false);
-      setTimeout(() => setMsg(null), 6000);
-    }
-  };
-  return (
-    <div className="relative">
-      <button
-        onClick={run}
-        disabled={busy}
-        className="inline-flex items-center gap-1 bg-slate-700 disabled:bg-slate-400 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-slate-800"
-      >
-        {busy ? "Syncing…" : "Sync Shopify"}
-      </button>
-      {msg && (
-        <div className="absolute top-full right-0 mt-1 text-xs bg-white border border-slate-200 shadow rounded px-2 py-1 whitespace-nowrap z-10">
-          {msg}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function TransferStockButton({

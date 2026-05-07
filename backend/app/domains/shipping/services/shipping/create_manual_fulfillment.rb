@@ -1,7 +1,7 @@
 module Shipping
   # Creates a manual Fulfillment record (no Shopify) for an order.
-  # Optionally transitions the order to "fulfilled" which deducts inventory
-  # and posts COGS via Sales::OrderStateMachine.
+  # Consumes reservation/on-hand inventory for each fulfillment line. Optionally
+  # transitions the order, which is idempotent for already-consumed lines.
   #
   # Inputs:
   #   order:           Order
@@ -50,7 +50,7 @@ module Shipping
           shipped_at:       @shipped_at
         )
 
-        @line_items.each do |row|
+        fulfillment_rows.each do |row|
           oli_id = row[:order_line_item_id] || row["order_line_item_id"]
           qty    = (row[:quantity] || row["quantity"]).to_i
           next if qty <= 0
@@ -63,6 +63,21 @@ module Shipping
         end
       end
 
+      fulfillment.fulfillment_line_items.each do |fulfillment_line_item|
+        ::Inventory::ConsumeReservation.call(
+          fulfillment_line_item,
+          update_order_status: @transition_order
+        )
+      end
+      ::Accounting::PostCogsHandler.call(fulfillment)
+      ::Shipping::RecordShipmentEvent.call(
+        fulfillment,
+        kind: "created",
+        payload: { status: fulfillment.status, tracking_company: fulfillment.tracking_company },
+        actor: @actor,
+        dedupe_key: "manual-fulfillment:#{fulfillment.id}:created"
+      )
+
       if @transition_order && @order.status != "fulfilled"
         begin
           ::Sales::OrderStateMachine.call(@order.reload, to: "fulfilled", actor: @actor)
@@ -72,6 +87,20 @@ module Shipping
       end
 
       fulfillment.reload
+    end
+
+    private
+
+    def fulfillment_rows
+      rows = @line_items.presence
+      return rows if rows.present?
+
+      @order.line_items.map do |line_item|
+        remaining = [line_item.quantity.to_i - line_item.fulfilled_quantity.to_i, 0].max
+        next if remaining <= 0
+
+        { order_line_item_id: line_item.id, quantity: remaining }
+      end.compact
     end
   end
 end

@@ -39,7 +39,9 @@ module Sales
         build_line_items(order)
         compute_totals(order)
         order.save!
+        sync_reservations(order) unless skip_reservations?
         post_accounting(order) if mark_paid?
+        recompute_customer_stats(order)
         order
       end
     end
@@ -61,10 +63,11 @@ module Sales
         source:           attrs[:source].presence || "manual",
         status:           "pending",
         financial_status: mark_paid? ? "paid" : "pending",
-        currency:         (attrs[:currency].presence || "USD").upcase,
+        currency:         (attrs[:currency].presence || "EGP").upcase,
         customer_id:      cust&.id,
         customer_email:   attrs[:customer_email] || cust&.email,
         customer_name:    attrs[:customer_name]  || cust&.display_name,
+        location_id:      attrs[:location_id].presence,
         shipping_address: attrs[:shipping_address].is_a?(Hash) ? attrs[:shipping_address] : {},
         billing_address:  attrs[:billing_address].is_a?(Hash)  ? attrs[:billing_address]  : {},
         notes:            attrs[:notes],
@@ -114,8 +117,25 @@ module Sales
       Rails.logger.error("[ManualOrderCreator] accounting error for #{order.id}: #{e.message}")
     end
 
+    def sync_reservations(order)
+      warehouse = attrs[:warehouse_id].present? ? Warehouse.find(attrs[:warehouse_id]) : nil
+      ::Inventory::SyncOrderReservations.call(order, warehouse: warehouse)
+    end
+
+    def recompute_customer_stats(order)
+      return unless order.customer
+
+      ::Crm::CustomerStatsRecomputer.call(order.customer)
+    rescue => e
+      Rails.logger.error("[ManualOrderCreator] customer stats error for #{order.id}: #{e.message}")
+    end
+
     def mark_paid?
       attrs[:mark_paid].to_s == "true" || attrs[:mark_paid] == true
+    end
+
+    def skip_reservations?
+      attrs[:skip_reservations].to_s == "true" || attrs[:skip_reservations] == true
     end
 
     def to_d(v)

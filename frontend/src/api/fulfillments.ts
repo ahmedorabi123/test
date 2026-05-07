@@ -3,11 +3,32 @@ import api from "./client";
 export interface Fulfillment {
   id: string;
   order_id: string;
+  order?: {
+    id: string;
+    order_number: string;
+    status: string;
+    financial_status: string;
+    fulfillment_status?: string | null;
+    total_price: string;
+    currency: string;
+    shipping_address?: Record<string, unknown>;
+  } | null;
+  customer?: {
+    id?: string | null;
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  } | null;
   status: string;
   tracking_company: string | null;
   tracking_number: string | null;
   tracking_url: string | null;
   carrier: string | null;
+  delivery_status?: string | null;
+  service?: string | null;
+  notes?: string | null;
+  tags?: string[];
+  carrier_data?: Record<string, unknown>;
   shipped_at: string | null;
   delivered_at: string | null;
   location_id: number | null;
@@ -19,7 +40,20 @@ export interface Fulfillment {
     fulfillment_id: string;
     order_line_item_id: string | null;
     quantity: number;
+    title?: string | null;
+    sku?: string | null;
+    variant_title?: string | null;
   }>;
+}
+
+export interface ShipmentEvent {
+  id: string;
+  fulfillment_id: string;
+  kind: string;
+  payload: Record<string, unknown>;
+  actor_id?: string | null;
+  actor_name?: string | null;
+  created_at: string;
 }
 
 export interface FulfillmentListParams {
@@ -28,6 +62,13 @@ export interface FulfillmentListParams {
   order_id?: string;
   carrier?: string;
   status?: string;
+  delivery_status?: string;
+  source?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  sort?: string;
+  dir?: "asc" | "desc";
 }
 
 export const fulfillmentsApi = {
@@ -42,6 +83,18 @@ export const fulfillmentsApi = {
   get: (id: string) =>
     api
       .get<{ data: Fulfillment }>(`/fulfillments/${id}`)
+      .then((r) => r.data.data),
+
+  events: (id: string) =>
+    api
+      .get<{ data: ShipmentEvent[] }>(`/fulfillments/${id}/events`)
+      .then((r) => r.data.data),
+
+  annotate: (id: string, payload: { notes?: string | null; tags?: string[] }) =>
+    api
+      .patch<{ data: Fulfillment }>(`/fulfillments/${id}/annotation`, {
+        fulfillment: payload,
+      })
       .then((r) => r.data.data),
 
   create: (payload: {

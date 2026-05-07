@@ -1,9 +1,13 @@
 class OrderLineItem < ApplicationRecord
   belongs_to :order, inverse_of: :line_items
   belongs_to :variant, optional: true
+  has_many :stock_reservations, dependent: :destroy, inverse_of: :order_line_item
+  has_many :fulfillment_line_items, dependent: :nullify
+  has_many :refund_line_items, dependent: :nullify
 
   validates :title,    presence: true
   validates :quantity, numericality: { greater_than: 0 }
+  validates :fulfilled_quantity, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :price,    numericality: { greater_than_or_equal_to: 0 }
 
   before_validation :calculate_line_total

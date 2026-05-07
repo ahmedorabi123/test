@@ -6,8 +6,8 @@ module Api
       include Importable
 
       sortable_by "created_at", "updated_at", "email", "first_name", "last_name",
-                  "orders_count", "total_spent",
-                  default: { created_at: :desc }
+                  "orders_count", "total_spent", "last_order_at", "source",
+                  default: { last_order_at: :desc }
 
       before_action :set_customer, only: %i[show update destroy]
 
@@ -30,10 +30,21 @@ module Api
         }
       end
 
+      # Shopify's Customers list behaves closest to "Last order" first for this
+      # ERP surface; keep no-order customers at the end and make ties stable.
+      def apply_sort(scope)
+        if params[:sort].blank? || params[:sort].to_s == "last_order_at"
+          dir = params[:dir].to_s.downcase == "asc" ? "ASC" : "DESC"
+          scope.order(Arel.sql("customers.last_order_at #{dir} NULLS LAST, customers.created_at #{dir}, customers.id #{dir}"))
+        else
+          super
+        end
+      end
+
       # GET /api/v1/customers/:id
       def show
         authorize @customer
-        render json: { data: CustomerSerializer.call(@customer, include_orders: true) }
+        render json: { data: CustomerSerializer.call(@customer, include_orders: true, include_last_order: true) }
       end
 
       # POST /api/v1/customers
@@ -114,9 +125,15 @@ module Api
       def filtered_scope
         scope = policy_scope(Customer)
         if params[:search].present?
-          q = "%#{params[:search]}%"
+          q = "%#{params[:search].to_s.strip}%"
           scope = scope.where(
-            "email ILIKE :q OR phone ILIKE :q OR first_name ILIKE :q OR last_name ILIKE :q",
+            <<~SQL.squish,
+              email ILIKE :q
+              OR phone ILIKE :q
+              OR first_name ILIKE :q
+              OR last_name ILIKE :q
+              OR (COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) ILIKE :q
+            SQL
             q: q
           )
         end
@@ -130,8 +147,14 @@ module Api
       def customer_params
         params.require(:customer).permit(
           :email, :first_name, :last_name, :phone, :currency,
+          :accepts_marketing, :tax_exempt, :verified_email, :state, :note,
           tags: [],
-          default_address: {}
+          default_address: {},
+          addresses: [
+            :id, :address1, :address2, :city, :province, :province_code,
+            :country, :country_code, :zip, :phone, :company, :first_name,
+            :last_name, :name, :default
+          ]
         )
       end
 

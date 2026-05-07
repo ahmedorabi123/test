@@ -1,5 +1,44 @@
 import api from "./client";
 
+export interface CustomerAddress {
+  id?: number | string;
+  address1?: string;
+  address2?: string;
+  city?: string;
+  province?: string;
+  province_code?: string;
+  country?: string;
+  country_code?: string;
+  zip?: string;
+  phone?: string;
+  company?: string;
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  default?: boolean;
+}
+
+export interface CustomerOrderSummary {
+  id: string;
+  order_number: string;
+  total_price: string;
+  status: string;
+  financial_status: string;
+  fulfillment_status?: string | null;
+  placed_at: string;
+  currency?: string;
+  shipping_address?: Record<string, string | undefined>;
+  line_items?: Array<{
+    id: string;
+    title: string;
+    variant_title?: string | null;
+    sku?: string | null;
+    quantity: number;
+    price: string;
+    line_total: string;
+  }>;
+}
+
 export interface Customer {
   id: string;
   email: string | null;
@@ -8,18 +47,21 @@ export interface Customer {
   last_name: string | null;
   display_name: string;
   tags: string[];
-  default_address: Record<string, string | undefined>;
-  addresses?: Array<Record<string, string | number | undefined>>;
+  default_address: CustomerAddress;
+  addresses?: CustomerAddress[];
   accepts_marketing?: boolean;
   verified_email?: boolean;
+  tax_exempt?: boolean;
   state?: string | null;
   note?: string | null;
   last_order_id?: number | null;
   last_order_name?: string | null;
   last_order_at?: string | null;
+  last_order?: CustomerOrderSummary | null;
   orders_count: number;
   total_spent: string;
   currency: string;
+  source: "manual" | "shopify";
   shopify_customer_id: string | null;
   created_at: string;
   updated_at: string;
@@ -42,13 +84,17 @@ export interface CustomerListParams {
 }
 
 export interface CustomerInput {
-  email?: string;
-  first_name?: string;
-  last_name?: string;
-  phone?: string;
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
   currency?: string;
   tags?: string[];
-  default_address?: Record<string, string | undefined>;
+  accepts_marketing?: boolean;
+  tax_exempt?: boolean;
+  note?: string | null;
+  default_address?: CustomerAddress;
+  addresses?: CustomerAddress[];
 }
 
 export const customersApi = {

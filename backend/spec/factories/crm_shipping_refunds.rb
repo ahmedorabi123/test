@@ -4,7 +4,8 @@ FactoryBot.define do
     first_name { "Jane" }
     last_name  { "Doe" }
     phone      { "+1-555-0100" }
-    currency   { "USD" }
+    currency   { "EGP" }
+    source     { "manual" }
     tags       { [] }
   end
 

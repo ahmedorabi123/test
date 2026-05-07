@@ -1,6 +1,7 @@
 import api from "./client";
 import type { Fulfillment } from "./fulfillments";
 import type { Refund } from "./refunds";
+import type { Warehouse } from "./inventory";
 
 export type OrderStatus =
   | "pending"
@@ -14,6 +15,7 @@ export type FinancialStatus =
   | "authorized"
   | "paid"
   | "partially_paid"
+  | "partially_refunded"
   | "refunded"
   | "voided";
 
@@ -29,6 +31,28 @@ export interface OrderLineItem {
   total_discount: string;
   total_tax: string;
   line_total: string;
+  fulfilled_quantity?: number;
+  reserved_quantity?: number;
+}
+
+export interface StockAllocation {
+  id: string;
+  status: "active" | "released" | "consumed";
+  quantity: number;
+  note?: string | null;
+  stock_item_id: string;
+  warehouse_id: string;
+  warehouse_name: string | null;
+  warehouse_code: string | null;
+  on_hand: number;
+  reserved: number;
+  unavailable: number;
+  available: number;
+}
+
+export interface OrderStockAllocationLine extends OrderLineItem {
+  reserved_quantity: number;
+  allocations: StockAllocation[];
 }
 
 export interface Order {
@@ -44,6 +68,7 @@ export interface Order {
   total_tax: string;
   total_shipping: string;
   total_discount: string;
+  total_refunded?: string;
   total_price: string;
   customer_email: string | null;
   customer_name: string | null;
@@ -70,6 +95,16 @@ export interface Order {
   refunds?: Refund[];
   customer_id?: string | null;
   location_id?: number | null;
+}
+
+export interface WarehouseAvailability {
+  stock_item_id: string;
+  warehouse_id: string;
+  warehouse_name?: string | null;
+  available: number;
+  on_hand: number;
+  reserved: number;
+  unavailable: number;
 }
 
 export interface OrderListMeta {
@@ -126,6 +161,8 @@ export const ordersApi = {
     notes?: string;
     total_shipping?: string;
     mark_paid?: boolean;
+    warehouse_id?: string;
+    location_id?: number;
     shipping_address?: Record<string, unknown>;
     billing_address?: Record<string, unknown>;
     line_items: Array<{
@@ -154,5 +191,24 @@ export const ordersApi = {
   transition: (id: string, to: string) =>
     api
       .post<{ data: Order }>(`/orders/${id}/transition`, { to })
+      .then((r) => r.data.data),
+
+  previewWarehouse: (variantIds: string[]) =>
+    api
+      .get<{
+        data: {
+          warehouse: Warehouse | null;
+          availability: Record<string, WarehouseAvailability[]>;
+        };
+      }>("/orders/preview_warehouse", {
+        params: { variant_ids: variantIds },
+      })
+      .then((r) => r.data.data),
+
+  stockAllocation: (id: string) =>
+    api
+      .get<{
+        data: OrderStockAllocationLine[];
+      }>(`/orders/${id}/stock_allocation`)
       .then((r) => r.data.data),
 };

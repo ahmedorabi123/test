@@ -28,6 +28,25 @@ RSpec.describe Crm::Shopify::CustomerUpserter do
     expect(c.full_name).to eq("Ahmed Mostafa")
     expect(c.tags).to eq(["vip", "shopify"])
     expect(c.orders_count).to eq(3)
+    expect(c.source).to eq("shopify")
+  end
+
+  it "prefers Shopify email marketing consent state" do
+    described_class.call(payload.merge("accepts_marketing" => false, "email_marketing_consent" => { "state" => "subscribed" }))
+
+    expect(Customer.last.accepts_marketing).to eq(true)
+  end
+
+  it "falls back to legacy accepts_marketing" do
+    described_class.call(payload.merge("accepts_marketing" => true))
+
+    expect(Customer.last.accepts_marketing).to eq(true)
+  end
+
+  it "treats non-subscribed consent states as unsubscribed" do
+    described_class.call(payload.merge("accepts_marketing" => true, "email_marketing_consent" => { "state" => "not_subscribed" }))
+
+    expect(Customer.last.accepts_marketing).to eq(false)
   end
 
   it "is idempotent and updates in place" do
@@ -44,6 +63,17 @@ RSpec.describe Crm::Shopify::CustomerUpserter do
     order = create(:order, :from_shopify, shopify_customer_id: 555_555, customer_id: nil)
     described_class.call(payload)
     expect(order.reload.customer).to eq(Customer.last)
+  end
+
+  it "recomputes stats from linked local orders when they exist" do
+    order = create(:order, :from_shopify, shopify_customer_id: 555_555, customer_id: nil,
+                                        status: "fulfilled", financial_status: "paid", total_price: 200)
+
+    described_class.call(payload.merge("orders_count" => 0, "total_spent" => "0.00"))
+
+    customer = order.reload.customer
+    expect(customer.orders_count).to eq(1)
+    expect(customer.total_spent).to eq(200)
   end
 
   it "skips overwriting with older payloads" do

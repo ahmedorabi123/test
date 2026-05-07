@@ -6,10 +6,11 @@ module Api
       include Importable
 
       sortable_by "placed_at", "total_price", "order_number", "customer_email",
-                  "status", "financial_status", "created_at",
+                  "customer_name", "status", "financial_status", "fulfillment_status",
+                  "created_at", "updated_at", "items_count", "total_refunded",
                   default: { placed_at: :desc }
 
-      before_action :set_order, only: %i[show transition]
+      before_action :set_order, only: %i[show transition stock_allocation]
 
       def importer_class
         params[:mode] == "showroom" ? Imports::ShowroomSalesImporter : Imports::OrdersImporter
@@ -56,6 +57,27 @@ module Api
         render json: { data: OrderSerializer.call(order) }, status: :created
       rescue Sales::ManualOrderCreator::InvalidInput => e
         render_error(422, "unprocessable_entity", e.message)
+      rescue Inventory::Oversold => e
+        render json: { error: { type: "oversold", detail: e.message, shortages: e.shortages } }, status: :unprocessable_entity
+      end
+
+      def preview_warehouse
+        authorize Order, :create?
+        variant_ids = Array(params[:variant_ids]).reject(&:blank?)
+        warehouse = preview_best_warehouse(variant_ids)
+        availability = availability_for(variant_ids)
+
+        render json: {
+          data: {
+            warehouse: warehouse ? WarehouseSerializer.call(warehouse) : nil,
+            availability: availability
+          }
+        }
+      end
+
+      def stock_allocation
+        authorize @order, :show?
+        render json: { data: OrderSerializer.stock_allocation(@order) }
       end
 
       # GET /api/v1/orders/stats?window=30
@@ -137,7 +159,7 @@ module Api
       def order_params
         params.require(:order).permit(
           :source, :currency, :customer_id, :customer_email, :customer_name,
-          :notes, :total_shipping, :mark_paid,
+          :notes, :total_shipping, :mark_paid, :location_id, :warehouse_id,
           shipping_address: {},
           billing_address:  {},
           line_items: [
@@ -145,6 +167,38 @@ module Api
             :quantity, :price, :total_tax, :total_discount
           ]
         )
+      end
+
+      def preview_best_warehouse(variant_ids)
+        return Inventory::WarehouseResolver.primary if variant_ids.empty?
+
+        warehouse_id = StockItem.joins(:warehouse)
+          .where(variant_id: variant_ids, warehouses: { active: true })
+          .group(:warehouse_id)
+          .order(Arel.sql("SUM(stock_items.quantity_on_hand - stock_items.quantity_reserved - stock_items.quantity_unavailable) DESC"))
+          .limit(1)
+          .pluck(:warehouse_id)
+          .first
+        Warehouse.find_by(id: warehouse_id) || Inventory::WarehouseResolver.primary
+      end
+
+      def availability_for(variant_ids)
+        StockItem.includes(:warehouse)
+          .where(variant_id: variant_ids)
+          .group_by(&:variant_id)
+          .transform_values do |items|
+            items.map do |stock_item|
+              {
+                stock_item_id: stock_item.id,
+                warehouse_id: stock_item.warehouse_id,
+                warehouse_name: stock_item.warehouse&.name,
+                available: stock_item.available,
+                on_hand: stock_item.quantity_on_hand,
+                reserved: stock_item.quantity_reserved,
+                unavailable: stock_item.quantity_unavailable
+              }
+            end
+          end
       end
 
       def export_scope

@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ordersApi, type Order } from "../api/orders";
+import {
+  ordersApi,
+  type Order,
+  type OrderStockAllocationLine,
+} from "../api/orders";
 import ManualFulfillmentButton from "../components/shipping/ManualFulfillmentButton";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -16,6 +20,7 @@ const FIN_STATUS_STYLES: Record<string, string> = {
   authorized: "bg-sky-50 text-sky-700 ring-sky-600/20",
   paid: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
   partially_paid: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
+  partially_refunded: "bg-purple-50 text-purple-700 ring-purple-600/20",
   refunded: "bg-rose-50 text-rose-700 ring-rose-600/20",
   voided: "bg-gray-100 text-gray-600 ring-gray-500/20",
 };
@@ -47,16 +52,32 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [transitioning, setTransitioning] = useState(false);
+  const [allocations, setAllocations] = useState<OrderStockAllocationLine[]>(
+    [],
+  );
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    ordersApi
-      .get(id)
-      .then(setOrder)
+    Promise.all([ordersApi.get(id), ordersApi.stockAllocation(id)])
+      .then(([orderRow, allocationRows]) => {
+        setOrder(orderRow);
+        setAllocations(allocationRows);
+      })
       .catch((e) => setError((e as Error).message || "Failed to load order"))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const reloadOrder = () => {
+    if (!order) return;
+    Promise.all([
+      ordersApi.get(order.id),
+      ordersApi.stockAllocation(order.id),
+    ]).then(([orderRow, allocationRows]) => {
+      setOrder(orderRow);
+      setAllocations(allocationRows);
+    });
+  };
 
   const transition = async (to: string, confirmMsg?: string) => {
     if (!order) return;
@@ -65,6 +86,7 @@ export default function OrderDetailPage() {
     try {
       const updated = await ordersApi.transition(order.id, to);
       setOrder(updated);
+      ordersApi.stockAllocation(order.id).then(setAllocations);
     } catch (e) {
       const err = e as {
         response?: { data?: { error?: { message?: string } } };
@@ -93,6 +115,7 @@ export default function OrderDetailPage() {
     authorized: ["paid", "voided"],
     paid: ["partially_paid", "refunded"],
     partially_paid: ["paid", "refunded"],
+    partially_refunded: ["refunded"],
     refunded: [],
     voided: [],
   };
@@ -196,12 +219,7 @@ export default function OrderDetailPage() {
           >
             New order
           </Link>
-          <ManualFulfillmentButton
-            order={order}
-            onCreated={() => {
-              ordersApi.get(order.id).then(setOrder);
-            }}
-          />
+          <ManualFulfillmentButton order={order} onCreated={reloadOrder} />
         </div>
       </div>
 
@@ -243,6 +261,12 @@ export default function OrderDetailPage() {
               <span>
                 {formatMoney(order.total_outstanding, order.currency)}
               </span>
+            </div>
+          )}
+          {Number(order.total_refunded ?? 0) > 0 && (
+            <div className="flex justify-between text-xs text-rose-700 pt-1">
+              <span>Refunded</span>
+              <span>{formatMoney(order.total_refunded, order.currency)}</span>
             </div>
           )}
           {order.payment_gateway_names &&
@@ -365,6 +389,9 @@ export default function OrderDetailPage() {
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">
                   {li.quantity}
+                  <div className="text-xs text-slate-400">
+                    {li.fulfilled_quantity ?? 0} fulfilled
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">
                   {formatMoney(li.price, order.currency)}
@@ -387,6 +414,80 @@ export default function OrderDetailPage() {
           </tbody>
         </table>
       </div>
+
+      {allocations.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Stock allocation
+            </h2>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {allocations.map((line) => {
+              const fulfilled = line.fulfilled_quantity ?? 0;
+              const reserved = line.reserved_quantity ?? 0;
+              const progress = Math.min(
+                100,
+                Math.round(
+                  ((fulfilled + reserved) / Math.max(line.quantity, 1)) * 100,
+                ),
+              );
+              return (
+                <div key={line.id} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-slate-900">
+                        {line.title}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {fulfilled} fulfilled · {reserved} reserved ·{" "}
+                        {line.quantity} ordered
+                      </div>
+                    </div>
+                    <div className="w-40 pt-1">
+                      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-500"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {line.allocations.map((allocation) => (
+                      <div
+                        key={allocation.id}
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-slate-700">
+                            {allocation.warehouse_name ||
+                              allocation.warehouse_code ||
+                              "Warehouse"}
+                          </span>
+                          <Badge
+                            value={allocation.status}
+                            map={STATUS_STYLES}
+                          />
+                        </div>
+                        <div className="mt-1 text-slate-500">
+                          {allocation.quantity} units · available{" "}
+                          {allocation.available} · on hand {allocation.on_hand}
+                        </div>
+                      </div>
+                    ))}
+                    {line.allocations.length === 0 && (
+                      <div className="text-xs text-slate-400">
+                        No allocation rows
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Fulfillments */}
       {(order.fulfillments ?? []).length > 0 && (

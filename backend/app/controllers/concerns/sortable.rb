@@ -25,6 +25,9 @@ module Sortable
   end
 
   # Apply sort to a scope using request params.
+  #
+  # Adds NULLS LAST so columns like `last_order_at` / `total_spent` don't
+  # surface a wall of NULL rows on `desc`.
   def apply_sort(scope)
     keys    = self.class.sortable_keys
     default = self.class.sortable_default
@@ -32,7 +35,9 @@ module Sortable
     req_dir = params[:dir].to_s.downcase == "desc" ? :desc : :asc
 
     if keys.include?(req_key)
-      scope.order(req_key => req_dir)
+      table_name = scope.respond_to?(:table_name) ? scope.table_name : scope.klass.table_name
+      qualified  = "#{table_name}.#{req_key}"
+      scope.order(Arel.sql("#{qualified} #{req_dir.to_s.upcase} NULLS LAST, #{table_name}.id #{req_dir.to_s.upcase}"))
     elsif default.is_a?(Hash)
       scope.order(default)
     else

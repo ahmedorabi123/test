@@ -95,9 +95,11 @@ puts "== Seeding Chart of Accounts =="
 coa = [
   # ── Assets ──────────────────────────────────────────────────────────────────
   { code: "1000", name: "Cash & Cash Equivalents",  type: "asset",     side: "debit",  desc: "Cash on hand and bank balances" },
+  { code: "1010", name: "Bank",                     type: "asset",     side: "debit",  desc: "Operating bank account" },
   { code: "1100", name: "Accounts Receivable",      type: "asset",     side: "debit",  desc: "Amounts owed by customers" },
   { code: "1200", name: "Inventory",                type: "asset",     side: "debit",  desc: "Goods held for sale" },
-  { code: "1300", name: "Prepaid Expenses",         type: "asset",     side: "debit",  desc: "Prepaid costs" },
+  { code: "1300", name: "Recoverable VAT",          type: "asset",     side: "debit",  desc: "Input VAT recoverable from suppliers" },
+  { code: "1400", name: "Prepaid Expenses",         type: "asset",     side: "debit",  desc: "Prepaid costs" },
   { code: "1500", name: "Property & Equipment",     type: "asset",     side: "debit",  desc: "Tangible fixed assets" },
   # ── Liabilities ─────────────────────────────────────────────────────────────
   { code: "2000", name: "Accounts Payable",         type: "liability", side: "credit", desc: "Amounts owed to suppliers" },
@@ -123,14 +125,16 @@ coa = [
 ]
 
 coa.each do |a|
-  Account.find_or_create_by!(code: a[:code]) do |acc|
-    acc.name         = a[:name]
-    acc.account_type = a[:type]
-    acc.normal_side  = a[:side]
-    acc.description  = a[:desc]
-    acc.currency     = "EGP"
-    acc.active       = true
-  end
+  acc = Account.find_or_initialize_by(code: a[:code])
+  acc.assign_attributes(
+    name:         a[:name],
+    account_type: a[:type],
+    normal_side:  a[:side],
+    description:  a[:desc],
+    currency:     "EGP",
+    active:       true
+  )
+  acc.save!
 end
 puts "   #{Account.count} accounts seeded"
 

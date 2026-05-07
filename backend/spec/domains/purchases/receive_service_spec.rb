@@ -6,6 +6,12 @@ RSpec.describe Purchases::ReceiveService do
   let(:product)   { create(:product) }
   let(:variant)   { create(:variant, product: product, price: "10.00") }
 
+  before do
+    create(:account, code: "1200", name: "Inventory", account_type: "asset", normal_side: "debit")
+    create(:account, code: "1300", name: "Recoverable VAT", account_type: "asset", normal_side: "debit")
+    create(:account, code: "2000", name: "Accounts Payable", account_type: "liability", normal_side: "credit")
+  end
+
   it "receives inventory and bumps stock" do
     po = Purchases::PurchaseOrderCreator.call(
       supplier_id: supplier.id,

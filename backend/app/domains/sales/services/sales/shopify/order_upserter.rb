@@ -31,6 +31,8 @@ module Sales
           order.save!
           upsert_line_items(order)
           trigger_accounting(order)
+          manage_reservations(order)
+          recompute_customer_stats(order)
           order
         end
       end
@@ -52,7 +54,7 @@ module Sales
           status:             map_status,
           financial_status:   map_financial_status,
           fulfillment_status: payload[:fulfillment_status].presence,
-          currency:           (payload[:currency].presence || "USD").upcase,
+          currency:           (payload[:currency].presence || "EGP").upcase,
           subtotal_price:     to_decimal(payload[:subtotal_price]),
           total_tax:          to_decimal(payload[:total_tax]),
           total_shipping:     extract_total_shipping,
@@ -130,6 +132,26 @@ module Sales
         # Don't fail the order upsert if accounting has an error.
         # The accounting team can manually post the journal entry.
         Rails.logger.error("[OrderUpserter] Accounting error for order #{order.id}: #{e.message}")
+      end
+
+      # Reserve stock when order is new/pending; release when fulfilled or cancelled.
+      def manage_reservations(order)
+        case order.status
+        when "pending", "processing"
+          ::Inventory::SyncOrderReservations.call(order)
+        when "cancelled", "refunded"
+          ::Inventory::ReleaseOrderReservations.call(order)
+        end
+      rescue => e
+        Rails.logger.error("[OrderUpserter] Reservation error for order #{order.id}: #{e.message}")
+      end
+
+      def recompute_customer_stats(order)
+        return unless order.customer
+
+        ::Crm::CustomerStatsRecomputer.call(order.customer)
+      rescue => e
+        Rails.logger.error("[OrderUpserter] Customer stats error for order #{order.id}: #{e.message}")
       end
 
       def map_status

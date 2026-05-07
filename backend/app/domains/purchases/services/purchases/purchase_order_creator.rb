@@ -21,7 +21,7 @@ module Purchases
       po = PurchaseOrder.new(
         supplier:      supplier,
         warehouse:     warehouse,
-        currency:      (@attrs[:currency] || supplier.currency || "USD").to_s,
+        currency:      (@attrs[:currency] || supplier.currency || "EGP").to_s,
         status:        "draft",
         expected_at:   @attrs[:expected_at],
         notes:         @attrs[:notes],

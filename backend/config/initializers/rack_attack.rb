@@ -1,4 +1,8 @@
 class Rack::Attack
+  # Disable entirely in test environment (avoids 429 during spec runs)
+  if Rails.env.test?
+    Rack::Attack.enabled = false
+  else
   # Cache store
   Rack::Attack.cache.store = ActiveSupport::Cache::RedisCacheStore.new(
     url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0")
@@ -44,4 +48,5 @@ class Rack::Attack
 
   # Safelist local development
   safelist("localhost") { |req| req.ip == "127.0.0.1" || req.ip == "::1" } if Rails.env.development?
+  end
 end

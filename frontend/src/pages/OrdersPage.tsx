@@ -26,6 +26,7 @@ const FIN_STATUS_STYLES: Record<FinancialStatus, string> = {
   authorized: "bg-sky-50 text-sky-700 ring-sky-600/20",
   paid: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
   partially_paid: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
+  partially_refunded: "bg-purple-50 text-purple-700 ring-purple-600/20",
   refunded: "bg-rose-50 text-rose-700 ring-rose-600/20",
   voided: "bg-gray-100 text-gray-600 ring-gray-500/20",
 };
@@ -194,20 +195,9 @@ export default function OrdersPage() {
         ),
       },
       {
-        id: "delivery_status",
-        header: "Delivery",
-        render: (o) =>
-          o.delivery_status ? (
-            <span className="text-xs capitalize text-slate-600">
-              {o.delivery_status.replace(/_/g, " ")}
-            </span>
-          ) : (
-            <span className="text-xs text-slate-400">—</span>
-          ),
-      },
-      {
         id: "items",
         header: "Items",
+        sortKey: "items_count",
         render: (o) => (
           <span className="text-slate-700">{o.items_count ?? 0}</span>
         ),
@@ -220,30 +210,6 @@ export default function OrdersPage() {
             {o.delivery_method || "—"}
           </span>
         ),
-      },
-      {
-        id: "tags",
-        header: "Tags",
-        render: (o) =>
-          o.tags && o.tags.length > 0 ? (
-            <div className="flex flex-wrap gap-1 max-w-[220px]">
-              {o.tags.slice(0, 3).map((t) => (
-                <span
-                  key={t}
-                  className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
-                >
-                  {t}
-                </span>
-              ))}
-              {o.tags.length > 3 && (
-                <span className="text-xs text-slate-500">
-                  +{o.tags.length - 3}
-                </span>
-              )}
-            </div>
-          ) : (
-            <span className="text-xs text-slate-400">—</span>
-          ),
       },
     ],
     [],
@@ -355,8 +321,16 @@ export default function OrdersPage() {
         }}
         sort={{ key: sortKey, dir: sortDir }}
         onSortChange={(s) => {
-          setParam("sort", s?.key ?? null);
-          setParam("dir", s?.dir ?? null);
+          const sp = new URLSearchParams(searchParams);
+          if (s) {
+            sp.set("sort", s.key);
+            sp.set("dir", s.dir);
+          } else {
+            sp.delete("sort");
+            sp.delete("dir");
+          }
+          sp.set("page", "1");
+          setSearchParams(sp, { replace: true });
         }}
         selectable
         bulkActions={bulkActions}

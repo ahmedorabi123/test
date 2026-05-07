@@ -39,7 +39,7 @@ export interface DataTableProps<T extends { id: string | number }> {
   onPerPageChange?: (perPage: number) => void;
   /** Current sort — if absent, reads from URL `?sort=&dir=`. */
   sort?: { key: string; dir: SortDir } | null;
-  onSortChange?: (sort: { key: string; dir: SortDir } | null) => void;
+  onSortChange?: (sort: { key: string; dir: SortDir }) => void;
   /** Multi-select. */
   selectable?: boolean;
   bulkActions?: BulkAction<T>[];
@@ -86,24 +86,22 @@ export default function DataTable<T extends { id: string | number }>({
 
   function handleSort(col: Column<T>) {
     if (!col.sortKey) return;
-    let next: { key: string; dir: SortDir } | null;
+    let next: { key: string; dir: SortDir };
     if (!currentSort || currentSort.key !== col.sortKey) {
+      // First click on this column: sort ascending
       next = { key: col.sortKey, dir: "asc" };
     } else if (currentSort.dir === "asc") {
+      // Second click: sort descending
       next = { key: col.sortKey, dir: "desc" };
     } else {
-      next = null;
+      // Third click / already desc: flip back to ascending (Shopify style)
+      next = { key: col.sortKey, dir: "asc" };
     }
     if (onSortChange) onSortChange(next);
     if (syncToUrl) {
       const sp = new URLSearchParams(searchParams);
-      if (next) {
-        sp.set("sort", next.key);
-        sp.set("dir", next.dir);
-      } else {
-        sp.delete("sort");
-        sp.delete("dir");
-      }
+      sp.set("sort", next.key);
+      sp.set("dir", next.dir);
       setSearchParams(sp, { replace: true });
     }
   }

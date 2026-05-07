@@ -16,8 +16,33 @@ export interface ImportExportBarProps {
   onImported?: (result: {
     created: number;
     updated: number;
-    errors: any[];
+    errors: ImportErrorRow[];
   }) => void;
+}
+
+interface ImportErrorRow {
+  row?: number;
+  message?: string;
+}
+
+interface ImportPreview {
+  total?: number;
+  valid?: number;
+  errors?: ImportErrorRow[];
+  warnings?: unknown[];
+  sample?: unknown[];
+}
+
+interface ApiError {
+  response?: { data?: { error?: { detail?: string } | string } };
+  message?: string;
+}
+
+function apiErrorDetail(err: unknown, fallback: string) {
+  const error = err as ApiError;
+  const payload = error.response?.data?.error;
+  if (typeof payload === "string") return payload;
+  return payload?.detail || error.message || fallback;
 }
 
 export default function ImportExportBar({
@@ -29,7 +54,7 @@ export default function ImportExportBar({
 }: ImportExportBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [preview, setPreview] = useState<any | null>(null);
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,8 +93,8 @@ export default function ImportExportBar({
         headers: { "Content-Type": "multipart/form-data" },
       });
       setPreview(res.data.data);
-    } catch (err: any) {
-      setError(err.response?.data?.error?.detail || "Import validation failed");
+    } catch (err: unknown) {
+      setError(apiErrorDetail(err, "Import validation failed"));
     } finally {
       setBusy(false);
     }
@@ -89,8 +114,8 @@ export default function ImportExportBar({
       setImportOpen(false);
       setFile(null);
       setPreview(null);
-    } catch (err: any) {
-      setError(err.response?.data?.error?.detail || "Import failed");
+    } catch (err: unknown) {
+      setError(apiErrorDetail(err, "Import failed"));
     } finally {
       setBusy(false);
     }
@@ -184,46 +209,55 @@ export default function ImportExportBar({
               )}
               {preview && (
                 <div>
-                  <div className="grid grid-cols-4 gap-3 mb-4 text-sm">
-                    <Stat label="Rows" value={preview.total ?? 0} />
-                    <Stat
-                      label="Valid"
-                      value={preview.valid ?? 0}
-                      color="green"
-                    />
-                    <Stat
-                      label="Errors"
-                      value={preview.errors?.length ?? 0}
-                      color="red"
-                    />
-                    <Stat
-                      label="Warnings"
-                      value={preview.warnings?.length ?? 0}
-                      color="amber"
-                    />
-                  </div>
-                  {(preview.errors?.length ?? 0) > 0 && (
-                    <div className="mb-3 max-h-48 overflow-auto border border-red-200 rounded bg-red-50 p-3 text-xs">
-                      <div className="font-semibold text-red-900 mb-1">
-                        Errors
-                      </div>
-                      {preview.errors.slice(0, 20).map((e: any, i: number) => (
-                        <div key={i} className="text-red-700">
-                          Row {e.row}: {e.message}
+                  {(() => {
+                    const previewErrors = preview.errors ?? [];
+                    const previewSample = preview.sample ?? [];
+
+                    return (
+                      <>
+                        <div className="grid grid-cols-4 gap-3 mb-4 text-sm">
+                          <Stat label="Rows" value={preview.total ?? 0} />
+                          <Stat
+                            label="Valid"
+                            value={preview.valid ?? 0}
+                            color="green"
+                          />
+                          <Stat
+                            label="Errors"
+                            value={previewErrors.length}
+                            color="red"
+                          />
+                          <Stat
+                            label="Warnings"
+                            value={preview.warnings?.length ?? 0}
+                            color="amber"
+                          />
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  {preview.sample?.length > 0 && (
-                    <div className="text-xs text-slate-600">
-                      <div className="font-semibold mb-1">
-                        Preview (first 5 rows)
-                      </div>
-                      <pre className="bg-slate-50 p-2 rounded overflow-auto max-h-48">
-                        {JSON.stringify(preview.sample, null, 2)}
-                      </pre>
-                    </div>
-                  )}
+                        {previewErrors.length > 0 && (
+                          <div className="mb-3 max-h-48 overflow-auto border border-red-200 rounded bg-red-50 p-3 text-xs">
+                            <div className="font-semibold text-red-900 mb-1">
+                              Errors
+                            </div>
+                            {previewErrors.slice(0, 20).map((e, i) => (
+                              <div key={i} className="text-red-700">
+                                Row {e.row}: {e.message}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {previewSample.length > 0 && (
+                          <div className="text-xs text-slate-600">
+                            <div className="font-semibold mb-1">
+                              Preview (first 5 rows)
+                            </div>
+                            <pre className="bg-slate-50 p-2 rounded overflow-auto max-h-48">
+                              {JSON.stringify(previewSample, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
               {error && (

@@ -9,7 +9,7 @@ module Sales
   #
   # Side effects per transition:
   #   - to "paid":      posts the sale journal (idempotent)
-  #   - to "fulfilled": deducts stock for each line item via Inventory::WriteMovement
+  #   - to "fulfilled": consumes fulfillment line items via Inventory::ConsumeReservation
   #   - to "cancelled" (after paid): reverses the sale journal
   #
   # Returns the order; raises InvalidTransition on illegal moves.
@@ -92,9 +92,9 @@ module Sales
     def on_status_change(from, to)
       case to
       when "fulfilled"
-        deduct_inventory!
-        safe { post_cogs_for_order! }
+        safe { ensure_fulfillment_inventory_consumed! }
       when "cancelled"
+        safe { ::Inventory::ReleaseOrderReservations.call(@order) }
         # If the order was already paid, reverse the journal entry.
         if %w[paid partially_paid].include?(@order.financial_status.to_s)
           safe { ::Accounting::RefundReversalHandler.call(@order) }
@@ -112,21 +112,32 @@ module Sales
       log_transition!(field: "financial_status", from: from, to: to)
     end
 
-    def deduct_inventory!
-      warehouse = ::Inventory::WarehouseResolver.for_shopify_location(@order.location_id) ||
-                  ::Inventory::WarehouseResolver.primary
-      return unless warehouse
+    def ensure_fulfillment_inventory_consumed!
+      fulfillments = @order.fulfillments.successful.includes(:fulfillment_line_items)
 
-      @order.line_items.includes(:variant).each do |li|
-        next unless li.variant_id
-        si = StockItem.find_by(variant_id: li.variant_id, warehouse_id: warehouse.id)
-        next unless si
-        ::Inventory::WriteMovement.call(
-          stock_item: si,
-          delta:      -li.quantity,
-          reason:     "fulfilled",
-          reference:  @order
+      if fulfillments.empty?
+        line_items = @order.line_items.map do |line_item|
+          remaining = [line_item.quantity.to_i - line_item.fulfilled_quantity.to_i, 0].max
+          next if remaining <= 0
+
+          { order_line_item_id: line_item.id, quantity: remaining }
+        end.compact
+
+        fulfillment = ::Shipping::CreateManualFulfillment.call(
+          order: @order,
+          tracking_company: "Manual",
+          line_items: line_items,
+          transition_order: false,
+          actor: @actor
         )
+        fulfillments = [fulfillment]
+      end
+
+      fulfillments.each do |fulfillment|
+        fulfillment.fulfillment_line_items.each do |fulfillment_line_item|
+          ::Inventory::ConsumeReservation.call(fulfillment_line_item)
+        end
+        safe { ::Accounting::PostCogsHandler.call(fulfillment) }
       end
     end
 
@@ -134,37 +145,6 @@ module Sales
       yield
     rescue StandardError => e
       Rails.logger.error("[OrderStateMachine] side-effect failure: #{e.class}: #{e.message}")
-    end
-
-    # Manual-order COGS posting (for orders fulfilled directly, without a Shopify
-    # Fulfillment record). Computes total cost from line_items.variant.cost_per_item.
-    def post_cogs_for_order!
-      idem_key = "cogs-order-#{@order.id}"
-      return if JournalEntry.exists?(idempotency_key: idem_key)
-
-      total = @order.line_items.includes(:variant).sum do |li|
-        cost = li.variant&.cost_per_item.to_d
-        cost * li.quantity.to_i
-      end
-      return if total <= 0
-
-      JournalEntry.post!(
-        {
-          entry_date:      Date.current,
-          description:     "COGS – #{@order.order_number}",
-          currency:        @order.currency.presence || "USD",
-          source_type:     "order",
-          source_id:       @order.id,
-          entry_type:      "sale",
-          idempotency_key: idem_key
-        },
-        [
-          { account_code: "5000", side: "debit",  amount: total,
-            description: "COGS – #{@order.order_number}" },
-          { account_code: "1200", side: "credit", amount: total,
-            description: "Inventory consumed – #{@order.order_number}" }
-        ]
-      )
     end
 
     def log_transition!(field:, from:, to:)

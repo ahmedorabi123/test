@@ -2,26 +2,40 @@
 # JSON:API gem weight for the MVP.
 class ProductSerializer
   def self.call(product, include_variants: true)
+    # Stock rollup — computed from preloaded associations (no N+1 when
+    # filtered_scope uses includes(variants: :stock_items)).
+    all_stock_items = product.variants.flat_map(&:stock_items)
+    inventory_total = all_stock_items.sum(&:quantity_on_hand)
+    variants_in_stock = product.variants.count { |v| v.stock_items.any? { |s| s.quantity_on_hand > 0 } }
+    collections = product.collections.map { |c| { id: c.id, title: c.title, handle: c.handle } }
+
     {
-      id:                  product.id,
-      title:               product.title,
-      handle:              product.handle,
-      status:              product.status,
-      vendor:              product.vendor,
-      product_type:        product.product_type,
-      description:         product.description,
-      tags:                product.tags || [],
-      seo_title:           product.seo_title,
-      seo_description:     product.seo_description,
-      template_suffix:     product.template_suffix,
-      published_at:        product.published_at,
-      published_scope:     product.published_scope,
-      gift_card:           product.gift_card,
-      shopify_product_id:  product.shopify_product_id,
-      shopify_updated_at:  product.shopify_updated_at,
-      created_at:          product.created_at,
-      updated_at:          product.updated_at,
-      variants_count:      include_variants ? nil : product.variants.size,
+      id:                      product.id,
+      title:                   product.title,
+      handle:                  product.handle,
+      status:                  product.status,
+      vendor:                  product.vendor,
+      product_type:            product.product_type,
+      description:             product.description,
+      tags:                    product.tags || [],
+      metafields:              product.metafields || [],
+      category_metafields:     Catalog::MetafieldRegistry.category_values(product),
+      seo_title:               product.seo_title,
+      seo_description:         product.seo_description,
+      template_suffix:         product.template_suffix,
+      published_at:            product.published_at,
+      published_scope:         product.published_scope,
+      gift_card:               product.gift_card,
+      shopify_product_id:      product.shopify_product_id,
+      shopify_updated_at:      product.shopify_updated_at,
+      source:                  product.source,
+      collections:             collections,
+      primary_category:        collections.first&.fetch(:title, nil) || product.product_type,
+      created_at:              product.created_at,
+      updated_at:              product.updated_at,
+      variants_count:          product.variants.size,
+      inventory_total:         inventory_total,
+      variants_in_stock_count: variants_in_stock,
       options:  product.product_options.map { |o| ProductOptionSerializer.call(o) },
       images:   product.product_images.map  { |i| ProductImageSerializer.call(i) },
       variants: include_variants ? product.variants.map { |v| VariantSerializer.call(v) } : nil
@@ -54,7 +68,20 @@ class VariantSerializer
       hs_code:            variant.hs_code,
       country_of_origin:  variant.country_of_origin,
       shopify_variant_id:         variant.shopify_variant_id,
-      shopify_inventory_item_id:  variant.shopify_inventory_item_id
+      shopify_inventory_item_id:  variant.shopify_inventory_item_id,
+      stock_items: variant.stock_items.map { |si|
+        {
+          id:               si.id,
+          warehouse_id:     si.warehouse_id,
+          warehouse_name:   si.warehouse&.name || "Warehouse #{si.warehouse_id}",
+          warehouse_code:   si.warehouse&.code,
+          quantity_on_hand: si.quantity_on_hand,
+          quantity_reserved: si.quantity_reserved,
+          quantity_unavailable: si.quantity_unavailable,
+          available: si.available,
+          low_stock_threshold: si.low_stock_threshold
+        }
+      }
     }
   end
 end

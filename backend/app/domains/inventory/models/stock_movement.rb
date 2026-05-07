@@ -3,7 +3,7 @@ class StockMovement < ApplicationRecord
 
   belongs_to :stock_item, inverse_of: :stock_movements
 
-  validates :delta,  presence: true, numericality: { only_integer: true, other_than: 0 }
+  validates :delta,  presence: true, numericality: { only_integer: true }
   validates :reason, inclusion: { in: REASONS }
   validates :snapshot_before, :snapshot_after, numericality: { only_integer: true }
 

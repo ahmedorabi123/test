@@ -3,6 +3,12 @@ require "rails_helper"
 RSpec.describe "Api::V1::PurchaseOrders", type: :request do
   let(:admin) { create(:user, :admin) }
 
+  before do
+    create(:account, code: "1200", name: "Inventory", account_type: "asset", normal_side: "debit")
+    create(:account, code: "1300", name: "Recoverable VAT", account_type: "asset", normal_side: "debit")
+    create(:account, code: "2000", name: "Accounts Payable", account_type: "liability", normal_side: "credit")
+  end
+
   it "401 without auth" do
     get "/api/v1/purchase_orders"
     expect(response).to have_http_status(:unauthorized)

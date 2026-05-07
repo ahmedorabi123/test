@@ -5,6 +5,7 @@ import type { RootState } from "../../store";
 const TITLES: Record<string, string> = {
   "/": "Dashboard",
   "/products": "Products",
+  "/collections": "Collections",
   "/orders": "Orders",
   "/inventory": "Inventory",
   "/customers": "Customers",

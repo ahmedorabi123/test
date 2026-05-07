@@ -20,7 +20,7 @@ export default function CustomersPage() {
     5,
     parseInt(searchParams.get("per_page") || "25", 10),
   );
-  const sortKey = searchParams.get("sort") || "created_at";
+  const sortKey = searchParams.get("sort") || "last_order_at";
   const sortDir = (searchParams.get("dir") || "desc") as SortDir;
   const search = searchParams.get("search") || "";
 
@@ -99,6 +99,22 @@ export default function CustomersPage() {
         },
       },
       {
+        id: "source",
+        header: "Source",
+        sortKey: "source",
+        render: (c) => (
+          <span
+            className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+              c.source === "shopify"
+                ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+                : "bg-slate-100 text-slate-600 ring-slate-500/20"
+            }`}
+          >
+            {c.source === "shopify" ? "Shopify" : "Manual"}
+          </span>
+        ),
+      },
+      {
         id: "orders",
         header: "Orders",
         sortKey: "orders_count",
@@ -117,54 +133,17 @@ export default function CustomersPage() {
       {
         id: "last_order",
         header: "Last order",
+        sortKey: "last_order_at",
         render: (c) =>
           c.last_order_at ? (
             <span className="text-xs text-slate-600">
-              {c.last_order_name || ""}{" "}
+              {c.last_order_name || "Order"}{" "}
               <span className="text-slate-400">
                 · {new Date(c.last_order_at).toLocaleDateString()}
               </span>
             </span>
           ) : (
-            <span className="text-xs text-slate-400">—</span>
-          ),
-      },
-      {
-        id: "tags",
-        header: "Tags",
-        render: (c) =>
-          c.tags && c.tags.length > 0 ? (
-            <div className="flex flex-wrap gap-1 max-w-[180px]">
-              {c.tags.slice(0, 2).map((t) => (
-                <span
-                  key={t}
-                  className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
-                >
-                  {t}
-                </span>
-              ))}
-              {c.tags.length > 2 && (
-                <span className="text-xs text-slate-500">
-                  +{c.tags.length - 2}
-                </span>
-              )}
-            </div>
-          ) : (
-            <span className="text-xs text-slate-400">—</span>
-          ),
-      },
-      {
-        id: "source",
-        header: "Source",
-        render: (c) =>
-          c.shopify_customer_id ? (
-            <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 px-2 py-0.5 text-xs font-medium">
-              Shopify
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/20 px-2 py-0.5 text-xs font-medium">
-              Manual
-            </span>
+            <span className="text-xs text-slate-400">No orders</span>
           ),
       },
     ],
@@ -279,8 +258,16 @@ export default function CustomersPage() {
         }}
         sort={{ key: sortKey, dir: sortDir }}
         onSortChange={(s) => {
-          setParam("sort", s?.key ?? null);
-          setParam("dir", s?.dir ?? null);
+          const sp = new URLSearchParams(searchParams);
+          if (s) {
+            sp.set("sort", s.key);
+            sp.set("dir", s.dir);
+          } else {
+            sp.delete("sort");
+            sp.delete("dir");
+          }
+          sp.set("page", "1");
+          setSearchParams(sp, { replace: true });
         }}
         selectable
         bulkActions={bulkActions}

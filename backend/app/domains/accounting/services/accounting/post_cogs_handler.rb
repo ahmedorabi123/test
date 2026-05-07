@@ -30,7 +30,7 @@ module Accounting
 
       return if total <= 0
 
-      currency = @fulfillment.order.currency.presence || "USD"
+      currency = @fulfillment.order.currency.presence || "EGP"
 
       JournalEntry.post!(
         {

@@ -1,5 +1,21 @@
 import { useEffect, useState } from "react";
 import { productsApi, type Product, type Variant } from "../../api/products";
+import { warehousesApi, type Warehouse } from "../../api/inventory";
+
+interface StockItemDraft {
+  id?: string;
+  warehouse_id: string;
+  quantity_on_hand: string;
+  low_stock_threshold: string;
+}
+
+interface ProductImageDraft {
+  id?: string;
+  src: string;
+  alt: string;
+  position: number;
+  _destroy?: boolean;
+}
 
 interface Props {
   /** undefined = create mode; string = edit mode (product id) */
@@ -28,6 +44,7 @@ interface VariantDraft {
   _expanded?: boolean;
   /** Rails nested-attributes destroy flag */
   _destroy?: boolean;
+  stock_items: StockItemDraft[];
 }
 
 const BLANK_VARIANT: VariantDraft = {
@@ -44,6 +61,7 @@ const BLANK_VARIANT: VariantDraft = {
   taxable: true,
   hs_code: "",
   country_of_origin: "",
+  stock_items: [],
 };
 
 function apiError(e: unknown): string {
@@ -78,6 +96,8 @@ export default function ProductFormModal({
   const [variants, setVariants] = useState<VariantDraft[]>([
     { ...BLANK_VARIANT },
   ]);
+  const [images, setImages] = useState<ProductImageDraft[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [tagsInput, setTagsInput] = useState("");
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
@@ -87,6 +107,13 @@ export default function ProductFormModal({
   const [error, setError] = useState<string | null>(null);
 
   // Load existing product when in edit mode
+  useEffect(() => {
+    warehousesApi
+      .list()
+      .then((rows) => setWarehouses(rows.filter((w) => w.active)))
+      .catch(() => setWarehouses([]));
+  }, []);
+
   useEffect(() => {
     if (!productId) return;
     setLoadingProduct(true);
@@ -118,6 +145,20 @@ export default function ProductFormModal({
             taxable: v.taxable ?? true,
             hs_code: v.hs_code ?? "",
             country_of_origin: v.country_of_origin ?? "",
+            stock_items: (v.stock_items ?? []).map((stockItem) => ({
+              id: stockItem.id,
+              warehouse_id: stockItem.warehouse_id,
+              quantity_on_hand: String(stockItem.quantity_on_hand ?? 0),
+              low_stock_threshold: String(stockItem.low_stock_threshold ?? 0),
+            })),
+          })),
+        );
+        setImages(
+          (p.images ?? []).map((image, idx) => ({
+            id: image.id,
+            src: image.src,
+            alt: image.alt ?? "",
+            position: image.position ?? idx + 1,
           })),
         );
         setTagsInput((p.tags ?? []).join(", "));
@@ -146,7 +187,11 @@ export default function ProductFormModal({
   const addVariant = () =>
     setVariants((prev) => [
       ...prev,
-      { ...BLANK_VARIANT, title: `Variant ${visibleVariants.length + 1}` },
+      {
+        ...BLANK_VARIANT,
+        title: `Variant ${visibleVariants.length + 1}`,
+        stock_items: [],
+      },
     ]);
 
   const removeVariant = (idx: number) => {
@@ -163,6 +208,73 @@ export default function ProductFormModal({
     } else {
       // new row — just splice
       setVariants((prev) => prev.filter((_, i) => i !== visIdx));
+    }
+  };
+
+  const updateVariantStock = (
+    variantIdx: number,
+    warehouseId: string,
+    patch: Partial<StockItemDraft>,
+  ) => {
+    const variant = visibleVariants[variantIdx];
+    const stockItems = [...(variant.stock_items ?? [])];
+    const stockIdx = stockItems.findIndex(
+      (item) => item.warehouse_id === warehouseId,
+    );
+    if (stockIdx >= 0) {
+      stockItems[stockIdx] = { ...stockItems[stockIdx], ...patch };
+    } else {
+      stockItems.push({
+        warehouse_id: warehouseId,
+        quantity_on_hand: "0",
+        low_stock_threshold: "0",
+        ...patch,
+      });
+    }
+    updateVariant(variantIdx, { stock_items: stockItems });
+  };
+
+  const stockDraftFor = (variant: VariantDraft, warehouseId: string) =>
+    variant.stock_items.find((item) => item.warehouse_id === warehouseId) ?? {
+      warehouse_id: warehouseId,
+      quantity_on_hand: "0",
+      low_stock_threshold: "0",
+    };
+
+  const visibleImages = images.filter((image) => !image._destroy);
+
+  const addImage = () =>
+    setImages((prev) => [
+      ...prev,
+      { src: "", alt: "", position: visibleImages.length + 1 },
+    ]);
+
+  const updateImage = (idx: number, patch: Partial<ProductImageDraft>) => {
+    const visibleIndexes = images.reduce<number[]>((acc, image, imageIdx) => {
+      if (!image._destroy) acc.push(imageIdx);
+      return acc;
+    }, []);
+    const imageIdx = visibleIndexes[idx];
+    setImages((prev) =>
+      prev.map((image, i) => (i === imageIdx ? { ...image, ...patch } : image)),
+    );
+  };
+
+  const removeImage = (idx: number) => {
+    const visibleIndexes = images.reduce<number[]>((acc, image, imageIdx) => {
+      if (!image._destroy) acc.push(imageIdx);
+      return acc;
+    }, []);
+    const imageIdx = visibleIndexes[idx];
+    const image = images[imageIdx];
+    if (image.id) {
+      setImages((prev) =>
+        prev.map((row, i) =>
+          i === imageIdx ? { ...row, _destroy: true } : row,
+        ),
+      );
+    } else {
+      setImages((prev) => prev.filter((_, i) => i !== imageIdx));
     }
   };
 
@@ -206,8 +318,34 @@ export default function ProductFormModal({
         };
         if (v.id) base.id = v.id;
         if (v._destroy) base._destroy = true;
+        const stockItemsAttributes = v.stock_items
+          .filter(
+            (stockItem) =>
+              stockItem.id ||
+              Number(stockItem.quantity_on_hand || 0) !== 0 ||
+              Number(stockItem.low_stock_threshold || 0) !== 0,
+          )
+          .map((stockItem) => ({
+            id: stockItem.id,
+            warehouse_id: stockItem.warehouse_id,
+            quantity_on_hand: Number(stockItem.quantity_on_hand || 0),
+            low_stock_threshold: Number(stockItem.low_stock_threshold || 0),
+          }));
+        if (stockItemsAttributes.length > 0) {
+          base.stock_items_attributes = stockItemsAttributes;
+        }
         return base;
       });
+
+      const imageAttrs = images
+        .filter((image) => image.id || image.src.trim() || image._destroy)
+        .map((image, idx) => ({
+          id: image.id,
+          src: image.src.trim(),
+          alt: image.alt.trim() || null,
+          position: idx + 1,
+          _destroy: image._destroy,
+        }));
 
       const tags = tagsInput
         .split(",")
@@ -216,6 +354,7 @@ export default function ProductFormModal({
 
       const payload: Partial<Product> & {
         variants_attributes?: unknown[];
+        product_images_attributes?: unknown[];
         tags?: string[];
       } = {
         title: title.trim(),
@@ -230,6 +369,7 @@ export default function ProductFormModal({
         published_scope: publishedScope,
         gift_card: giftCard,
         variants_attributes: variantsAttrs,
+        product_images_attributes: imageAttrs,
       };
 
       if (isEdit) {
@@ -461,6 +601,56 @@ export default function ProductFormModal({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-gray-700">
+                  Images
+                </label>
+                <button
+                  type="button"
+                  onClick={addImage}
+                  className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
+                >
+                  + Add image
+                </button>
+              </div>
+              {visibleImages.length > 0 && (
+                <div className="space-y-2 rounded-lg border border-gray-200 p-2">
+                  {visibleImages.map((image, idx) => (
+                    <div
+                      key={image.id ?? `image-${idx}`}
+                      className="grid grid-cols-12 gap-2 items-center"
+                    >
+                      <input
+                        value={image.src}
+                        onChange={(e) =>
+                          updateImage(idx, { src: e.target.value })
+                        }
+                        placeholder="Image URL"
+                        className="col-span-7 rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                      />
+                      <input
+                        value={image.alt}
+                        onChange={(e) =>
+                          updateImage(idx, { alt: e.target.value })
+                        }
+                        placeholder="Alt text"
+                        className="col-span-4 rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="col-span-1 text-xs text-gray-400 hover:text-red-500"
+                        aria-label="Remove image"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
                   Variants <span className="text-red-500">*</span>
                 </label>
                 <button
@@ -682,6 +872,66 @@ export default function ProductFormModal({
                             Charge tax
                           </label>
                         </div>
+                        {warehouses.length > 0 && (
+                          <div className="col-span-12 border-t border-gray-100 pt-2">
+                            <div className="mb-1 text-[10px] font-medium text-gray-500">
+                              Warehouse stock
+                            </div>
+                            <div className="grid grid-cols-12 gap-2 px-1 mb-1">
+                              <span className="col-span-6 text-[10px] text-gray-400">
+                                Warehouse
+                              </span>
+                              <span className="col-span-3 text-[10px] text-gray-400">
+                                On hand
+                              </span>
+                              <span className="col-span-3 text-[10px] text-gray-400">
+                                Low stock
+                              </span>
+                            </div>
+                            <div className="space-y-1">
+                              {warehouses.map((warehouse) => {
+                                const stockDraft = stockDraftFor(
+                                  v,
+                                  warehouse.id,
+                                );
+                                return (
+                                  <div
+                                    key={warehouse.id}
+                                    className="grid grid-cols-12 gap-2 items-center"
+                                  >
+                                    <div
+                                      className="col-span-6 truncate text-xs text-gray-600"
+                                      title={warehouse.name}
+                                    >
+                                      {warehouse.name}
+                                    </div>
+                                    <input
+                                      type="number"
+                                      value={stockDraft.quantity_on_hand}
+                                      onChange={(e) =>
+                                        updateVariantStock(idx, warehouse.id, {
+                                          quantity_on_hand: e.target.value,
+                                        })
+                                      }
+                                      className="col-span-3 rounded-md border border-gray-200 px-2 py-1 text-xs"
+                                    />
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={stockDraft.low_stock_threshold}
+                                      onChange={(e) =>
+                                        updateVariantStock(idx, warehouse.id, {
+                                          low_stock_threshold: e.target.value,
+                                        })
+                                      }
+                                      className="col-span-3 rounded-md border border-gray-200 px-2 py-1 text-xs"
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

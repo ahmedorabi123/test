@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { productsApi, type Product, type Variant } from "../api/products";
 import { customersApi, type Customer } from "../api/customers";
 import { ordersApi } from "../api/orders";
+import { warehousesApi, type Warehouse } from "../api/inventory";
 
 type Line = {
   key: string;
@@ -18,6 +19,7 @@ export default function ManualOrderPage() {
   const [, setProducts] = useState<Product[]>([]);
   const [productMap, setProductMap] = useState<Record<string, Product>>({});
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -29,6 +31,7 @@ export default function ManualOrderPage() {
   const [notes, setNotes] = useState("");
   const [totalShipping, setTotalShipping] = useState("0.00");
   const [markPaid, setMarkPaid] = useState(true);
+  const [warehouseId, setWarehouseId] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
 
   useEffect(() => {
@@ -43,7 +46,6 @@ export default function ManualOrderPage() {
         // fetch variants for each product (simple — catalog is small)
         const byId: Record<string, Product> = {};
         for (const p of data) {
-          // eslint-disable-next-line no-await-in-loop
           const full = await productsApi.get(p.id);
           byId[p.id] = full;
         }
@@ -56,6 +58,14 @@ export default function ManualOrderPage() {
       try {
         const { data } = await customersApi.list({ per_page: 100 });
         setCustomers(data);
+      } catch {
+        // optional
+      }
+      try {
+        const rows = await warehousesApi.list();
+        const activeRows = rows.filter((warehouse) => warehouse.active);
+        setWarehouses(activeRows);
+        setWarehouseId((current) => current || activeRows[0]?.id || "");
       } catch {
         // optional
       }
@@ -103,6 +113,15 @@ export default function ManualOrderPage() {
 
   const canSubmit = lines.length > 0 && !submitting;
 
+  const availabilityFor = (variantId: string) => {
+    const hit = allVariants.find((x) => x.variant.id === variantId);
+    const stockItem = hit?.variant.stock_items?.find(
+      (item) => item.warehouse_id === warehouseId,
+    );
+    if (!stockItem) return null;
+    return stockItem.available ?? stockItem.quantity_on_hand;
+  };
+
   const submit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
@@ -116,6 +135,7 @@ export default function ManualOrderPage() {
         notes: notes || undefined,
         total_shipping: shipping.toFixed(2),
         mark_paid: markPaid,
+        warehouse_id: warehouseId || undefined,
         line_items: lines.map((l) => ({
           variant_id: l.variant_id,
           sku: l.sku ?? undefined,
@@ -126,12 +146,21 @@ export default function ManualOrderPage() {
       });
       navigate(`/orders?created=${order.order_number}`);
     } catch (e) {
-      type ApiErr = { response?: { data?: { error?: { detail?: string } } } };
+      type ApiErr = {
+        response?: {
+          data?: {
+            error?: { detail?: string; shortages?: Array<{ sku?: string }> };
+          };
+        };
+      };
       const err = e as ApiErr;
+      const shortages = err?.response?.data?.error?.shortages;
+      const shortageText = shortages?.length
+        ? ` (${shortages.map((row) => row.sku || "variant").join(", ")})`
+        : "";
       setError(
         err?.response?.data?.error?.detail ||
-          (e as Error).message ||
-          "Failed to create order",
+          `${(e as Error).message || "Failed to create order"}${shortageText}`,
       );
     } finally {
       setSubmitting(false);
@@ -170,7 +199,24 @@ export default function ManualOrderPage() {
             <option value="manual">Manual</option>
           </select>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm md:col-span-2">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+            Warehouse
+          </label>
+          <select
+            value={warehouseId}
+            onChange={(e) => setWarehouseId(e.target.value)}
+            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Auto-select</option>
+            {warehouses.map((warehouse) => (
+              <option key={warehouse.id} value={warehouse.id}>
+                {warehouse.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm md:col-span-1">
           <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
             Customer
           </label>
@@ -252,6 +298,11 @@ export default function ManualOrderPage() {
           >
             <div className="col-span-5 text-sm text-slate-900 truncate">
               {l.title}
+              {warehouseId && (
+                <div className="text-xs text-slate-500">
+                  Available: {availabilityFor(l.variant_id) ?? "not stocked"}
+                </div>
+              )}
             </div>
             <div className="col-span-2 text-xs text-slate-500 font-mono">
               {l.sku || "—"}

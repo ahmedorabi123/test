@@ -7,6 +7,7 @@ class Order < ApplicationRecord
   has_many :line_items, class_name: "OrderLineItem", dependent: :destroy, inverse_of: :order
   has_many :fulfillments, dependent: :destroy, inverse_of: :order
   has_many :refunds,      dependent: :destroy, inverse_of: :order
+  has_many :stock_reservations, through: :line_items
   belongs_to :customer, optional: true, inverse_of: :orders
 
   accepts_nested_attributes_for :line_items, allow_destroy: true

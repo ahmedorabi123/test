@@ -13,6 +13,7 @@ class OrderSerializer
       total_tax:          order.total_tax,
       total_shipping:     order.total_shipping,
       total_discount:     order.total_discount,
+      total_refunded:     order.respond_to?(:total_refunded) ? order.total_refunded : order.refunds.sum(:amount),
       total_price:        order.total_price,
       customer_email:     order.customer_email,
       customer_name:      order.customer_name,
@@ -41,6 +42,31 @@ class OrderSerializer
       refunds:      include_line_items ? order.refunds.order(created_at: :asc).map { |r| RefundSerializer.call(r) } : nil
     }.compact
   end
+
+  def self.stock_allocation(order)
+    order.line_items.includes(stock_reservations: { stock_item: :warehouse }).map do |line_item|
+      OrderLineItemSerializer.call(line_item).merge(
+        reserved_quantity: line_item.stock_reservations.active.sum(:quantity),
+        allocations: line_item.stock_reservations.map { |reservation|
+          stock_item = reservation.stock_item
+          {
+            id: reservation.id,
+            status: reservation.status,
+            quantity: reservation.quantity,
+            note: reservation.note,
+            stock_item_id: stock_item.id,
+            warehouse_id: stock_item.warehouse_id,
+            warehouse_name: stock_item.warehouse&.name,
+            warehouse_code: stock_item.warehouse&.code,
+            on_hand: stock_item.quantity_on_hand,
+            reserved: stock_item.quantity_reserved,
+            unavailable: stock_item.quantity_unavailable,
+            available: stock_item.available
+          }
+        }
+      )
+    end
+  end
 end
 
 class OrderLineItemSerializer
@@ -56,7 +82,9 @@ class OrderLineItemSerializer
       price:          item.price,
       total_discount: item.total_discount,
       total_tax:      item.total_tax,
-      line_total:     item.line_total
+      line_total:     item.line_total,
+      fulfilled_quantity: item.respond_to?(:fulfilled_quantity) ? item.fulfilled_quantity : 0,
+      reserved_quantity: item.stock_reservations.active.sum(:quantity)
     }
   end
 end

@@ -6,19 +6,23 @@ module Shopify
   # Returns a Hash: { type: Symbol, data: Hash, occurred_at: Time }
   class EventNormalizer
     SUPPORTED_TOPICS = {
-      "orders/create"         => :shopify_order_created,
-      "orders/updated"        => :shopify_order_updated,
-      "orders/paid"           => :shopify_order_paid,
-      "orders/cancelled"      => :shopify_order_cancelled,
-      "orders/fulfilled"      => :shopify_order_fulfilled,
-      "refunds/create"        => :shopify_refund_created,
-      "products/create"       => :shopify_product_created,
-      "products/update"       => :shopify_product_updated,
-      "inventory_levels/update" => :shopify_inventory_updated,
-      "customers/create"      => :shopify_customer_created,
-      "customers/update"      => :shopify_customer_updated,
-      "fulfillments/create"   => :shopify_fulfillment_created,
-      "fulfillments/update"   => :shopify_fulfillment_updated
+      "orders/create"             => :shopify_order_created,
+      "orders/updated"            => :shopify_order_updated,
+      "orders/paid"               => :shopify_order_paid,
+      "orders/cancelled"          => :shopify_order_cancelled,
+      "orders/fulfilled"          => :shopify_order_fulfilled,
+      "refunds/create"            => :shopify_refund_created,
+      "products/create"           => :shopify_product_created,
+      "products/update"           => :shopify_product_updated,
+      "products/delete"           => :shopify_product_deleted,
+      "collections/create"        => :shopify_collection_created,
+      "collections/update"        => :shopify_collection_updated,
+      "collections/delete"        => :shopify_collection_deleted,
+      "inventory_levels/update"   => :shopify_inventory_updated,
+      "customers/create"          => :shopify_customer_created,
+      "customers/update"          => :shopify_customer_updated,
+      "fulfillments/create"       => :shopify_fulfillment_created,
+      "fulfillments/update"       => :shopify_fulfillment_updated
     }.freeze
 
     class UnsupportedTopicError < StandardError; end

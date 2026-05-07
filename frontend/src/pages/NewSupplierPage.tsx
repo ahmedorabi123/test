@@ -35,9 +35,13 @@ export default function NewSupplierPage() {
         notes: form.notes || null,
       });
       navigate(`/suppliers?highlight=${created.id}`);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const err = e as {
+        response?: { data?: { error?: { detail?: string } } };
+        message?: string;
+      };
       setError(
-        e?.response?.data?.error?.detail || e?.message || "Failed to create",
+        err.response?.data?.error?.detail || err.message || "Failed to create",
       );
     } finally {
       setSaving(false);

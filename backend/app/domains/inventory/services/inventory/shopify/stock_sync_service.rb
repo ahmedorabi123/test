@@ -27,7 +27,7 @@ class Inventory::Shopify::StockSyncService
     variant   = Variant.find_by(shopify_inventory_item_id: inventory_item_id)
     return nil unless variant
 
-    warehouse = find_or_create_warehouse(location_id)
+    warehouse = ::Inventory::WarehouseResolver.for_shopify_location(location_id, auto_create: true)
 
     ActiveRecord::Base.transaction do
       stock_item = StockItem.find_or_initialize_by(
@@ -37,31 +37,19 @@ class Inventory::Shopify::StockSyncService
       before = stock_item.persisted? ? stock_item.quantity_on_hand : 0
       delta  = available - before
 
-      stock_item.quantity_on_hand = available
+      stock_item.quantity_on_hand = before
       stock_item.save!
 
-      if delta != 0
-        StockMovement.create!(
-          stock_item:      stock_item,
-          delta:           delta,
-          reason:          REASON,
-          reference_type:  @reference&.class&.name,
-          reference_id:    @reference&.id&.to_s,
-          snapshot_before: before,
-          snapshot_after:  available
-        )
-      end
+      ::Inventory::WriteMovement.call(
+        stock_item: stock_item,
+        delta: delta,
+        reason: REASON,
+        reference: @reference
+      )
+
+      ::Inventory::Reservations::RecountStockItem.call(stock_item.reload)
 
       stock_item
-    end
-  end
-
-  private
-
-  def find_or_create_warehouse(location_id)
-    code = "SHOPIFY-#{location_id}"
-    Warehouse.find_or_create_by!(code: code) do |w|
-      w.name = "Shopify Location #{location_id}"
     end
   end
 end

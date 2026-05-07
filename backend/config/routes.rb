@@ -46,6 +46,12 @@ Rails.application.routes.draw do
           post :bulk
         end
       end
+      resources :collections, only: %i[index show create update destroy] do
+        member do
+          post   "products",             action: :add_product,    as: :add_product
+          delete "products/:product_id", action: :remove_product, as: :remove_product
+        end
+      end
       resources :variants, only: %i[index] do
         resources :bom_items, only: %i[index create update destroy]
       end
@@ -69,9 +75,11 @@ Rails.application.routes.draw do
           post :import
           post "import/commit", action: :import_commit, as: :import_commit
           post :bulk
+          get  :preview_warehouse
         end
         member do
           post :transition
+          get  :stock_allocation
         end
       end
 
@@ -91,6 +99,10 @@ Rails.application.routes.draw do
           get  :export
           post :bulk
         end
+        member do
+          get :events
+          patch :annotation
+        end
       end
 
       # Returns / Refunds (read-only from Shopify; create for manual/showroom)
@@ -98,6 +110,10 @@ Rails.application.routes.draw do
         collection do
           get  :export
           post :bulk
+        end
+        member do
+          post :transition
+          post :cancel
         end
       end
 
