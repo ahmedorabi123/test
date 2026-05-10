@@ -13,6 +13,7 @@
 return if Rails.env.test?
 return if %w[true 1].include?(ENV["SKIP_BOOTSTRAP"].to_s.downcase)
 return unless Rails.env.development?
+return unless defined?(Rails::Server)
 return unless ENV["SHOPIFY_SHOP_DOMAIN"].present? && ENV["SHOPIFY_ADMIN_ACCESS_TOKEN"].present?
 
 Thread.new do

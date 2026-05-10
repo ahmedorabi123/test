@@ -6,7 +6,7 @@ module Sales
   #     warehouse_id:   <uuid of consignment warehouse>,
   #     period:         "2025-01"  # YYYY-MM
   #     report_date:    "2025-02-01"  # optional, when settlement is dated
-  #     currency:       "USD"  # optional, defaults to warehouse currency or USD
+  #     currency:       "EGP"  # optional, defaults to warehouse currency or EGP
   #     line_items:     [{ variant_id:, quantity:, unit_price: }, ...]
   #     notes:          "..." # optional
   #   }

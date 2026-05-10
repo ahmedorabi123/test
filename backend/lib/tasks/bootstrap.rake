@@ -1,5 +1,6 @@
 module ShopifySyncState
   SYNC_STATE_FILE = Rails.root.join("tmp", "shopify_last_sync_at.txt").freeze
+  INVENTORY_SYNC_STATE_FILE = Rails.root.join("tmp", "shopify_inventory_last_sync_at.txt").freeze
 
   def self.last_sync_at
     return nil unless SYNC_STATE_FILE.exist?
@@ -9,6 +10,21 @@ module ShopifySyncState
   def self.save(time)
     FileUtils.mkdir_p(SYNC_STATE_FILE.dirname)
     SYNC_STATE_FILE.write(time.utc.iso8601)
+  end
+
+  def self.inventory_last_sync_at
+    return nil unless INVENTORY_SYNC_STATE_FILE.exist?
+    Time.parse(INVENTORY_SYNC_STATE_FILE.read.strip) rescue nil
+  end
+
+  def self.inventory_due?(interval: 30.minutes)
+    last_synced_at = inventory_last_sync_at
+    last_synced_at.blank? || last_synced_at < interval.ago
+  end
+
+  def self.save_inventory(time)
+    FileUtils.mkdir_p(INVENTORY_SYNC_STATE_FILE.dirname)
+    INVENTORY_SYNC_STATE_FILE.write(time.utc.iso8601)
   end
 end
 
@@ -211,80 +227,9 @@ namespace :bootstrap do
       log.call "Removed #{fake_refund_ids.size} stale demo refunds from Shopify orders"
     end
 
-    # ── Fulfillments catch-up ──
-    # Runs independently of the orders block. Detects orders that should have
-    # fulfillment records locally but don't, then batch-fetches those orders
-    # from Shopify (up to 250 per request) to upsert the missing fulfillments.
-    orders_missing_fulfillments =
-      if force
-        Order.where.not(shopify_order_id: nil).pluck(:shopify_order_id)
-      else
-        Order.where.not(shopify_order_id: nil)
-             .where.not(fulfillment_status: [nil, "unfulfilled"])
-             .where.not(id: Fulfillment.select(:order_id))
-             .pluck(:shopify_order_id)
-      end
-
-    if orders_missing_fulfillments.any?
-      log.call "Fulfillments catch-up: #{orders_missing_fulfillments.size} orders missing fulfillments — fetching ..."
-      orders_missing_fulfillments.each_slice(250) do |ids_batch|
-        begin
-          body = client.get("orders.json", params: { ids: ids_batch.join(","), limit: 250, status: "any" })
-          Array(body["orders"]).each do |o|
-            Array(o["fulfillments"]).each do |f|
-              begin
-                Shipping::Shopify::FulfillmentUpserter.call(f.merge("order_id" => o["id"]))
-                totals[:fulfillments] += 1
-              rescue => e
-                warn "[bootstrap] fulfillment #{f["id"]} (catch-up) failed: #{e.class}: #{e.message}"
-              end
-            end
-          end
-        rescue => e
-          warn "[bootstrap] fulfillments batch #{ids_batch.first}.. failed: #{e.class}: #{e.message}"
-        end
-      end
-      log.call "  fulfillments caught up: #{totals[:fulfillments]}"
-    else
-      log.call "Fulfillments: all up to date — skipping catch-up"
-    end
-
-    # ── Refunds catch-up ──
-    # Same pattern: find orders with refunded financial status that have no
-    # local Refund rows, then batch-fetch to upsert the missing refunds.
-    orders_missing_refunds =
-      if force
-        Order.where.not(shopify_order_id: nil).pluck(:shopify_order_id)
-      else
-        Order.where.not(shopify_order_id: nil)
-             .where(financial_status: %w[refunded partially_refunded])
-             .where.not(id: Refund.select(:order_id))
-             .pluck(:shopify_order_id)
-      end
-
-    if orders_missing_refunds.any?
-      log.call "Refunds catch-up: #{orders_missing_refunds.size} orders missing refunds — fetching ..."
-      orders_missing_refunds.each_slice(250) do |ids_batch|
-        begin
-          body = client.get("orders.json", params: { ids: ids_batch.join(","), limit: 250, status: "any" })
-          Array(body["orders"]).each do |o|
-            Array(o["refunds"]).each do |r|
-              begin
-                Sales::Shopify::RefundUpserter.call(r)
-                totals[:refunds] += 1
-              rescue => e
-                warn "[bootstrap] refund #{r["id"]} (catch-up) failed: #{e.class}: #{e.message}"
-              end
-            end
-          end
-        rescue => e
-          warn "[bootstrap] refunds batch #{ids_batch.first}.. failed: #{e.class}: #{e.message}"
-        end
-      end
-      log.call "  refunds caught up: #{totals[:refunds]}"
-    else
-      log.call "Refunds: all up to date — skipping catch-up"
-    end
+    child_totals = Shopify::Reconcile::MissingChildren.call(client: client, force: force, log: log, warn_prefix: "[bootstrap]")
+    totals[:fulfillments] += child_totals[:fulfillments]
+    totals[:refunds] += child_totals[:refunds]
 
     # ── Collections (custom + smart + collects memberships) ──
     local_collections  = Collection.where.not(shopify_collection_id: nil).count
@@ -407,7 +352,8 @@ namespace :bootstrap do
     log.call "Fetching records updated since #{since} ..."
 
     client  = ::Shopify::Client.new
-    totals  = { products: 0, customers: 0, orders: 0, fulfillments: 0, refunds: 0 }
+    totals  = { products: 0, customers: 0, orders: 0, fulfillments: 0, refunds: 0, inventory: nil }
+    sync_started_at = Time.current
 
     # ── Updated products ──
     begin
@@ -469,6 +415,27 @@ namespace :bootstrap do
       warn "[catchup] orders fetch failed: #{e.class}: #{e.message}"
     end
     GC.start
+
+    child_totals = Shopify::Reconcile::MissingChildren.call(client: client, force: false, log: log, warn_prefix: "[catchup]")
+    totals[:fulfillments] += child_totals[:fulfillments]
+    totals[:refunds] += child_totals[:refunds]
+    GC.start
+
+    if ShopifySyncState.inventory_due?
+      begin
+        stats = Inventory::Shopify::InventoryBackfill.call
+        totals[:inventory] = stats
+        ShopifySyncState.save_inventory(sync_started_at)
+        log.call "  inventory: #{stats.inspect}"
+      rescue => e
+        warn "[catchup] inventory fetch failed: #{e.class}: #{e.message}"
+      end
+      GC.start
+    else
+      log.call "  inventory: recently synced - skipping"
+    end
+
+    ShopifySyncState.save(sync_started_at)
 
     log.call "Incremental catch-up done. #{totals.inspect}"
   end

@@ -574,6 +574,7 @@ export default function ProductDetailPage() {
                     (sum, si) => sum + si.quantity_on_hand,
                     0,
                   );
+                  const variantCost = v.cost_per_item.trim();
                   return (
                     <div key={v.id ?? `new-${idx}`} className="p-4 space-y-3">
                       {/* Row 1: title, sku, price, compare, inventory */}
@@ -622,12 +623,20 @@ export default function ProductDetailPage() {
                             min="0"
                             className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-indigo-400"
                           />
+                          {variantCost && (
+                            <p className="mt-1 text-[10px] text-slate-400">
+                              Cost: {variantCost} EGP
+                            </p>
+                          )}
                         </div>
                         {/* Compare at */}
                         <div className="col-span-2">
                           <label className="block text-[10px] font-medium text-slate-500 mb-1">
                             Compare at
                           </label>
+                          <p className="mb-1 text-[10px] leading-3 text-slate-400">
+                            Original price before discount.
+                          </p>
                           <input
                             value={v.compare_at_price}
                             onChange={(e) =>

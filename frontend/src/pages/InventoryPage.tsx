@@ -60,22 +60,28 @@ function NewStockItemModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!warehouseId || !search) {
+    if (!warehouseId || variantId) {
       setOptions([]);
       return;
     }
+    const query = search.trim();
     const t = setTimeout(async () => {
       try {
-        const res = await api.get<{ data: VariantOption[] }>(
-          `/variants?search=${encodeURIComponent(search)}&per_page=15&include=stock_items_summary&warehouse_id=${encodeURIComponent(warehouseId)}`,
-        );
+        const res = await api.get<{ data: VariantOption[] }>("/variants", {
+          params: {
+            search: query || undefined,
+            per_page: query ? 15 : 25,
+            include: "stock_items_summary",
+            warehouse_id: warehouseId,
+          },
+        });
         setOptions(res.data.data);
       } catch {
         setOptions([]);
       }
-    }, 250);
+    }, query ? 250 : 0);
     return () => clearTimeout(t);
-  }, [search, warehouseId]);
+  }, [search, variantId, warehouseId]);
 
   useEffect(() => {
     if (!variantId || !warehouseId) {

@@ -13,12 +13,7 @@ module Inventory
     def call
       variants.each do |variant|
         target_warehouses.find_each do |warehouse|
-          StockItem.create_or_find_by!(variant: variant, warehouse: warehouse) do |stock_item|
-            stock_item.quantity_on_hand = 0
-            stock_item.quantity_reserved = 0
-            stock_item.quantity_unavailable = 0 if stock_item.respond_to?(:quantity_unavailable=)
-            stock_item.low_stock_threshold = 0
-          end
+          provision_stock_item(variant, warehouse)
         end
       end
     end
@@ -34,6 +29,25 @@ module Inventory
 
     def target_warehouses
       @warehouses || Warehouse.active.own
+    end
+
+    def provision_stock_item(variant, warehouse)
+      now = Time.current
+      row = {
+        variant_id: variant.id,
+        warehouse_id: warehouse.id,
+        quantity_on_hand: 0,
+        quantity_reserved: 0,
+        low_stock_threshold: 0,
+        created_at: now,
+        updated_at: now
+      }
+      row[:quantity_unavailable] = 0 if StockItem.column_names.include?("quantity_unavailable")
+
+      StockItem.insert_all(
+        [row],
+        unique_by: :index_stock_items_on_variant_id_and_warehouse_id
+      )
     end
   end
 end

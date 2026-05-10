@@ -9,11 +9,9 @@ module Api
         scope = scope.where(id: Array(params[:ids]).flat_map { |value| value.to_s.split(",") }.reject(&:blank?)) if params[:ids].present?
         if params[:search].present?
           q = "%#{params[:search]}%"
-          scope = scope.where(
-            "variants.sku ILIKE :q OR variants.title ILIKE :q OR variants.barcode ILIKE :q",
+          scope = scope.left_outer_joins(:product).where(
+            "variants.sku ILIKE :q OR variants.title ILIKE :q OR variants.barcode ILIKE :q OR products.title ILIKE :q OR products.handle ILIKE :q",
             q: q
-          ).or(
-            Variant.joins(:product).where("products.title ILIKE :q OR products.handle ILIKE :q", q: q)
           )
         end
         scope = scope.where(product_id: params[:product_id]) if params[:product_id].present?

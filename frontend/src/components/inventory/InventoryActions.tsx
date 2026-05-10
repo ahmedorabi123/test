@@ -9,8 +9,41 @@ import {
 interface VariantOption {
   id: string;
   title: string;
-  sku: string;
-  product_title: string;
+  sku: string | null;
+  product_title: string | null;
+}
+
+interface VariantsResponse {
+  data: VariantOption[];
+  meta?: {
+    page: number;
+    per_page: number;
+    total: number;
+  };
+}
+
+function variantLabel(variant: VariantOption) {
+  const product = variant.product_title || "Product";
+  const sku = variant.sku ? ` (${variant.sku})` : "";
+  return `${product} - ${variant.title}${sku}`;
+}
+
+async function fetchAllVariants() {
+  const variants: VariantOption[] = [];
+  let page = 1;
+  let total = Infinity;
+
+  do {
+    const response = await api.get<VariantsResponse>("/variants", {
+      params: { page, per_page: 100 },
+    });
+    variants.push(...response.data.data);
+    total = response.data.meta?.total ?? variants.length;
+    if (response.data.data.length === 0) break;
+    page += 1;
+  } while (variants.length < total);
+
+  return variants;
 }
 
 export function TransferStockButton({
@@ -30,12 +63,9 @@ export function TransferStockButton({
 
   useEffect(() => {
     if (open && variants.length === 0) {
-      api
-        .get<{ data: VariantOption[] }>("/variants", {
-          params: { per_page: 500 },
-        })
-        .then((r) => setVariants(r.data.data))
-        .catch(() => undefined);
+      fetchAllVariants()
+        .then(setVariants)
+        .catch(() => setVariants([]));
     }
   }, [open, variants.length]);
 
@@ -87,7 +117,7 @@ export function TransferStockButton({
                   <option value="">Select variant…</option>
                   {variants.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.product_title} — {v.title} ({v.sku})
+                      {variantLabel(v)}
                     </option>
                   ))}
                 </select>
@@ -187,7 +217,7 @@ export function ShowroomReportButton({
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("EGP");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<ReportLine[]>([
     { variant_id: "", quantity: "", unit_price: "" },
@@ -200,12 +230,9 @@ export function ShowroomReportButton({
 
   useEffect(() => {
     if (open && variants.length === 0) {
-      api
-        .get<{ data: VariantOption[] }>("/variants", {
-          params: { per_page: 500 },
-        })
-        .then((r) => setVariants(r.data.data))
-        .catch(() => undefined);
+      fetchAllVariants()
+        .then(setVariants)
+        .catch(() => setVariants([]));
     }
   }, [open, variants.length]);
 
@@ -343,7 +370,7 @@ export function ShowroomReportButton({
                             <option value="">—</option>
                             {variants.map((v) => (
                               <option key={v.id} value={v.id}>
-                                {v.product_title} — {v.title} ({v.sku})
+                                {variantLabel(v)}
                               </option>
                             ))}
                           </select>

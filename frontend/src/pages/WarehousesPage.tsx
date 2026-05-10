@@ -213,7 +213,7 @@ function WarehouseModal({
     partner_phone: initial?.partner_phone || "",
     commission_rate:
       initial?.commission_rate != null ? String(initial.commission_rate) : "",
-    currency: initial?.currency || "USD",
+    currency: initial?.currency || "EGP",
     notes: initial?.notes || "",
     active: initial?.active ?? true,
   });

@@ -23,11 +23,9 @@ export default function CollectionsPage() {
   const sortKey = searchParams.get("sort") || "created_at";
   const sortDir = (searchParams.get("dir") || "desc") as SortDir;
   const search = searchParams.get("search") || "";
-  const kindFilter = searchParams.get("kind") || "";
 
   const [rows, setRows] = useState<Collection[]>([]);
   const [total, setTotal] = useState(0);
-  const [kindCounts, setKindCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(search);
@@ -59,19 +57,17 @@ export default function CollectionsPage() {
         page,
         per_page: perPage,
         search: search || undefined,
-        kind: (kindFilter as "custom" | "smart" | undefined) || undefined,
         sort: sortKey,
         dir: sortDir,
       });
       setRows(res.data);
       setTotal(res.meta.total);
-      setKindCounts(res.meta.kind_counts ?? {});
     } catch (e) {
       setError((e as Error).message || "Failed to load collections");
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, search, kindFilter, sortKey, sortDir]);
+  }, [page, perPage, search, sortKey, sortDir]);
 
   useEffect(() => {
     load();
@@ -139,11 +135,6 @@ export default function CollectionsPage() {
     [],
   );
 
-  const visibleKindCount = Object.values(kindCounts).filter(
-    (count) => count > 0,
-  ).length;
-  const showKindFilter = visibleKindCount > 1 || Boolean(kindFilter);
-
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -167,24 +158,6 @@ export default function CollectionsPage() {
           placeholder="Search collections…"
           className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-56"
         />
-        {showKindFilter && (
-          <select
-            value={kindFilter}
-            onChange={(e) => {
-              setParam("kind", e.target.value || null);
-              setParam("page", "1");
-            }}
-            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">All collections</option>
-            {(kindCounts.custom ?? 0) > 0 && (
-              <option value="custom">Custom</option>
-            )}
-            {(kindCounts.smart ?? 0) > 0 && (
-              <option value="smart">Smart</option>
-            )}
-          </select>
-        )}
       </div>
 
       {/* Error */}
