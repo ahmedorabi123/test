@@ -173,6 +173,18 @@ RSpec.describe "Order lifecycle cross-module matrix", type: :model do
       expect(stock_item.quantity_on_hand).to eq(20) # nothing was actually shipped
     end
 
+    it "cancelling a PAID order posts a cancel-reversal journal entry" do
+      order = paid_manual_order(quantity: 1)
+      expect(JournalEntry.where(source_id: order.id, entry_type: "sale")).to exist
+
+      Sales::OrderStateMachine.call(order, to: "cancelled")
+
+      # cancel-reversal-<id> is the idempotency key used when force: true
+      reversal = JournalEntry.find_by(idempotency_key: "cancel-reversal-#{order.id}")
+      expect(reversal).to be_present
+      expect(reversal.reversal_of_id).to be_present
+    end
+
     it "RefundReversalHandler posts a reversal once the order's financial_status is refunded" do
       order = paid_manual_order(quantity: 1)
       Order.where(id: order.id).update_all(financial_status: "refunded")
@@ -200,8 +212,32 @@ RSpec.describe "Order lifecycle cross-module matrix", type: :model do
   end
 
   # ──────────────────────────────────────────────────────────────────────────
-  # 5. REFUNDS — partial vs full, restock vs no-restock.
+  # 4b. PAYMENT VOID — releases reservations, no journal effect.
   # ──────────────────────────────────────────────────────────────────────────
+  describe "voiding payment" do
+    it "releases active reservations on void from authorized" do
+      # Create an order but keep it authorized (not paid).
+      order = Sales::ManualOrderCreator.call(
+        source: "manual", currency: "EGP",
+        customer_id: customer.id, customer_email: customer.email,
+        customer_name: customer.display_name,
+        warehouse_id: warehouse.id, mark_paid: false,
+        line_items: [{ variant_id: variant.id, quantity: 2, price: "10.00", title: "T" }]
+      )
+      # Manually move to authorized
+      Order.where(id: order.id).update_all(financial_status: "authorized")
+      expect(stock_item.reload.quantity_reserved).to be > 0
+
+      Sales::OrderStateMachine.call(order.reload, to: "voided")
+
+      expect(order.reload.financial_status).to eq("voided")
+      expect(stock_item.reload.quantity_reserved).to eq(0)
+      # No sale journal should have been posted (order was never paid)
+      expect(JournalEntry.where(source_id: order.id, entry_type: "sale")).not_to exist
+    end
+  end
+
+
   describe "refunds" do
     let(:order) { paid_manual_order(quantity: 4) }
     let(:line_item) { order.line_items.first }

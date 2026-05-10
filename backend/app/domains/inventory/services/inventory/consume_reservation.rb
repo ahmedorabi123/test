@@ -103,11 +103,17 @@ module Inventory
         "partial"
       end
 
-      status = order.status
-      status = "fulfilled" if fulfillment_status == "fulfilled" && %w[pending processing].include?(status)
-      status = "processing" if fulfillment_status == "partial" && status == "pending"
+      # Always persist fulfillment_status directly (no state-machine counterpart).
+      new_status = order.status
+      new_status = "fulfilled"   if fulfillment_status == "fulfilled" && %w[pending processing].include?(new_status)
+      new_status = "processing"  if fulfillment_status == "partial"   && new_status == "pending"
 
-      order.update!(fulfillment_status: fulfillment_status, status: status)
+      # Use the state machine when the status axis actually changes so that
+      # side-effects (COGS, audit log) are triggered correctly.
+      order.update!(fulfillment_status: fulfillment_status)
+      if new_status != order.status
+        ::Sales::OrderStateMachine.call(order, to: new_status)
+      end
     end
   end
 end

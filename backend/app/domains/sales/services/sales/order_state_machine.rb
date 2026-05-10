@@ -4,15 +4,16 @@ module Sales
   # Two parallel state axes mirror Shopify:
   #   - status:           pending → processing → fulfilled
   #                       any     → cancelled
-  #   - financial_status: pending → authorized → paid → refunded
-  #                                                   → partially_paid
+  #   - financial_status: pending → authorized → paid → partially_paid
+  #                                                   → partially_refunded
+  #                                                   → refunded
   #
   # Side effects per transition:
   #   - to "paid":      posts the sale journal (idempotent)
   #   - to "fulfilled": consumes fulfillment line items via Inventory::ConsumeReservation
-  #   - to "cancelled" (after paid): reverses the sale journal
-  #
-  # Returns the order; raises InvalidTransition on illegal moves.
+  #   - to "refunded":  reverses the sale journal
+  #   - to "cancelled" (after paid): reverses the sale journal via force: true
+  #   - to "voided":    releases active reservations
   class OrderStateMachine
     class InvalidTransition < StandardError; end
 
@@ -25,12 +26,13 @@ module Sales
     }.freeze
 
     LEGAL_FINANCIAL = {
-      "pending"        => %w[authorized paid voided],
-      "authorized"     => %w[paid voided],
-      "paid"           => %w[partially_paid refunded],
-      "partially_paid" => %w[paid refunded],
-      "refunded"       => [],
-      "voided"         => []
+      "pending"            => %w[authorized paid voided],
+      "authorized"         => %w[paid voided],
+      "paid"               => %w[partially_paid partially_refunded refunded],
+      "partially_paid"     => %w[paid partially_refunded refunded],
+      "partially_refunded" => %w[refunded],
+      "refunded"           => [],
+      "voided"             => []
     }.freeze
 
     def self.call(order, to:, actor: nil)
@@ -57,6 +59,7 @@ module Sales
     private
 
     def classify(target)
+      return :financial if target == "refunded"
       return :status    if LEGAL_STATUS.keys.include?(target)
       return :financial if LEGAL_FINANCIAL.keys.include?(target)
       nil
@@ -95,19 +98,25 @@ module Sales
         safe { ensure_fulfillment_inventory_consumed! }
       when "cancelled"
         safe { ::Inventory::ReleaseOrderReservations.call(@order) }
-        # If the order was already paid, reverse the journal entry.
-        if %w[paid partially_paid].include?(@order.financial_status.to_s)
-          safe { ::Accounting::RefundReversalHandler.call(@order) }
+        if %w[paid partially_paid partially_refunded].include?(@order.financial_status.to_s)
+          safe { ::Accounting::RefundReversalHandler.call(@order, force: true) }
         end
+        safe { recompute_customer_stats }
       end
       log_transition!(field: "status", from: from, to: to)
     end
 
     def on_financial_change(from, to)
-      if to == "paid"
+      case to
+      when "paid"
         safe { ::Accounting::PostSaleJournalHandler.call(@order) }
-      elsif to == "refunded"
+        safe { recompute_customer_stats }
+      when "refunded"
         safe { ::Accounting::RefundReversalHandler.call(@order) }
+        safe { recompute_customer_stats }
+      when "voided"
+        safe { ::Inventory::ReleaseOrderReservations.call(@order) }
+        safe { recompute_customer_stats }
       end
       log_transition!(field: "financial_status", from: from, to: to)
     end
@@ -119,7 +128,6 @@ module Sales
         line_items = @order.line_items.map do |line_item|
           remaining = [line_item.quantity.to_i - line_item.fulfilled_quantity.to_i, 0].max
           next if remaining <= 0
-
           { order_line_item_id: line_item.id, quantity: remaining }
         end.compact
 
@@ -139,6 +147,13 @@ module Sales
         end
         safe { ::Accounting::PostCogsHandler.call(fulfillment) }
       end
+    end
+
+    def recompute_customer_stats
+      return unless @order.customer_id
+      ::Crm::CustomerStatsRecomputer.call(@order.customer)
+    rescue StandardError => e
+      Rails.logger.warn "[OrderStateMachine] customer stats failure: #{e.message}"
     end
 
     def safe
