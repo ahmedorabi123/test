@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { productsApi, type Product, type Variant } from "../api/products";
+import api from "../api/client";
 import { customersApi, type Customer } from "../api/customers";
 import { ordersApi } from "../api/orders";
 import { warehousesApi, type Warehouse } from "../api/inventory";
@@ -14,13 +14,24 @@ type Line = {
   quantity: number;
 };
 
+interface VariantHit {
+  id: string;
+  sku: string | null;
+  title: string | null;
+  price: string;
+  product_id: string;
+  product_title: string;
+  stock_items?: Array<{
+    warehouse_id: string;
+    available: number;
+    quantity_on_hand: number;
+  }>;
+}
+
 export default function ManualOrderPage() {
   const navigate = useNavigate();
-  const [, setProducts] = useState<Product[]>([]);
-  const [productMap, setProductMap] = useState<Record<string, Product>>({});
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -34,27 +45,16 @@ export default function ManualOrderPage() {
   const [warehouseId, setWarehouseId] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
 
+  // Variant typeahead state — replaces the prior eager N+1 product fetch.
+  const [variantQuery, setVariantQuery] = useState("");
+  const [variantHits, setVariantHits] = useState<VariantHit[]>([]);
+  const [variantSearching, setVariantSearching] = useState(false);
+  const [variantById, setVariantById] = useState<Record<string, VariantHit>>(
+    {},
+  );
+
   useEffect(() => {
     (async () => {
-      setLoadingProducts(true);
-      try {
-        const { data } = await productsApi.list({
-          per_page: 100,
-          status: "active",
-        });
-        setProducts(data);
-        // fetch variants for each product (simple — catalog is small)
-        const byId: Record<string, Product> = {};
-        for (const p of data) {
-          const full = await productsApi.get(p.id);
-          byId[p.id] = full;
-        }
-        setProductMap(byId);
-      } catch (e) {
-        setError((e as Error).message || "Failed to load products");
-      } finally {
-        setLoadingProducts(false);
-      }
       try {
         const { data } = await customersApi.list({ per_page: 100 });
         setCustomers(data);
@@ -72,29 +72,54 @@ export default function ManualOrderPage() {
     })();
   }, []);
 
-  const allVariants = useMemo(() => {
-    const out: Array<{ product: Product; variant: Variant }> = [];
-    for (const p of Object.values(productMap)) {
-      for (const v of p.variants ?? []) out.push({ product: p, variant: v });
+  // Debounced variant search via /variants?search=&include=stock_items_summary
+  useEffect(() => {
+    const q = variantQuery.trim();
+    if (q.length < 2) {
+      setVariantHits([]);
+      return;
     }
-    return out;
-  }, [productMap]);
+    let cancelled = false;
+    setVariantSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get<{ data: VariantHit[] }>("/variants", {
+          params: {
+            search: q,
+            per_page: 25,
+            include: "stock_items_summary",
+            warehouse_id: warehouseId || undefined,
+          },
+        });
+        if (!cancelled) setVariantHits(res.data.data);
+      } catch {
+        if (!cancelled) setVariantHits([]);
+      } finally {
+        if (!cancelled) setVariantSearching(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [variantQuery, warehouseId]);
 
-  const addLine = (variantId: string) => {
-    if (!variantId) return;
-    const hit = allVariants.find((x) => x.variant.id === variantId);
-    if (!hit) return;
+  const addVariant = (v: VariantHit) => {
+    setVariantById((prev) => ({ ...prev, [v.id]: v }));
+    const titleParts = [v.product_title, v.title].filter(Boolean);
     setLines((prev) => [
       ...prev,
       {
         key: `${Date.now()}-${Math.random()}`,
-        variant_id: hit.variant.id,
-        title: `${hit.product.title}${hit.variant.title ? " · " + hit.variant.title : ""}`,
-        sku: hit.variant.sku,
-        price: hit.variant.price,
+        variant_id: v.id,
+        title: titleParts.join(" · "),
+        sku: v.sku,
+        price: v.price,
         quantity: 1,
       },
     ]);
+    setVariantQuery("");
+    setVariantHits([]);
   };
 
   const updateLine = (key: string, patch: Partial<Line>) =>
@@ -114,13 +139,15 @@ export default function ManualOrderPage() {
   const canSubmit = lines.length > 0 && !submitting;
 
   const availabilityFor = (variantId: string) => {
-    const hit = allVariants.find((x) => x.variant.id === variantId);
-    const stockItem = hit?.variant.stock_items?.find(
-      (item) => item.warehouse_id === warehouseId,
-    );
-    if (!stockItem) return null;
-    return stockItem.available ?? stockItem.quantity_on_hand;
+    const v = variantById[variantId];
+    if (!v?.stock_items?.length) return null;
+    if (warehouseId) {
+      const item = v.stock_items.find((i) => i.warehouse_id === warehouseId);
+      return item?.available ?? null;
+    }
+    return v.stock_items.reduce((acc, i) => acc + (i.available ?? 0), 0);
   };
+
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -262,26 +289,45 @@ export default function ManualOrderPage() {
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-6">
         <div className="flex items-center justify-between mb-3">
           <div className="text-sm font-medium text-slate-700">Line items</div>
-          <div className="flex items-center gap-2">
-            <select
-              onChange={(e) => {
-                addLine(e.target.value);
-                e.currentTarget.value = "";
-              }}
-              className="border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-              defaultValue=""
-              disabled={loadingProducts || allVariants.length === 0}
-            >
-              <option value="">
-                {loadingProducts ? "Loading…" : "+ Add variant…"}
-              </option>
-              {allVariants.map(({ product, variant }) => (
-                <option key={variant.id} value={variant.id}>
-                  {product.title} · {variant.title || variant.sku} ·{" "}
-                  {variant.price}
-                </option>
-              ))}
-            </select>
+          <div className="relative w-80">
+            <input
+              type="text"
+              value={variantQuery}
+              onChange={(e) => setVariantQuery(e.target.value)}
+              placeholder="Search variant by SKU, name, product…"
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            {variantQuery.trim().length >= 2 && (
+              <div className="absolute z-10 mt-1 w-full max-h-72 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                {variantSearching && (
+                  <div className="px-3 py-2 text-xs text-slate-500">
+                    Searching…
+                  </div>
+                )}
+                {!variantSearching && variantHits.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-slate-500">
+                    No matches
+                  </div>
+                )}
+                {variantHits.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => addVariant(v)}
+                    className="block w-full text-left px-3 py-2 hover:bg-indigo-50 text-sm"
+                  >
+                    <div className="font-medium text-slate-800">
+                      {v.product_title}
+                      {v.title ? ` · ${v.title}` : ""}
+                    </div>
+                    <div className="text-xs text-slate-500 flex justify-between">
+                      <span className="font-mono">{v.sku || "—"}</span>
+                      <span>{v.price}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

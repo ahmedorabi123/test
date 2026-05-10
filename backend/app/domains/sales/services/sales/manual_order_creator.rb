@@ -40,7 +40,10 @@ module Sales
         compute_totals(order)
         order.save!
         sync_reservations(order) unless skip_reservations?
-        post_accounting(order) if mark_paid?
+        # Post sale journal whenever the order ends up paid — not just when
+        # the caller passed mark_paid: true. Keeps showroom + manual paths
+        # consistent.
+        post_accounting(order) if order.financial_status == "paid"
         recompute_customer_stats(order)
         order
       end

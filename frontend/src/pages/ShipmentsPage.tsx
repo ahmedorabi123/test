@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { fulfillmentsApi, type Fulfillment } from "../api/fulfillments";
-import DataTable, { type Column, type SortDir } from "../components/table/DataTable";
+import DataTable, {
+  type Column,
+  type SortDir,
+} from "../components/table/DataTable";
 import ImportExportBar from "../components/table/ImportExportBar";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -16,7 +19,9 @@ const STATUS_STYLES: Record<string, string> = {
 function StatusBadge({ value }: { value?: string | null }) {
   if (!value) return <span className="text-xs text-slate-400">-</span>;
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLES[value] || "bg-slate-100 text-slate-600 ring-slate-500/20"}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLES[value] || "bg-slate-100 text-slate-600 ring-slate-500/20"}`}
+    >
       {value.replace(/_/g, " ")}
     </span>
   );
@@ -25,7 +30,10 @@ function StatusBadge({ value }: { value?: string | null }) {
 export default function ShipmentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-  const perPage = Math.max(5, parseInt(searchParams.get("per_page") || "25", 10));
+  const perPage = Math.max(
+    5,
+    parseInt(searchParams.get("per_page") || "25", 10),
+  );
   const sortKey = searchParams.get("sort") || "created_at";
   const sortDir = (searchParams.get("dir") || "desc") as SortDir;
   const carrier = searchParams.get("carrier") || "";
@@ -69,11 +77,35 @@ export default function ShipmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, carrier, status, deliveryStatus, source, search, sortKey, sortDir]);
+  }, [
+    page,
+    perPage,
+    carrier,
+    status,
+    deliveryStatus,
+    source,
+    search,
+    sortKey,
+    sortDir,
+  ]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Debounce live search input -> ?search=
+  useEffect(() => {
+    if (searchInput === search) return;
+    const t = setTimeout(() => {
+      const sp = new URLSearchParams(searchParams);
+      if (searchInput) sp.set("search", searchInput);
+      else sp.delete("search");
+      sp.set("page", "1");
+      setSearchParams(sp, { replace: true });
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   const columns = useMemo<Column<Fulfillment>[]>(
     () => [
@@ -82,7 +114,10 @@ export default function ShipmentsPage() {
         header: "Tracking",
         sortKey: "tracking_number",
         render: (row) => (
-          <Link to={`/shipments/${row.id}`} className="font-mono text-indigo-700 hover:underline">
+          <Link
+            to={`/shipments/${row.id}`}
+            className="font-mono text-indigo-700 hover:underline"
+          >
             {row.tracking_number || row.id.slice(0, 8)}
           </Link>
         ),
@@ -91,33 +126,75 @@ export default function ShipmentsPage() {
         id: "carrier",
         header: "Carrier",
         sortKey: "tracking_company",
-        render: (row) => <span className="capitalize text-slate-700">{row.carrier || row.tracking_company || "-"}</span>,
+        render: (row) => (
+          <span className="capitalize text-slate-700">
+            {row.carrier || row.tracking_company || "-"}
+          </span>
+        ),
       },
-      { id: "status", header: "Status", sortKey: "status", render: (row) => <StatusBadge value={row.status} /> },
-      { id: "delivery", header: "Delivery", sortKey: "delivery_status", render: (row) => <StatusBadge value={row.delivery_status} /> },
+      {
+        id: "status",
+        header: "Status",
+        sortKey: "status",
+        render: (row) => <StatusBadge value={row.status} />,
+      },
+      {
+        id: "delivery",
+        header: "Delivery",
+        sortKey: "delivery_status",
+        render: (row) => <StatusBadge value={row.delivery_status} />,
+      },
       {
         id: "order",
         header: "Order",
         sortKey: "order_number",
-        render: (row) => row.order ? <Link to={`/orders/${row.order.id}`} className="font-mono text-indigo-700 hover:underline">{row.order.order_number}</Link> : <span className="font-mono text-xs text-slate-500">{row.order_id.slice(0, 8)}</span>,
+        render: (row) =>
+          row.order ? (
+            <Link
+              to={`/orders/${row.order.id}`}
+              className="font-mono text-indigo-700 hover:underline"
+            >
+              {row.order.order_number}
+            </Link>
+          ) : (
+            <span className="font-mono text-xs text-slate-500">
+              {row.order_id.slice(0, 8)}
+            </span>
+          ),
       },
       {
         id: "customer",
         header: "Customer",
         sortKey: "customer_name",
-        render: (row) => <span className="text-slate-700">{row.customer?.name || row.customer?.email || "-"}</span>,
+        render: (row) => (
+          <span className="text-slate-700">
+            {row.customer?.name || row.customer?.email || "-"}
+          </span>
+        ),
       },
       {
         id: "shipped_at",
         header: "Shipped",
         sortKey: "shipped_at",
-        render: (row) => <span className="text-slate-600">{row.shipped_at ? new Date(row.shipped_at).toLocaleDateString() : "-"}</span>,
+        render: (row) => (
+          <span className="text-slate-600">
+            {row.shipped_at
+              ? new Date(row.shipped_at).toLocaleDateString()
+              : "-"}
+          </span>
+        ),
       },
       {
         id: "delivered_at",
         header: "Delivered",
         sortKey: "delivered_at",
-        render: (row) => <span className="text-slate-600">{row.delivered_at ? new Date(row.delivered_at).toLocaleDateString() : "-"}</span>,
+        render: (row) => (
+          <span className="text-slate-600">
+            {row.delivered_at
+              ? new Date(row.delivered_at).toLocaleDateString()
+              : "-"}
+          </span>
+        ),
       },
     ],
     [],
@@ -128,42 +205,130 @@ export default function ShipmentsPage() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex-1">
           <h1 className="text-2xl font-semibold text-slate-900">Shipments</h1>
-          <p className="text-sm text-slate-500 mt-1">{total.toLocaleString()} fulfillment records</p>
+          <p className="text-sm text-slate-500 mt-1">
+            {total.toLocaleString()} fulfillment records
+          </p>
         </div>
-        <ImportExportBar resource="fulfillments" allowImport={false} exportParams={{ carrier, status, delivery_status: deliveryStatus, source, search, sort: sortKey, dir: sortDir }} />
+        <ImportExportBar
+          resource="fulfillments"
+          allowImport={false}
+          exportParams={{
+            carrier,
+            status,
+            delivery_status: deliveryStatus,
+            source,
+            search,
+            sort: sortKey,
+            dir: sortDir,
+          }}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <QuickChip
+          label="In transit"
+          active={deliveryStatus === "in_transit"}
+          onClick={() => {
+            setParam(
+              "delivery_status",
+              deliveryStatus === "in_transit" ? null : "in_transit",
+            );
+            setParam("page", "1");
+          }}
+        />
+        <QuickChip
+          label="Delivered"
+          active={deliveryStatus === "delivered"}
+          onClick={() => {
+            setParam(
+              "delivery_status",
+              deliveryStatus === "delivered" ? null : "delivered",
+            );
+            setParam("page", "1");
+          }}
+        />
+        <QuickChip
+          label="Failed"
+          active={deliveryStatus === "failed" || status === "failure"}
+          onClick={() => {
+            const isOn = deliveryStatus === "failed" || status === "failure";
+            setParam("delivery_status", isOn ? null : "failed");
+            setParam("status", null);
+            setParam("page", "1");
+          }}
+        />
+        {(carrier || status || deliveryStatus || source || search) && (
+          <button
+            onClick={() => {
+              const sp = new URLSearchParams();
+              setSearchParams(sp, { replace: true });
+              setSearchInput("");
+            }}
+            className="text-xs text-slate-500 hover:text-slate-700 underline ml-2"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <input
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              setParam("search", searchInput);
-              setParam("page", "1");
-            }
-          }}
           placeholder="Search tracking, order, customer..."
           className="w-72 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
-        <select value={carrier} onChange={(e) => { setParam("carrier", e.target.value); setParam("page", "1"); }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <select
+          value={carrier}
+          onChange={(e) => {
+            setParam("carrier", e.target.value);
+            setParam("page", "1");
+          }}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        >
           <option value="">All carriers</option>
           <option value="bosta">Bosta</option>
           <option value="dhl">DHL</option>
           <option value="ups">UPS</option>
           <option value="aramex">Aramex</option>
         </select>
-        <select value={status} onChange={(e) => { setParam("status", e.target.value); setParam("page", "1"); }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <select
+          value={status}
+          onChange={(e) => {
+            setParam("status", e.target.value);
+            setParam("page", "1");
+          }}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        >
           <option value="">All statuses</option>
-          {Object.keys(STATUS_STYLES).map((value) => <option key={value} value={value}>{value}</option>)}
+          {Object.keys(STATUS_STYLES).map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
         </select>
-        <select value={source} onChange={(e) => { setParam("source", e.target.value); setParam("page", "1"); }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <select
+          value={source}
+          onChange={(e) => {
+            setParam("source", e.target.value);
+            setParam("page", "1");
+          }}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        >
           <option value="">All sources</option>
           <option value="shopify">Shopify</option>
           <option value="manual">Manual</option>
           <option value="bosta">Bosta</option>
         </select>
-        <input value={deliveryStatus} onChange={(e) => { setParam("delivery_status", e.target.value); setParam("page", "1"); }} placeholder="Delivery status" className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        <input
+          value={deliveryStatus}
+          onChange={(e) => {
+            setParam("delivery_status", e.target.value);
+            setParam("page", "1");
+          }}
+          placeholder="Delivery status"
+          className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
       </div>
 
       <DataTable
@@ -176,7 +341,10 @@ export default function ShipmentsPage() {
         page={page}
         perPage={perPage}
         onPageChange={(p) => setParam("page", String(p))}
-        onPerPageChange={(pp) => { setParam("per_page", String(pp)); setParam("page", "1"); }}
+        onPerPageChange={(pp) => {
+          setParam("per_page", String(pp));
+          setParam("page", "1");
+        }}
         sort={{ key: sortKey, dir: sortDir }}
         onSortChange={(next) => {
           const sp = new URLSearchParams(searchParams);
@@ -188,5 +356,29 @@ export default function ShipmentsPage() {
         syncToUrl={false}
       />
     </div>
+  );
+}
+
+function QuickChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
+        active
+          ? "bg-indigo-600 text-white ring-indigo-600"
+          : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

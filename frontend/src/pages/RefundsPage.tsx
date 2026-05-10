@@ -323,6 +323,55 @@ export default function RefundsPage() {
         <ManualRefundButton onCreated={load} />
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-slate-500 mr-1">Quick filters:</span>
+        <RefundsChip
+          label="Draft"
+          active={status === "draft"}
+          onClick={() => {
+            setParam("status", status === "draft" ? null : "draft");
+            setParam("page", "1");
+          }}
+        />
+        <RefundsChip
+          label="Processed"
+          active={status === "processed"}
+          onClick={() => {
+            setParam("status", status === "processed" ? null : "processed");
+            setParam("page", "1");
+          }}
+        />
+        <RefundsChip
+          label="Manual / Estebdal"
+          active={kind === "manual" || kind === "estebdal"}
+          onClick={() => {
+            const isOn = kind === "manual" || kind === "estebdal";
+            setParam("kind", isOn ? null : "manual");
+            setParam("page", "1");
+          }}
+        />
+        <RefundsChip
+          label="With restock"
+          active={restock === "true"}
+          onClick={() => {
+            setParam("restock", restock === "true" ? null : "true");
+            setParam("page", "1");
+          }}
+        />
+        {(status || kind || source || reason || restock || search) && (
+          <button
+            onClick={() => {
+              const sp = new URLSearchParams();
+              setSearchParams(sp, { replace: true });
+              setSearchInput("");
+            }}
+            className="text-xs text-slate-500 hover:text-slate-700 underline ml-2"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <input
           value={searchInput}
@@ -536,3 +585,28 @@ function RefundExpanded({ refundId }: { refundId: string }) {
     </div>
   );
 }
+
+function RefundsChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-3 py-1 text-xs transition ${
+        active
+          ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+          : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+

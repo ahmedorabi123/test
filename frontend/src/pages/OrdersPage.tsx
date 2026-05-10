@@ -57,6 +57,7 @@ export default function OrdersPage() {
     | FinancialStatus
     | "";
   const source = searchParams.get("source") || "";
+  const deliveryStatus = searchParams.get("delivery_status") || "";
 
   const [rows, setRows] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
@@ -96,6 +97,7 @@ export default function OrdersPage() {
         status: status || undefined,
         financial_status: financialStatus || undefined,
         source: source || undefined,
+        delivery_status: deliveryStatus || undefined,
         sort: sortKey,
         dir: sortDir,
       });
@@ -114,6 +116,7 @@ export default function OrdersPage() {
     status,
     financialStatus,
     source,
+    deliveryStatus,
     sortKey,
     sortDir,
   ]);
@@ -384,6 +387,60 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-slate-500 mr-1">Quick filters:</span>
+        <OrdersChip
+          label="Pending"
+          active={status === "pending"}
+          onClick={() => {
+            setParam("page", "1");
+            setParam("status", status === "pending" ? null : "pending");
+          }}
+        />
+        <OrdersChip
+          label="In transit"
+          active={deliveryStatus === "in_transit"}
+          onClick={() => {
+            setParam("page", "1");
+            setParam(
+              "delivery_status",
+              deliveryStatus === "in_transit" ? null : "in_transit",
+            );
+          }}
+        />
+        <OrdersChip
+          label="Delivered"
+          active={deliveryStatus === "delivered"}
+          onClick={() => {
+            setParam("page", "1");
+            setParam(
+              "delivery_status",
+              deliveryStatus === "delivered" ? null : "delivered",
+            );
+          }}
+        />
+        <OrdersChip
+          label="Refunded"
+          active={status === "refunded"}
+          onClick={() => {
+            setParam("page", "1");
+            setParam("status", status === "refunded" ? null : "refunded");
+          }}
+        />
+        {(status || deliveryStatus || financialStatus || source || search) && (
+          <button
+            onClick={() => {
+              const sp = new URLSearchParams();
+              setSearchParams(sp, { replace: true });
+              setSearchInput("");
+            }}
+            className="text-xs text-slate-500 hover:text-slate-700 underline ml-2"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
       <DataTable<Order>
         rows={rows}
         columns={columns}
@@ -415,5 +472,29 @@ export default function OrdersPage() {
         syncToUrl={false}
       />
     </div>
+  );
+}
+
+function OrdersChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
+        active
+          ? "bg-indigo-600 text-white ring-indigo-600"
+          : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

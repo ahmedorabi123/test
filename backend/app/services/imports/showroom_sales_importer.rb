@@ -68,12 +68,24 @@ module Imports
             }
           end
 
+          # Idempotency tag: same warehouse + order_num + line signature => skip.
+          # Mirrors the pattern in Sales::ShowroomSalesReportPoster.
+          warehouse_code = warehouse&.code || "noware"
+          line_sig = lines.map { |r| "#{r["SKU"]}:#{r["Quantity"]}:#{r["Price"]}" }.sort.join("|")
+          tag      = "[showroom_csv:#{warehouse_code}:#{order_num}:#{Digest::SHA1.hexdigest(line_sig)[0, 12]}]"
+          if Order.where("notes LIKE ?", "%#{tag}%").exists?
+            errors << { row: 0, message: "Order #{order_num}: already imported (idempotency tag #{tag})" }
+            next
+          end
+
+          base_notes = first["Notes"].presence || "Imported showroom sale #{order_num}"
+
           Sales::ManualOrderCreator.call(
             source:         "showroom",
             currency:       "EGP",
             customer_email: first["Customer Email"],
             customer_name:  first["Customer Name"],
-            notes:          first["Notes"] || "Imported showroom sale #{order_num}",
+            notes:          "#{base_notes}\n#{tag}",
             location_id:    warehouse&.shopify_location_id,
             mark_paid:      true,
             line_items:     line_items

@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
-import { usersApi, rolesApi, type User, type Role } from "../api/users";
+import { useEffect, useMemo, useState } from "react";
+import {
+  usersApi,
+  rolesApi,
+  permissionsApi,
+  type User,
+  type Role,
+  type PermissionDef,
+} from "../api/users";
 
 type Tab = "users" | "roles";
 
@@ -281,51 +288,311 @@ function UsersTab() {
 
 function RolesTab() {
   const [roles, setRoles] = useState<Role[]>([]);
+  const [permissions, setPermissions] = useState<PermissionDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState<Role | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const reload = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [r, p] = await Promise.all([rolesApi.list(), permissionsApi.list()]);
+      setRoles(r.data);
+      setPermissions(p.data);
+    } catch (e) {
+      setError(getMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    rolesApi
-      .list()
-      .then((r) => setRoles(r.data))
-      .catch((e) => setError(getMessage(e)))
-      .finally(() => setLoading(false));
+    reload();
   }, []);
 
+  const onDestroy = async (role: Role) => {
+    if (!window.confirm(`Delete role "${role.name}"?`)) return;
+    try {
+      await rolesApi.destroy(role.id);
+      reload();
+    } catch (e) {
+      setError(getMessage(e));
+    }
+  };
+
   if (loading) return <div className="text-slate-500 text-sm">Loading…</div>;
-  if (error)
-    return (
-      <div className="bg-red-50 text-red-700 p-2 rounded text-sm">{error}</div>
-    );
 
   return (
-    <div className="grid md:grid-cols-2 gap-4">
-      {roles.map((r) => (
-        <div key={r.id} className="bg-white rounded shadow p-4">
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-lg font-semibold text-slate-800">{r.name}</h3>
-            <span className="text-xs text-slate-400">
-              {r.permissions.length} permissions
-            </span>
-          </div>
-          {r.description && (
-            <p className="text-sm text-slate-500 mt-1">{r.description}</p>
-          )}
-          <div className="mt-3 flex flex-wrap gap-1">
-            {r.permissions.map((p) => (
-              <span
-                key={p}
-                className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded"
-              >
-                {p}
-              </span>
-            ))}
-            {r.permissions.length === 0 && (
-              <span className="text-xs text-slate-400">No permissions</span>
-            )}
-          </div>
+    <div className="space-y-4">
+      {error && (
+        <div className="bg-red-50 text-red-700 p-2 rounded text-sm">
+          {error}
         </div>
-      ))}
+      )}
+
+      <div className="flex justify-end">
+        <button
+          onClick={() => setCreating(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3 py-1.5 rounded"
+        >
+          + New role
+        </button>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {roles.map((r) => (
+          <div key={r.id} className="bg-white rounded shadow p-4">
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="text-lg font-semibold text-slate-800">
+                {r.name}
+                {r.system && (
+                  <span className="ml-2 text-[10px] uppercase tracking-wide text-slate-400">
+                    System
+                  </span>
+                )}
+              </h3>
+              <span className="text-xs text-slate-400">
+                {r.permissions.length} permissions
+              </span>
+            </div>
+            {r.description && (
+              <p className="text-sm text-slate-500 mt-1">{r.description}</p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-1">
+              {r.permissions.map((p) => (
+                <span
+                  key={p}
+                  className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded"
+                >
+                  {p}
+                </span>
+              ))}
+              {r.permissions.length === 0 && (
+                <span className="text-xs text-slate-400">No permissions</span>
+              )}
+            </div>
+            <div className="mt-3 flex justify-end gap-2 text-xs">
+              <button
+                onClick={() => setEditing(r)}
+                className="text-indigo-600 hover:text-indigo-800"
+              >
+                Edit
+              </button>
+              {!r.system && (
+                <button
+                  onClick={() => onDestroy(r)}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {(creating || editing) && (
+        <RoleEditor
+          role={editing}
+          permissions={permissions}
+          onClose={() => {
+            setCreating(false);
+            setEditing(null);
+          }}
+          onSaved={() => {
+            setCreating(false);
+            setEditing(null);
+            reload();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function RoleEditor({
+  role,
+  permissions,
+  onClose,
+  onSaved,
+}: {
+  role: Role | null;
+  permissions: PermissionDef[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEdit = !!role;
+  const isSystem = !!role?.system;
+  const [name, setName] = useState(role?.name ?? "");
+  const [description, setDescription] = useState(role?.description ?? "");
+  const [selected, setSelected] = useState<Set<string>>(
+    new Set(role?.permissions ?? []),
+  );
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const grouped = useMemo(() => {
+    const groups: Record<string, PermissionDef[]> = {};
+    for (const p of permissions) {
+      (groups[p.resource] ||= []).push(p);
+    }
+    return groups;
+  }, [permissions]);
+
+  const togglePerm = (key: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleResource = (resource: string) => {
+    const keys = (grouped[resource] || []).map((p) => p.key);
+    const allOn = keys.every((k) => selected.has(k));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => (allOn ? next.delete(k) : next.add(k)));
+      return next;
+    });
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      const payload = {
+        name: name.trim(),
+        description: description.trim(),
+        permissions: Array.from(selected),
+      };
+      if (isEdit && role) {
+        await rolesApi.update(role.id, payload);
+      } else {
+        await rolesApi.create(payload);
+      }
+      onSaved();
+    } catch (e) {
+      setError(getMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-baseline justify-between mb-3">
+          <h3 className="text-lg font-semibold">
+            {isEdit ? `Edit role: ${role?.name}` : "New role"}
+          </h3>
+          {isSystem && (
+            <span className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-0.5">
+              System role — name is locked
+            </span>
+          )}
+        </div>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-sm">
+              <span className="block text-slate-600 mb-1">Name *</span>
+              <input
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={isSystem}
+                className="w-full border border-slate-300 rounded px-3 py-2 disabled:bg-slate-100"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block text-slate-600 mb-1">Description</span>
+              <input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full border border-slate-300 rounded px-3 py-2"
+              />
+            </label>
+          </div>
+
+          <div>
+            <div className="text-sm font-medium text-slate-700 mb-2">
+              Permissions ({selected.size})
+            </div>
+            <div className="space-y-3">
+              {Object.entries(grouped).map(([resource, perms]) => {
+                const keys = perms.map((p) => p.key);
+                const allOn = keys.every((k) => selected.has(k));
+                const anyOn = keys.some((k) => selected.has(k));
+                return (
+                  <div
+                    key={resource}
+                    className="border border-slate-200 rounded"
+                  >
+                    <div className="flex items-center justify-between bg-slate-50 px-3 py-2">
+                      <span className="text-sm font-medium capitalize">
+                        {resource.replace(/_/g, " ")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleResource(resource)}
+                        className="text-xs text-indigo-600 hover:text-indigo-800"
+                      >
+                        {allOn
+                          ? "Clear all"
+                          : anyOn
+                            ? "Select all"
+                            : "Select all"}
+                      </button>
+                    </div>
+                    <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-1">
+                      {perms.map((p) => (
+                        <label
+                          key={p.key}
+                          className="flex items-center gap-2 text-sm text-slate-700"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected.has(p.key)}
+                            onChange={() => togglePerm(p.key)}
+                          />
+                          <span className="font-mono text-xs">{p.action}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 text-red-700 text-sm p-2 rounded">
+              {error}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-sm px-3 py-1.5 rounded border border-slate-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="text-sm bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-medium px-4 py-1.5 rounded"
+            >
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Create role"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

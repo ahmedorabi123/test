@@ -5,9 +5,19 @@ module Api
 
       def index
         authorize Permission
+        existing = Permission.all.index_by { |p| "#{p.resource}:#{p.action}" }
+        keys = (Permission::ALL + existing.keys).uniq
         render json: {
-          data: Permission.order(:resource, :action).map { |p|
-            { id: p.id, key: "#{p.resource}:#{p.action}", description: p.description }
+          data: keys.sort.map { |key|
+            resource, action = key.split(":", 2)
+            p = existing[key]
+            {
+              id:          p&.id,
+              key:         key,
+              resource:    resource,
+              action:      action,
+              description: p&.description
+            }
           }
         }
       end

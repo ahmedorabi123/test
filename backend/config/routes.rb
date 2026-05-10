@@ -34,7 +34,7 @@ Rails.application.routes.draw do
           delete :remove_role
         end
       end
-      resources :roles,       only: %i[index show]
+      resources :roles,       only: %i[index show create update destroy]
       resources :permissions, only: %i[index]
 
       # Catalog

@@ -20,7 +20,16 @@ export interface Role {
   id: string;
   name: string;
   description?: string;
+  system?: boolean;
   permissions: string[]; // "resource:action"
+}
+
+export interface PermissionDef {
+  id?: string;
+  key: string;
+  resource: string;
+  action: string;
+  description?: string | null;
 }
 
 export const usersApi = {
@@ -85,4 +94,35 @@ export const rolesApi = {
     api
       .get<{ data: Role }>(`/roles/${id}`)
       .then((r: AxiosResponse<{ data: Role }>) => r.data),
+
+  create: (payload: {
+    name: string;
+    description?: string;
+    permissions: string[];
+  }): Promise<{ data: Role }> =>
+    api
+      .post<{ data: Role }>("/roles", { role: payload })
+      .then((r: AxiosResponse<{ data: Role }>) => r.data),
+
+  update: (
+    id: string,
+    payload: {
+      name?: string;
+      description?: string;
+      permissions?: string[];
+    },
+  ): Promise<{ data: Role }> =>
+    api
+      .patch<{ data: Role }>(`/roles/${id}`, { role: payload })
+      .then((r: AxiosResponse<{ data: Role }>) => r.data),
+
+  destroy: (id: string): Promise<{ message: string }> =>
+    api.delete<{ message: string }>(`/roles/${id}`).then((r) => r.data),
+};
+
+export const permissionsApi = {
+  list: (): Promise<{ data: PermissionDef[] }> =>
+    api
+      .get<{ data: PermissionDef[] }>("/permissions")
+      .then((r: AxiosResponse<{ data: PermissionDef[] }>) => r.data),
 };

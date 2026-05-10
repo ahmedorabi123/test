@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../../api/client";
 import {
   showroomSalesApi,
@@ -225,8 +226,13 @@ export function ShowroomReportButton({
   const [variants, setVariants] = useState<VariantOption[]>([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [lastOrder, setLastOrder] = useState<{
+    id: string;
+    order_number: string;
+  } | null>(null);
 
   const showrooms = warehouses.filter((w) => w.kind === "consignment");
+  const noShowrooms = showrooms.length === 0;
 
   useEffect(() => {
     if (open && variants.length === 0) {
@@ -249,7 +255,7 @@ export function ShowroomReportButton({
     }
     setSubmitting(true);
     try {
-      await showroomSalesApi.create({
+      const created = await showroomSalesApi.create({
         warehouse_id: warehouseId,
         period,
         currency,
@@ -260,6 +266,7 @@ export function ShowroomReportButton({
           unit_price: l.unit_price,
         })),
       });
+      setLastOrder({ id: created.id, order_number: created.order_number });
       setOpen(false);
       setLines([{ variant_id: "", quantity: "", unit_price: "" }]);
       setNotes("");
@@ -282,6 +289,31 @@ export function ShowroomReportButton({
       >
         Showroom report
       </button>
+      {lastOrder && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border border-emerald-200 bg-emerald-50 p-3 shadow-lg">
+          <div className="flex items-start gap-3">
+            <div className="text-sm text-emerald-900">
+              <div className="font-medium">Showroom report posted</div>
+              <div className="text-xs">Order {lastOrder.order_number}</div>
+            </div>
+            <Link
+              to={`/orders/${lastOrder.id}`}
+              className="text-xs font-medium text-emerald-700 underline hover:text-emerald-900"
+              onClick={() => setLastOrder(null)}
+            >
+              View order
+            </Link>
+            <button
+              type="button"
+              onClick={() => setLastOrder(null)}
+              className="text-emerald-700 hover:text-emerald-900"
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
       {open && (
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-5 max-h-[90vh] overflow-y-auto">
@@ -333,10 +365,9 @@ export function ShowroomReportButton({
 
               {showrooms.length === 0 && (
                 <div className="bg-amber-50 text-amber-800 text-sm p-2 rounded">
-                  No consignment warehouses yet. Create one with kind
-                  "consignment" first (Inventory → New stock item picks the
-                  warehouse, but to add a new showroom go to /inventory and use
-                  the warehouse selector after API creation).
+                  Create a consignment warehouse to post a showroom report. Go
+                  to Warehouses and add a warehouse with kind "consignment"
+                  first.
                 </div>
               )}
 
@@ -466,7 +497,7 @@ export function ShowroomReportButton({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || noShowrooms}
                   className="text-sm bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-medium px-4 py-1.5 rounded"
                 >
                   {submitting ? "Posting…" : "Post report"}

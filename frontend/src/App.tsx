@@ -35,6 +35,7 @@ import NewProductPage from "./pages/NewProductPage";
 import CollectionsPage from "./pages/CollectionsPage";
 import CollectionDetailPage from "./pages/CollectionDetailPage";
 import UsersPage from "./pages/UsersPage";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function App() {
   const dispatch = useDispatch<AppDispatch>();
@@ -49,43 +50,45 @@ function App() {
   }, [dispatch, token, user]);
 
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route element={<ProtectedRoute />}>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/products" element={<ProductsPage />} />
-          <Route path="/products/new" element={<NewProductPage />} />
-          <Route path="/products/:id" element={<ProductDetailPage />} />
-          <Route path="/collections" element={<CollectionsPage />} />
-          <Route path="/collections/:id" element={<CollectionDetailPage />} />
-          <Route path="/orders" element={<OrdersPage />} />
-          <Route path="/orders/new" element={<ManualOrderPage />} />
-          <Route path="/orders/:id" element={<OrderDetailPage />} />
-          <Route path="/customers" element={<CustomersPage />} />
-          <Route path="/customers/new" element={<NewCustomerPage />} />
-          <Route path="/customers/:id" element={<CustomerDetailPage />} />
-          <Route path="/shipments" element={<ShipmentsPage />} />
-          <Route path="/shipments/:id" element={<ShipmentDetailPage />} />
-          <Route path="/refunds" element={<RefundsPage />} />
-          <Route path="/refunds/:id" element={<RefundDetailPage />} />
-          <Route path="/purchases" element={<PurchasesPage />} />
-          <Route path="/purchases/new" element={<NewPurchaseOrderPage />} />
-          <Route path="/purchases/:id" element={<PurchaseOrderDetailPage />} />
-          <Route path="/suppliers" element={<SuppliersPage />} />
-          <Route path="/suppliers/new" element={<NewSupplierPage />} />
-          <Route path="/suppliers/:id" element={<SupplierDetailPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/warehouses" element={<WarehousesPage />} />
-          <Route path="/accounting" element={<AccountingPage />} />
-          <Route path="/production" element={<ProductionPage />} />
-          <Route path="/production/bom" element={<BomEditorPage />} />
-          <Route path="/audit_logs" element={<AuditLogsPage />} />
-          <Route path="/users" element={<UsersPage />} />
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/products" element={<ProductsPage />} />
+            <Route path="/products/new" element={<NewProductPage />} />
+            <Route path="/products/:id" element={<ProductDetailPage />} />
+            <Route path="/collections" element={<CollectionsPage />} />
+            <Route path="/collections/:id" element={<CollectionDetailPage />} />
+            <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/orders/new" element={<ManualOrderPage />} />
+            <Route path="/orders/:id" element={<OrderDetailPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/customers/new" element={<NewCustomerPage />} />
+            <Route path="/customers/:id" element={<CustomerDetailPage />} />
+            <Route path="/shipments" element={<ShipmentsPage />} />
+            <Route path="/shipments/:id" element={<ShipmentDetailPage />} />
+            <Route path="/refunds" element={<RefundsPage />} />
+            <Route path="/refunds/:id" element={<RefundDetailPage />} />
+            <Route path="/purchases" element={<PurchasesPage />} />
+            <Route path="/purchases/new" element={<NewPurchaseOrderPage />} />
+            <Route path="/purchases/:id" element={<PurchaseOrderDetailPage />} />
+            <Route path="/suppliers" element={<SuppliersPage />} />
+            <Route path="/suppliers/new" element={<NewSupplierPage />} />
+            <Route path="/suppliers/:id" element={<SupplierDetailPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/warehouses" element={<WarehousesPage />} />
+            <Route path="/accounting" element={<AccountingPage />} />
+            <Route path="/production" element={<ProductionPage />} />
+            <Route path="/production/bom" element={<BomEditorPage />} />
+            <Route path="/audit_logs" element={<AuditLogsPage />} />
+            <Route path="/users" element={<UsersPage />} />
+          </Route>
         </Route>
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ErrorBoundary>
   );
 }
 
