@@ -6,7 +6,10 @@ const API = "*/api/v1";
 export const handlers = [
   // Generic empty list endpoints used by various pages on first render.
   http.get(`${API}/orders`, () =>
-    HttpResponse.json({ data: [], meta: { total: 0, page: 1, per_page: 25 } })
+    HttpResponse.json({
+      data: [],
+      meta: { total: 0, page: 1, per_page: 25, summary: { total_value: "0.00" } },
+    })
   ),
   http.get(`${API}/refunds`, () =>
     HttpResponse.json({ data: [], meta: { total: 0, page: 1, per_page: 25 } })

@@ -94,7 +94,9 @@ export const refundsApi = {
   }) => {
     const { idempotency_key, ...body } = payload;
     return api
-      .post<{ data: Refund }>(
+      .post<{
+        data: Refund;
+      }>(
         "/refunds",
         { refund: body },
         idempotency_key
@@ -110,5 +112,7 @@ export const refundsApi = {
       .then((r) => r.data.data),
 
   cancel: (id: string) =>
-    api.post<{ data: Refund }>(`/refunds/${id}/cancel`).then((r) => r.data.data),
+    api
+      .post<{ data: Refund }>(`/refunds/${id}/cancel`)
+      .then((r) => r.data.data),
 };

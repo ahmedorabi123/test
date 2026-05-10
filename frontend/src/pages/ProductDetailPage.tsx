@@ -104,9 +104,8 @@ function variantToJson(v: Variant): VariantDraft {
     sku: v.sku ?? "",
     price: String(v.price),
     compare_at_price: v.compare_at_price ? String(v.compare_at_price) : "",
-    cost_per_item: (v.cost_per_item ?? v.cost)
-      ? String(v.cost_per_item ?? v.cost)
-      : "",
+    cost_per_item:
+      (v.cost_per_item ?? v.cost) ? String(v.cost_per_item ?? v.cost) : "",
     barcode: v.barcode ?? "",
     weight: v.weight ? String(v.weight) : "",
     weight_unit: (v.weight_unit ?? "kg") as VariantDraft["weight_unit"],
@@ -135,7 +134,8 @@ function toDraft(p: Product): Draft {
     published_at: p.published_at ?? "",
     published_scope: p.published_scope ?? "web",
     collection_ids:
-      p.collection_ids ?? (p.collections ?? []).map((collection) => collection.id),
+      p.collection_ids ??
+      (p.collections ?? []).map((collection) => collection.id),
     variants_draft: (p.variants ?? []).map(variantToJson),
     metafields_draft: [...(p.metafields ?? [])],
   };

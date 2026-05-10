@@ -65,21 +65,24 @@ function NewStockItemModal({
       return;
     }
     const query = search.trim();
-    const t = setTimeout(async () => {
-      try {
-        const res = await api.get<{ data: VariantOption[] }>("/variants", {
-          params: {
-            search: query || undefined,
-            per_page: query ? 15 : 25,
-            include: "stock_items_summary",
-            warehouse_id: warehouseId,
-          },
-        });
-        setOptions(res.data.data);
-      } catch {
-        setOptions([]);
-      }
-    }, query ? 250 : 0);
+    const t = setTimeout(
+      async () => {
+        try {
+          const res = await api.get<{ data: VariantOption[] }>("/variants", {
+            params: {
+              search: query || undefined,
+              per_page: query ? 15 : 25,
+              include: "stock_items_summary",
+              warehouse_id: warehouseId,
+            },
+          });
+          setOptions(res.data.data);
+        } catch {
+          setOptions([]);
+        }
+      },
+      query ? 250 : 0,
+    );
     return () => clearTimeout(t);
   }, [search, variantId, warehouseId]);
 
