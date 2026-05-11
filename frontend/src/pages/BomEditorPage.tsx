@@ -132,7 +132,8 @@ function BomEditor({ parent }: { parent: Variant }) {
       {loading && <div className="text-sm text-slate-500">Loading…</div>}
       {error && <div className="text-sm text-rose-600">{error}</div>}
 
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="min-w-[640px] text-sm">
         <thead className="text-left text-xs text-slate-500 uppercase">
           <tr>
             <th className="py-2">Component</th>
@@ -163,6 +164,7 @@ function BomEditor({ parent }: { parent: Variant }) {
           )}
         </tbody>
       </table>
+      </div>
 
       <AddBomRow parentId={parent.id} onAdded={load} />
     </div>

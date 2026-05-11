@@ -7,36 +7,33 @@ import {
   type Role,
   type PermissionDef,
 } from "../api/users";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { Modal } from "../components/ui/Modal";
+import { PageContainer } from "../components/ui/PageContainer";
+import { Tabs } from "../components/ui/Tabs";
 
 type Tab = "users" | "roles";
 
 export default function UsersPage() {
   const [tab, setTab] = useState<Tab>("users");
   return (
-    <div className="p-6 space-y-6">
+    <PageContainer className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Users & Roles</h1>
         <p className="text-slate-500 text-sm mt-1">
           Manage who can access the ERP and what they can do.
         </p>
       </div>
-      <div className="flex gap-1 border-b border-slate-200">
-        {(["users", "roles"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t
-                ? "border-indigo-600 text-indigo-700"
-                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-            }`}
-          >
-            {t === "users" ? "Users" : "Roles"}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "users", label: "Users" },
+          { id: "roles", label: "Roles" },
+        ]}
+      />
       {tab === "users" ? <UsersTab /> : <RolesTab />}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -74,6 +71,12 @@ function UsersTab() {
   const submitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (form.password && form.password.length < 6) {
+      setError(
+        "Password must be at least 6 characters (or leave blank to auto-generate)",
+      );
+      return;
+    }
     try {
       await usersApi.create({
         email: form.email,
@@ -130,7 +133,7 @@ function UsersTab() {
       <div className="flex justify-end">
         <button
           onClick={() => setCreating((c) => !c)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3 py-1.5 rounded"
+          className="inline-flex min-h-11 items-center justify-center rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
         >
           {creating ? "Cancel" : "+ New user"}
         </button>
@@ -139,7 +142,7 @@ function UsersTab() {
       {creating && (
         <form
           onSubmit={submitCreate}
-          className="bg-white rounded shadow p-4 grid grid-cols-2 gap-3"
+          className="grid grid-cols-1 gap-3 rounded bg-white p-4 shadow md:grid-cols-2"
         >
           <label className="text-sm">
             <span className="block text-slate-600 mb-1">Email *</span>
@@ -148,18 +151,19 @@ function UsersTab() {
               required
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
             />
           </label>
           <label className="text-sm">
             <span className="block text-slate-600 mb-1">
-              Password (auto-generated if blank)
+              Password (auto-generated if blank, min 6 chars)
             </span>
             <input
-              type="text"
+              type="password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+              minLength={6}
             />
           </label>
           <label className="text-sm">
@@ -168,7 +172,7 @@ function UsersTab() {
               required
               value={form.first_name}
               onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
             />
           </label>
           <label className="text-sm">
@@ -177,13 +181,13 @@ function UsersTab() {
               required
               value={form.last_name}
               onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
             />
           </label>
-          <div className="col-span-2 flex justify-end">
+          <div className="flex justify-end md:col-span-2">
             <button
               type="submit"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded"
+              className="inline-flex min-h-11 items-center justify-center rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
             >
               Create user
             </button>
@@ -191,8 +195,69 @@ function UsersTab() {
         </form>
       )}
 
-      <div className="bg-white rounded shadow overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="space-y-3 md:hidden">
+        {users.map((u) => (
+          <MobileRowCard
+            key={u.id}
+            title={`${u.first_name} ${u.last_name}`.trim() || u.email}
+            subtitle={u.email}
+            meta={u.active ? "Active" : "Inactive"}
+            fields={[
+              {
+                label: "Roles",
+                value: u.roles.length
+                  ? u.roles.map((role) => role.name).join(", ")
+                  : "No roles",
+              },
+              {
+                label: "Last login",
+                value: u.last_login_at ? new Date(u.last_login_at).toLocaleString() : "-",
+              },
+            ]}
+            actions={
+              <>
+                <select
+                  value=""
+                  onChange={(e) => assignRole(u.id, e.target.value)}
+                  className="min-h-10 rounded-md border border-slate-300 bg-white px-2 text-sm"
+                >
+                  <option value="">+ Add role...</option>
+                  {roles
+                    .filter((r) => !u.roles.find((ur) => ur.id === r.id))
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                </select>
+                {u.roles.map((role) => (
+                  <button
+                    key={role.id}
+                    onClick={() => removeRole(u.id, role.id)}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  >
+                    Remove {role.name}
+                  </button>
+                ))}
+                <button
+                  onClick={() => toggleActive(u)}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  {u.active ? "Deactivate" : "Reactivate"}
+                </button>
+              </>
+            }
+          />
+        ))}
+        {users.length === 0 && (
+          <div className="rounded bg-white py-6 text-center text-sm text-slate-400 shadow">
+            No users yet
+          </div>
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded bg-white shadow md:block">
+        <table className="min-w-[720px] text-sm">
           <thead className="bg-slate-50 text-slate-600 text-xs uppercase">
             <tr>
               <th className="text-left px-3 py-2">Name</th>
@@ -230,7 +295,7 @@ function UsersTab() {
                     <select
                       value=""
                       onChange={(e) => assignRole(u.id, e.target.value)}
-                      className="border border-slate-200 text-xs rounded px-1 py-0.5"
+                      className="min-h-8 rounded border border-slate-200 px-1 text-xs"
                     >
                       <option value="">+ Add role…</option>
                       {roles
@@ -298,7 +363,10 @@ function RolesTab() {
     setLoading(true);
     setError("");
     try {
-      const [r, p] = await Promise.all([rolesApi.list(), permissionsApi.list()]);
+      const [r, p] = await Promise.all([
+        rolesApi.list(),
+        permissionsApi.list(),
+      ]);
       setRoles(r.data);
       setPermissions(p.data);
     } catch (e) {
@@ -335,13 +403,13 @@ function RolesTab() {
       <div className="flex justify-end">
         <button
           onClick={() => setCreating(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3 py-1.5 rounded"
+          className="inline-flex min-h-11 items-center justify-center rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
         >
           + New role
         </button>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {roles.map((r) => (
           <div key={r.id} className="bg-white rounded shadow p-4">
             <div className="flex items-baseline justify-between gap-2">
@@ -484,20 +552,15 @@ function RoleEditor({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-5 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-baseline justify-between mb-3">
-          <h3 className="text-lg font-semibold">
-            {isEdit ? `Edit role: ${role?.name}` : "New role"}
-          </h3>
-          {isSystem && (
-            <span className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-0.5">
-              System role — name is locked
-            </span>
-          )}
-        </div>
+    <Modal
+      open
+      onClose={onClose}
+      size="xl"
+      title={isEdit ? `Edit role: ${role?.name}` : "New role"}
+      description={isSystem ? "System role — name is locked" : undefined}
+    >
         <form onSubmit={submit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-sm">
               <span className="block text-slate-600 mb-1">Name *</span>
               <input
@@ -505,7 +568,7 @@ function RoleEditor({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={isSystem}
-                className="w-full border border-slate-300 rounded px-3 py-2 disabled:bg-slate-100"
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 disabled:bg-slate-100"
               />
             </label>
             <label className="text-sm">
@@ -513,7 +576,7 @@ function RoleEditor({
               <input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full border border-slate-300 rounded px-3 py-2"
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
               />
             </label>
           </div>
@@ -548,7 +611,7 @@ function RoleEditor({
                             : "Select all"}
                       </button>
                     </div>
-                    <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-1">
+                    <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">
                       {perms.map((p) => (
                         <label
                           key={p.key}
@@ -575,25 +638,24 @@ function RoleEditor({
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="text-sm px-3 py-1.5 rounded border border-slate-300"
+              className="min-h-11 rounded border border-slate-300 px-3 text-sm"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="text-sm bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-medium px-4 py-1.5 rounded"
+              className="min-h-11 rounded bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400"
             >
               {saving ? "Saving…" : isEdit ? "Save changes" : "Create role"}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

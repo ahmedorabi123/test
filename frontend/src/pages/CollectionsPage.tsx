@@ -5,6 +5,8 @@ import DataTable, {
   type Column,
   type SortDir,
 } from "../components/table/DataTable";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { PageContainer } from "../components/ui/PageContainer";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 const KIND_STYLES: Record<string, string> = {
@@ -136,7 +138,7 @@ export default function CollectionsPage() {
   );
 
   return (
-    <div className="space-y-4">
+    <PageContainer className="space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold text-slate-800 flex-1">
@@ -144,7 +146,7 @@ export default function CollectionsPage() {
         </h1>
         <Link
           to="/collections/new"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
         >
           + New Collection
         </Link>
@@ -156,7 +158,7 @@ export default function CollectionsPage() {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search collections…"
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-56"
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-72"
         />
       </div>
 
@@ -194,8 +196,48 @@ export default function CollectionsPage() {
           setParam("page", "1");
         }}
         emptyMessage="No collections found."
+        mobileCardRenderer={(collection) => (
+          <MobileRowCard
+            title={
+              <Link
+                to={`/collections/${collection.id}`}
+                className="font-medium text-indigo-700 hover:underline"
+              >
+                {collection.title}
+              </Link>
+            }
+            subtitle={collection.handle}
+            meta={`${collection.products_count} products`}
+            fields={[
+              {
+                label: "Condition",
+                value: (
+                  <span
+                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${KIND_STYLES[collection.kind] ?? KIND_STYLES.custom}`}
+                  >
+                    {collection.kind === "custom"
+                      ? "Manual"
+                      : `${collection.disjunctive ? "Any" : "All"} rules (${collection.rules?.length ?? 0})`}
+                  </span>
+                ),
+              },
+              {
+                label: "Source",
+                value: collection.source === "shopify" ? "Shopify" : "Manual",
+              },
+            ]}
+            actions={
+              <Link
+                to={`/collections/${collection.id}`}
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+              >
+                Open collection
+              </Link>
+            }
+          />
+        )}
         syncToUrl={false}
       />
-    </div>
+    </PageContainer>
   );
 }

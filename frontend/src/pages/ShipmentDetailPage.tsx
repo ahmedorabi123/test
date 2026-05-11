@@ -90,7 +90,10 @@ export default function ShipmentDetailPage() {
             fulfillment={shipment}
             onUpdated={(updated) => {
               setShipment(updated);
-              fulfillmentsApi.events(updated.id).then(setEvents).catch(() => {});
+              fulfillmentsApi
+                .events(updated.id)
+                .then(setEvents)
+                .catch(() => {});
             }}
           />
         </div>
@@ -101,7 +104,7 @@ export default function ShipmentDetailPage() {
           <h2 className="text-sm font-semibold text-slate-900 mb-3">
             Tracking
           </h2>
-          <dl className="grid grid-cols-2 gap-3 text-sm">
+          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
             <Info
               label="Tracking number"
               value={shipment.tracking_number || "-"}
@@ -171,7 +174,8 @@ export default function ShipmentDetailPage() {
         <div className="px-4 py-3 border-b border-slate-200 text-sm font-semibold text-slate-900">
           Items
         </div>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="min-w-[640px] text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
               <th className="px-4 py-2 text-left">Item</th>
@@ -193,6 +197,7 @@ export default function ShipmentDetailPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

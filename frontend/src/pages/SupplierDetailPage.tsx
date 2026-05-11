@@ -165,7 +165,8 @@ export default function SupplierDetailPage() {
 
       {tab === "purchase_orders" && (
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="min-w-[680px] text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-4 py-2 text-left">PO</th>
@@ -202,6 +203,7 @@ export default function SupplierDetailPage() {
               )}
             </tbody>
           </table>
+          </div>
         </section>
       )}
 

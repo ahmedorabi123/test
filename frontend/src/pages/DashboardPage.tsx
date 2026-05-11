@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import type { RootState } from "../store";
 import { dashboardApi, type DashboardSummary } from "../api/dashboard";
+import { PageContainer } from "../components/ui/PageContainer";
 
 type WindowOpt = 30 | 90;
 
@@ -55,7 +56,7 @@ interface KpiCardProps {
 }
 function KpiCard({ label, value, hint, accent, loading }: KpiCardProps) {
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 hover:shadow-md transition relative overflow-hidden">
+    <div className="relative overflow-hidden rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition hover:shadow-md sm:p-5">
       <div
         className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${accent}`}
         aria-hidden
@@ -63,7 +64,7 @@ function KpiCard({ label, value, hint, accent, loading }: KpiCardProps) {
       <div className="text-xs uppercase tracking-wider text-gray-500 font-medium">
         {label}
       </div>
-      <div className="mt-2 text-2xl font-semibold text-gray-900">
+      <div className="mt-2 text-xl font-semibold text-gray-900 sm:text-2xl">
         {loading ? (
           <span className="inline-block h-7 w-24 bg-gray-200 rounded animate-pulse" />
         ) : (
@@ -95,7 +96,9 @@ function RevenueTrendChart({ data, currency }: RevenueTrendProps) {
   const path =
     "M " +
     points
-      .map((p, i) => `${i === 0 ? "" : "L "}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
+      .map(
+        (p, i) => `${i === 0 ? "" : "L "}${p.x.toFixed(1)},${p.y.toFixed(1)}`,
+      )
       .join(" ");
   const area =
     `M ${points[0]?.x ?? PAD.l},${H - PAD.b} ` +
@@ -110,7 +113,7 @@ function RevenueTrendChart({ data, currency }: RevenueTrendProps) {
   const labelEvery = Math.max(1, Math.floor(data.length / 6));
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-56">
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-48 w-full sm:h-56">
       <defs>
         <linearGradient id="rev-grad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#6366f1" stopOpacity="0.35" />
@@ -171,9 +174,16 @@ function Donut({ data, total, centerLabel, centerValue }: DonutProps) {
   const C = 2 * Math.PI * r;
   let offset = 0;
   return (
-    <div className="flex items-center gap-5">
-      <svg viewBox="0 0 160 160" className="h-40 w-40 -rotate-90">
-        <circle cx="80" cy="80" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+      <svg viewBox="0 0 160 160" className="h-32 w-32 -rotate-90 sm:h-40 sm:w-40">
+        <circle
+          cx="80"
+          cy="80"
+          r={r}
+          fill="none"
+          stroke="#f1f5f9"
+          strokeWidth="16"
+        />
         {data.map((d) => {
           const len = total > 0 ? (d.value / total) * C : 0;
           const dash = `${len} ${C - len}`;
@@ -215,20 +225,15 @@ function Donut({ data, total, centerLabel, centerValue }: DonutProps) {
           {centerValue}
         </text>
       </svg>
-      <ul className="space-y-1.5 text-sm flex-1">
+      <ul className="w-full flex-1 space-y-1.5 text-sm">
         {data.map((d) => (
-          <li
-            key={d.label}
-            className="flex items-center justify-between gap-3"
-          >
+          <li key={d.label} className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-gray-700">
               <span
                 className="h-2.5 w-2.5 rounded-sm"
                 style={{ background: d.color }}
               />
-              <span className="capitalize">
-                {d.label.replace(/_/g, " ")}
-              </span>
+              <span className="capitalize">{d.label.replace(/_/g, " ")}</span>
             </span>
             <span className="font-medium text-gray-900">
               {fmtNumber(d.value)}
@@ -247,11 +252,17 @@ interface MarginGaugeProps {
   cogs: number;
   currency: string;
 }
-function MarginGauge({ margin, pct, revenue, cogs, currency }: MarginGaugeProps) {
+function MarginGauge({
+  margin,
+  pct,
+  revenue,
+  cogs,
+  currency,
+}: MarginGaugeProps) {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
     <div>
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="text-xs uppercase tracking-wider text-gray-500 font-medium">
             Gross margin
@@ -263,7 +274,7 @@ function MarginGauge({ margin, pct, revenue, cogs, currency }: MarginGaugeProps)
             {fmtCurrency(margin, currency)} margin
           </div>
         </div>
-        <div className="text-right text-xs text-gray-500">
+        <div className="text-xs text-gray-500 sm:text-right">
           <div>Revenue {fmtCurrency(revenue, currency)}</div>
           <div>COGS {fmtCurrency(cogs, currency)}</div>
         </div>
@@ -332,9 +343,9 @@ export default function DashboardPage() {
   const deliveryTotal = deliveryDonutData.reduce((a, b) => a + b.value, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 p-6 text-white shadow-sm">
-        <div>
+    <PageContainer className="space-y-6">
+      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 p-4 text-white shadow-sm sm:flex-row sm:items-end sm:justify-between sm:p-6">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">
             Welcome back, {user?.first_name ?? "there"}
           </h1>
@@ -342,7 +353,7 @@ export default function DashboardPage() {
             Operational pulse for the last {windowDays} days.
           </p>
         </div>
-        <div className="inline-flex rounded-lg bg-white/10 p-1 ring-1 ring-white/10">
+        <div className="inline-flex w-fit rounded-lg bg-white/10 p-1 ring-1 ring-white/10">
           {([30, 90] as WindowOpt[]).map((w) => (
             <button
               key={w}
@@ -365,7 +376,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <KpiCard
           label={`Revenue (${windowDays}d)`}
           value={summary ? fmtCurrency(summary.kpis.revenue, currency) : "—"}
@@ -416,21 +427,24 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-xl bg-white p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5 lg:col-span-2">
+          <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="font-semibold text-gray-900">Revenue trend</h2>
             <span className="text-xs text-gray-500">
               Last {windowDays} days
             </span>
           </div>
           {summary ? (
-            <RevenueTrendChart data={summary.revenue_trend} currency={currency} />
+            <RevenueTrendChart
+              data={summary.revenue_trend}
+              currency={currency}
+            />
           ) : (
             <div className="h-56 animate-pulse bg-gray-100 rounded-lg" />
           )}
         </div>
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
           {summary ? (
             <MarginGauge
               margin={summary.gross_margin.margin}
@@ -445,8 +459,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
           <h2 className="font-semibold text-gray-900 mb-3">Orders by status</h2>
           {summary && ordersTotal > 0 ? (
             <Donut
@@ -459,7 +473,7 @@ export default function DashboardPage() {
             <div className="text-sm text-gray-500">No orders in window.</div>
           )}
         </div>
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
           <h2 className="font-semibold text-gray-900 mb-3">
             Delivery breakdown
           </h2>
@@ -476,9 +490,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="font-semibold text-gray-900">Low-stock alerts</h2>
             <Link
               to="/inventory"
@@ -492,7 +506,7 @@ export default function DashboardPage() {
               {summary.low_stock.map((s) => (
                 <li
                   key={s.id}
-                  className="py-2 flex items-center justify-between text-sm"
+                  className="flex flex-col gap-2 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
                     <div className="font-medium text-gray-900 truncate">
@@ -502,7 +516,7 @@ export default function DashboardPage() {
                       {s.sku ?? "—"} · {s.warehouse ?? "—"}
                     </div>
                   </div>
-                  <div className="text-right shrink-0 ml-3">
+                  <div className="shrink-0 sm:ml-3 sm:text-right">
                     <div className="font-semibold text-amber-600">
                       {s.available}
                     </div>
@@ -519,8 +533,8 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="font-semibold text-gray-900">
               Top variants ({windowDays}d)
             </h2>
@@ -536,7 +550,7 @@ export default function DashboardPage() {
               {summary.top_variants.map((v, i) => (
                 <li
                   key={`${v.variant_id ?? "x"}-${i}`}
-                  className="py-2 flex items-center justify-between text-sm"
+                  className="flex flex-col gap-2 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
                     <div className="font-medium text-gray-900 truncate">
@@ -546,7 +560,7 @@ export default function DashboardPage() {
                       {v.sku ?? "—"} · {v.quantity} sold
                     </div>
                   </div>
-                  <div className="font-semibold text-gray-900 ml-3 shrink-0">
+                  <div className="shrink-0 font-semibold text-gray-900 sm:ml-3">
                     {fmtCurrency(v.revenue, currency)}
                   </div>
                 </li>
@@ -558,7 +572,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+      <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
         <h2 className="font-semibold text-gray-900 mb-3">Recent activity</h2>
         {summary && summary.recent_activity.length > 0 ? (
           <ul className="space-y-2">
@@ -575,7 +589,7 @@ export default function DashboardPage() {
                   aria-hidden
                 />
                 <Link to={a.link} className="flex-1 min-w-0 group">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <div className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 truncate">
                       {a.title}
                     </div>
@@ -596,6 +610,6 @@ export default function DashboardPage() {
           <div className="text-sm text-gray-500">No activity yet.</div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

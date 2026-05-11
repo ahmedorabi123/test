@@ -6,6 +6,8 @@ import DataTable, {
   type Column,
   type SortDir,
 } from "../components/table/DataTable";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { PageContainer } from "../components/ui/PageContainer";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 export default function SuppliersPage() {
@@ -156,21 +158,21 @@ export default function SuppliersPage() {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-start justify-between">
+    <PageContainer className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Suppliers</h1>
           <p className="text-sm text-slate-500 mt-1">
             {total.toLocaleString()} total
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end">
           <input
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search name, email…"
-            className="w-64 border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-64"
           />
           <select
             value={status}
@@ -178,7 +180,7 @@ export default function SuppliersPage() {
               setParam("page", "1");
               setParam("status", e.target.value);
             }}
-            className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="">All statuses</option>
             <option value="active">Active</option>
@@ -187,7 +189,7 @@ export default function SuppliersPage() {
           </select>
           <Link
             to="/suppliers/new"
-            className="inline-flex items-center gap-1 bg-indigo-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-indigo-700"
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             + New supplier
           </Link>
@@ -222,8 +224,60 @@ export default function SuppliersPage() {
         }}
         selectable
         bulkActions={bulkActions}
+        mobileCardRenderer={(supplier, context) => (
+          <MobileRowCard
+            title={
+              <Link
+                to={`/suppliers/${supplier.id}`}
+                className="font-medium text-slate-900 hover:underline"
+              >
+                {supplier.name}
+              </Link>
+            }
+            subtitle={supplier.email || supplier.phone || "No contact details"}
+            meta={supplier.currency}
+            selectedControl={
+              <input
+                type="checkbox"
+                checked={context.checked}
+                onChange={context.toggleSelected}
+                onClick={(event) => event.stopPropagation()}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                aria-label={`Select supplier ${supplier.name}`}
+              />
+            }
+            fields={[
+              { label: "Code", value: supplier.supplier_code || "-" },
+              { label: "Phone", value: supplier.phone || "-" },
+              {
+                label: "Status",
+                value: (
+                  <span
+                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+                      supplier.status === "active"
+                        ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+                        : supplier.status === "on_hold"
+                          ? "bg-amber-50 text-amber-700 ring-amber-600/20"
+                          : "bg-gray-100 text-gray-600 ring-gray-500/20"
+                    }`}
+                  >
+                    {supplier.status}
+                  </span>
+                ),
+              },
+            ]}
+            actions={
+              <Link
+                to={`/suppliers/${supplier.id}`}
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+              >
+                Open supplier
+              </Link>
+            }
+          />
+        )}
         syncToUrl={false}
       />
-    </div>
+    </PageContainer>
   );
 }

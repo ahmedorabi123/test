@@ -88,7 +88,7 @@ export default function NewCustomerPage() {
   const required = <span className="text-rose-500">*</span>;
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="mx-auto max-w-3xl p-4 sm:p-6">
       <h1 className="text-2xl font-semibold text-slate-900 mb-6">
         New customer
       </h1>
@@ -101,13 +101,13 @@ export default function NewCustomerPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-6 bg-white border border-slate-200 rounded-xl p-6 shadow-sm"
+        className="space-y-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
       >
         <section>
           <h2 className="text-sm font-semibold text-slate-800 mb-3">
             Customer overview
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={label}>First name</label>
               <input
@@ -143,7 +143,7 @@ export default function NewCustomerPage() {
                 placeholder="+201234567890"
               />
             </div>
-            <div className="col-span-2 -mt-1 text-xs text-slate-500">
+            <div className="-mt-1 text-xs text-slate-500 sm:col-span-2">
               Either email or phone is required (matches Shopify).
             </div>
             <div>
@@ -161,7 +161,7 @@ export default function NewCustomerPage() {
                 <option value="SAR">SAR</option>
               </select>
             </div>
-            <div className="flex items-end gap-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-6">
               <label className="inline-flex items-center gap-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
@@ -188,7 +188,7 @@ export default function NewCustomerPage() {
           <h2 className="text-sm font-semibold text-slate-800 mb-3">
             Default address
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={label}>Company</label>
               <input
@@ -205,7 +205,7 @@ export default function NewCustomerPage() {
                 onChange={(e) => setAddressPhone(e.target.value)}
               />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className={label}>Address line 1</label>
               <input
                 className={input}
@@ -213,7 +213,7 @@ export default function NewCustomerPage() {
                 onChange={(e) => setAddress1(e.target.value)}
               />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className={label}>Address line 2</label>
               <input
                 className={input}

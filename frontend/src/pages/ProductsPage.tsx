@@ -7,6 +7,8 @@ import DataTable, {
   type SortDir,
 } from "../components/table/DataTable";
 import ImportExportBar from "../components/table/ImportExportBar";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { PageContainer } from "../components/ui/PageContainer";
 
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
@@ -195,15 +197,15 @@ export default function ProductsPage() {
   );
 
   return (
-    <div className="space-y-6 p-6 max-w-7xl mx-auto">
-      <div className="flex items-start justify-between">
+    <PageContainer className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Products</h1>
           <p className="text-sm text-slate-500 mt-1">
             {total.toLocaleString()} total · Shopify + manual
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end">
           <input
             type="text"
             value={searchInput}
@@ -215,7 +217,7 @@ export default function ProductsPage() {
               }
             }}
             placeholder="Search title / handle…"
-            className="w-64 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 lg:w-64"
           />
           <select
             value={status}
@@ -223,7 +225,7 @@ export default function ProductsPage() {
               setParam("page", "1");
               setParam("status", e.target.value);
             }}
-            className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="">All statuses</option>
             <option value="active">Active</option>
@@ -242,7 +244,7 @@ export default function ProductsPage() {
           />
           <Link
             to="/products/new"
-            className="inline-flex items-center gap-1 bg-indigo-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-indigo-700"
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             + New product
           </Link>
@@ -277,8 +279,52 @@ export default function ProductsPage() {
         }}
         selectable
         bulkActions={bulkActions}
+        mobileCardRenderer={(product, context) => (
+          <MobileRowCard
+            title={
+              <Link
+                to={`/products/${product.id}`}
+                className="font-medium text-indigo-700 hover:underline"
+              >
+                {product.title}
+              </Link>
+            }
+            subtitle={product.handle}
+            meta={
+              <span
+                className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLES[product.status] ?? STATUS_STYLES.draft}`}
+              >
+                {product.status}
+              </span>
+            }
+            selectedControl={
+              <input
+                type="checkbox"
+                checked={context.checked}
+                onChange={context.toggleSelected}
+                onClick={(event) => event.stopPropagation()}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                aria-label={`Select product ${product.title}`}
+              />
+            }
+            fields={[
+              { label: "Inventory", value: `${product.inventory_total ?? 0} in stock` },
+              { label: "Variants", value: product.variants_count ?? 0 },
+              { label: "Category", value: product.primary_category || product.product_type || "-" },
+              { label: "Source", value: product.source === "shopify" ? "Shopify" : "Manual" },
+            ]}
+            actions={
+              <Link
+                to={`/products/${product.id}`}
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+              >
+                Open product
+              </Link>
+            }
+          />
+        )}
         syncToUrl={false}
       />
-    </div>
+    </PageContainer>
   );
 }

@@ -114,11 +114,11 @@ export default function StagesDrawer({
       onClick={onClose}
     >
       <div
-        className="bg-white w-full max-w-2xl h-full overflow-auto shadow-xl"
+        className="h-full w-full overflow-auto bg-white shadow-xl sm:max-w-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-start justify-between">
-          <div>
+        <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold">
               Production stages{po ? ` — ${po.number}` : ""}
             </h2>
@@ -131,13 +131,13 @@ export default function StagesDrawer({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700"
+            className="min-h-10 min-w-10 text-slate-400 hover:text-slate-700"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="space-y-6 p-4 sm:p-6">
           {error && (
             <div className="rounded-md bg-rose-50 text-rose-700 px-3 py-2 text-sm">
               {error}
@@ -161,7 +161,7 @@ export default function StagesDrawer({
                     {po!.stages!.map((s) => (
                       <li
                         key={s.id}
-                        className="border border-slate-200 rounded-lg p-3 flex items-start justify-between gap-3"
+                        className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-start sm:justify-between"
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -179,7 +179,7 @@ export default function StagesDrawer({
                               {s.status.replace("_", " ")}
                             </span>
                           </div>
-                          <div className="text-xs text-slate-500 mt-1 space-x-3">
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
                             {s.supplier_name && (
                               <span>📦 {s.supplier_name}</span>
                             )}
@@ -205,12 +205,12 @@ export default function StagesDrawer({
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-col gap-1 items-end">
+                        <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
                           {s.status === "pending" && (
                             <button
                               disabled={busy}
                               onClick={() => startStage(s)}
-                              className="text-xs bg-sky-600 text-white px-2 py-1 rounded hover:bg-sky-700 disabled:opacity-60"
+                              className="min-h-10 rounded bg-sky-600 px-3 text-xs text-white hover:bg-sky-700 disabled:opacity-60"
                             >
                               Start
                             </button>
@@ -219,7 +219,7 @@ export default function StagesDrawer({
                             <button
                               disabled={busy}
                               onClick={() => completeStage(s)}
-                              className="text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700 disabled:opacity-60"
+                              className="min-h-10 rounded bg-emerald-600 px-3 text-xs text-white hover:bg-emerald-700 disabled:opacity-60"
                             >
                               Complete
                             </button>
@@ -229,7 +229,7 @@ export default function StagesDrawer({
                             <button
                               disabled={busy}
                               onClick={() => skipStage(s)}
-                              className="text-xs bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20 px-2 py-1 rounded hover:bg-amber-100 disabled:opacity-60"
+                              className="min-h-10 rounded bg-amber-50 px-3 text-xs text-amber-700 ring-1 ring-inset ring-amber-600/20 hover:bg-amber-100 disabled:opacity-60"
                             >
                               Skip
                             </button>
@@ -238,7 +238,7 @@ export default function StagesDrawer({
                             <button
                               disabled={busy}
                               onClick={() => removeStage(s)}
-                              className="text-xs text-rose-600 hover:underline disabled:opacity-60"
+                              className="min-h-10 px-2 text-xs text-rose-600 hover:underline disabled:opacity-60"
                             >
                               Remove
                             </button>
@@ -254,14 +254,14 @@ export default function StagesDrawer({
                 <h3 className="text-sm font-medium text-slate-700 mb-2">
                   Add stage
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-1">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
                     <label className="text-xs text-slate-600">Name</label>
                     <input
                       list="stage-presets"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                      className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                     />
                     <datalist id="stage-presets">
                       {STAGE_PRESETS.map((p) => (
@@ -269,14 +269,14 @@ export default function StagesDrawer({
                       ))}
                     </datalist>
                   </div>
-                  <div className="col-span-1">
+                  <div>
                     <label className="text-xs text-slate-600">
                       Factory / supplier
                     </label>
                     <select
                       value={newSupplierId}
                       onChange={(e) => setNewSupplierId(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                      className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                     >
                       <option value="">— in-house —</option>
                       {suppliers.map((s) => (
@@ -286,7 +286,7 @@ export default function StagesDrawer({
                       ))}
                     </select>
                   </div>
-                  <div className="col-span-1">
+                  <div>
                     <label className="text-xs text-slate-600">
                       Unit cost ({po?.cost_currency || "EGP"})
                     </label>
@@ -296,16 +296,16 @@ export default function StagesDrawer({
                       min="0"
                       value={newUnitCost}
                       onChange={(e) => setNewUnitCost(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                      className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                     />
                   </div>
-                  <div className="col-span-1">
+                  <div>
                     <label className="text-xs text-slate-600">Notes</label>
                     <input
                       type="text"
                       value={newNotes}
                       onChange={(e) => setNewNotes(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                      className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                     />
                   </div>
                 </div>
@@ -313,7 +313,7 @@ export default function StagesDrawer({
                   <button
                     disabled={busy}
                     onClick={addStage}
-                    className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60"
+                    className="min-h-11 rounded-lg bg-indigo-600 px-3 text-sm text-white hover:bg-indigo-700 disabled:opacity-60"
                   >
                     Add stage
                   </button>

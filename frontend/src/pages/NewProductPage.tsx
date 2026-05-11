@@ -410,7 +410,7 @@ export default function NewProductPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {options.map((option, index) => (
-                <div key={index} className="grid grid-cols-3 gap-2">
+                <div key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <input
                     value={option.name}
                     onChange={(e) =>
@@ -421,7 +421,7 @@ export default function NewProductPage() {
                       )
                     }
                     placeholder="Option"
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   />
                   <input
                     value={option.values}
@@ -435,7 +435,7 @@ export default function NewProductPage() {
                       )
                     }
                     placeholder="Comma separated values"
-                    className="col-span-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2"
                   />
                 </div>
               ))}

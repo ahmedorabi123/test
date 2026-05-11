@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { warehousesApi, type Warehouse } from "../api/inventory";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { Modal } from "../components/ui/Modal";
+import { PageContainer } from "../components/ui/PageContainer";
 
 const KIND_LABELS: Record<string, string> = {
   own: "Own",
@@ -41,8 +44,8 @@ export default function WarehousesPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-end justify-between">
+    <PageContainer className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Warehouses</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -53,7 +56,7 @@ export default function WarehousesPage() {
         </div>
         <button
           onClick={() => setCreating(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
           + New warehouse
         </button>
@@ -89,7 +92,7 @@ export default function WarehousesPage() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -115,6 +118,45 @@ function Section({
           </span>
         </h2>
       </div>
+      <div className="space-y-3 p-3 md:hidden">
+        {warehouses.map((w) => (
+          <MobileRowCard
+            key={w.id}
+            title={w.name}
+            subtitle={w.partner_name || w.partner_email || w.partner_phone || "No partner contact"}
+            meta={w.currency || "-"}
+            fields={[
+              {
+                label: "Code",
+                value: (
+                  <span
+                    className={`inline-block rounded px-2 py-0.5 text-xs ${KIND_BADGES[w.kind || "own"]}`}
+                  >
+                    {w.code}
+                  </span>
+                ),
+              },
+              {
+                label: "Commission",
+                value: w.commission_rate ? `${(Number(w.commission_rate) * 100).toFixed(2)}%` : "-",
+              },
+              {
+                label: "Status",
+                value: w.active ? "Active" : "Inactive",
+              },
+            ]}
+            actions={
+              <button
+                onClick={() => onEdit(w)}
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+              >
+                Edit warehouse
+              </button>
+            }
+          />
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
       <table className="min-w-full divide-y divide-slate-200">
         <thead className="bg-white text-xs text-slate-500 uppercase">
           <tr>
@@ -190,6 +232,7 @@ function Section({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -264,21 +307,14 @@ function WarehouseModal({
   const isShowroom = form.kind === "consignment";
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-baseline justify-between mb-3">
-          <h3 className="text-lg font-semibold">
-            {initial ? "Edit warehouse" : "New warehouse"}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-700"
-          >
-            ✕
-          </button>
-        </div>
+    <Modal
+      open
+      onClose={onClose}
+      size="lg"
+      title={initial ? "Edit warehouse" : "New warehouse"}
+    >
         <form onSubmit={submit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-sm">
               <span className="block text-slate-600 mb-1">Name *</span>
               <input
@@ -286,7 +322,7 @@ function WarehouseModal({
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="e.g. Cairo Showroom"
-                className="w-full border border-slate-300 rounded px-3 py-2"
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
               />
             </label>
             <label className="text-sm">
@@ -296,12 +332,12 @@ function WarehouseModal({
                 value={form.code}
                 onChange={(e) => update("code", e.target.value.toUpperCase())}
                 placeholder="CAIRO-SR"
-                className="w-full border border-slate-300 rounded px-3 py-2 uppercase"
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
               />
             </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-sm">
               <span className="block text-slate-600 mb-1">Kind *</span>
               <select
@@ -312,7 +348,7 @@ function WarehouseModal({
                     e.target.value as "own" | "consignment" | "transit",
                   )
                 }
-                className="w-full border border-slate-300 rounded px-3 py-2"
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
               >
                 <option value="own">Own warehouse</option>
                 <option value="consignment">Showroom (consignment)</option>
@@ -327,7 +363,7 @@ function WarehouseModal({
                   update("currency", e.target.value.toUpperCase())
                 }
                 maxLength={3}
-                className="w-full border border-slate-300 rounded px-3 py-2 uppercase"
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
               />
             </label>
           </div>
@@ -337,7 +373,7 @@ function WarehouseModal({
             <input
               value={form.address}
               onChange={(e) => update("address", e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
             />
           </label>
 
@@ -346,7 +382,7 @@ function WarehouseModal({
               <legend className="text-xs font-semibold text-emerald-700 px-1">
                 Showroom partner details
               </legend>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="text-sm">
                   <span className="block text-slate-600 mb-1">
                     Partner / Owner name
@@ -354,7 +390,7 @@ function WarehouseModal({
                   <input
                     value={form.partner_name}
                     onChange={(e) => update("partner_name", e.target.value)}
-                    className="w-full border border-slate-300 rounded px-3 py-2"
+                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                   />
                 </label>
                 <label className="text-sm">
@@ -372,7 +408,7 @@ function WarehouseModal({
                         update("commission_rate", e.target.value)
                       }
                       placeholder="0.15"
-                      className="w-full border border-slate-300 rounded px-3 py-2"
+                      className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                     />
                     <span className="text-xs text-slate-500 whitespace-nowrap">
                       = {(Number(form.commission_rate || 0) * 100).toFixed(2)}%
@@ -380,7 +416,7 @@ function WarehouseModal({
                   </div>
                 </label>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="text-sm">
                   <span className="block text-slate-600 mb-1">
                     Partner email
@@ -389,7 +425,7 @@ function WarehouseModal({
                     type="email"
                     value={form.partner_email}
                     onChange={(e) => update("partner_email", e.target.value)}
-                    className="w-full border border-slate-300 rounded px-3 py-2"
+                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                   />
                 </label>
                 <label className="text-sm">
@@ -399,7 +435,7 @@ function WarehouseModal({
                   <input
                     value={form.partner_phone}
                     onChange={(e) => update("partner_phone", e.target.value)}
-                    className="w-full border border-slate-300 rounded px-3 py-2"
+                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                   />
                 </label>
               </div>
@@ -412,7 +448,7 @@ function WarehouseModal({
               value={form.notes}
               onChange={(e) => update("notes", e.target.value)}
               rows={2}
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="w-full rounded border border-slate-300 px-3 py-2"
             />
           </label>
 
@@ -431,24 +467,23 @@ function WarehouseModal({
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="text-sm px-3 py-1.5 rounded border border-slate-300"
+              className="min-h-11 rounded border border-slate-300 px-3 text-sm"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="text-sm bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white font-medium px-4 py-1.5 rounded"
+              className="min-h-11 rounded bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-slate-400"
             >
               {saving ? "Saving…" : initial ? "Save changes" : "Create"}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

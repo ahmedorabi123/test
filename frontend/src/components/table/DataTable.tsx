@@ -1,5 +1,7 @@
 import { Fragment, ReactNode, useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useBreakpoint } from "../../hooks/useBreakpoint";
+import { Card, CardBody } from "../ui/Card";
 
 export type SortDir = "asc" | "desc";
 
@@ -49,6 +51,16 @@ export interface DataTableProps<T extends { id: string | number }> {
   renderExpanded?: (row: T) => ReactNode;
   /** Render an extra toolbar area (e.g., filters, export bar). */
   toolbar?: ReactNode;
+  /** Mobile-first row renderer for data-heavy list pages. */
+  mobileCardRenderer?: (
+    row: T,
+    context: {
+      checked: boolean;
+      expanded: boolean;
+      toggleSelected: () => void;
+      toggleExpanded: () => void;
+    },
+  ) => ReactNode;
   /** Sync sort to URL params. Default true. */
   syncToUrl?: boolean;
 }
@@ -73,9 +85,11 @@ export default function DataTable<T extends { id: string | number }>({
   onRowClick,
   renderExpanded,
   toolbar,
+  mobileCardRenderer,
   syncToUrl = true,
 }: DataTableProps<T>) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const breakpoint = useBreakpoint();
 
   // Sort state: either controlled via prop, or synced from URL.
   const urlSort = syncToUrl
@@ -178,6 +192,7 @@ export default function DataTable<T extends { id: string | number }>({
   const totalPages = Math.max(1, Math.ceil(totalRows / perPage));
   const showingStart = totalRows === 0 ? 0 : (page - 1) * perPage + 1;
   const showingEnd = Math.min(page * perPage, totalRows);
+  const useMobileCards = breakpoint === "mobile" && Boolean(mobileCardRenderer);
 
   return (
     <div className="flex flex-col">
@@ -186,41 +201,88 @@ export default function DataTable<T extends { id: string | number }>({
 
       {/* Bulk action bar */}
       {selectable && selectedRows.length > 0 && bulkActions.length > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2 mb-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+        <div className="mb-2 flex flex-col gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 xs:flex-row xs:items-center">
           <span className="text-sm font-medium text-indigo-900">
             {selectedRows.length} selected
           </span>
-          <div className="flex-1" />
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="text-sm text-indigo-600 hover:text-indigo-800"
-          >
-            Clear
-          </button>
-          {bulkActions.map((a) => (
+          <div className="flex flex-1 flex-col gap-2 xs:flex-row xs:flex-wrap xs:justify-end">
             <button
-              key={a.id}
-              onClick={() => runBulk(a)}
-              className={`text-sm px-3 py-1.5 rounded-md border ${
-                a.destructive
-                  ? "bg-white border-red-300 text-red-700 hover:bg-red-50"
-                  : "bg-white border-slate-300 text-slate-800 hover:bg-slate-50"
-              }`}
+              onClick={() => setSelectedIds(new Set())}
+              className="min-h-10 rounded-md px-3 text-sm text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800"
             >
-              {a.label}
+              Clear
             </button>
-          ))}
+            {bulkActions.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => runBulk(a)}
+                className={`min-h-10 rounded-md border px-3 text-sm ${
+                  a.destructive
+                    ? "border-red-300 bg-white text-red-700 hover:bg-red-50"
+                    : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                }`}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Table */}
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
+        {useMobileCards && (
+          <div className="space-y-3 bg-slate-50 p-3">
+            {loading && (
+              <Card>
+                <CardBody className="py-8 text-center text-slate-500">
+                  Loading…
+                </CardBody>
+              </Card>
+            )}
+            {!loading && error && (
+              <Card>
+                <CardBody className="py-8 text-center text-red-600">
+                  {error}
+                </CardBody>
+              </Card>
+            )}
+            {!loading && !error && rows.length === 0 && (
+              <Card>
+                <CardBody className="py-8 text-center text-slate-500">
+                  {emptyMessage}
+                </CardBody>
+              </Card>
+            )}
+            {!loading &&
+              !error &&
+              rows.map((row) => {
+                const checked = selectedIds.has(row.id);
+                const expanded = expandedIds.has(row.id);
+                return (
+                  <Fragment key={row.id}>
+                    {mobileCardRenderer?.(row, {
+                      checked,
+                      expanded,
+                      toggleSelected: () => toggleRow(row.id),
+                      toggleExpanded: () => toggleExpanded(row.id),
+                    })}
+                    {renderExpanded && expanded && (
+                      <Card>
+                        <CardBody>{renderExpanded(row)}</CardBody>
+                      </Card>
+                    )}
+                  </Fragment>
+                );
+              })}
+          </div>
+        )}
+        {!useMobileCards && <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 {selectable && (
-                  <th className="px-4 py-3 w-10">
+                  <th className="w-10 px-4 py-3">
                     <input
                       type="checkbox"
                       checked={allVisibleSelected}
@@ -233,12 +295,12 @@ export default function DataTable<T extends { id: string | number }>({
                     />
                   </th>
                 )}
-                {columns.map((col) => {
+                {columns.map((col, index) => {
                   const isSorted = currentSort?.key === col.sortKey;
                   return (
                     <th
                       key={col.id}
-                      className={`px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider ${col.headerClassName ?? ""} ${col.sortKey ? "cursor-pointer select-none hover:bg-slate-100" : ""}`}
+                      className={`px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider ${!selectable && index === 0 ? "sticky-col bg-slate-50" : ""} ${col.headerClassName ?? ""} ${col.sortKey ? "cursor-pointer select-none hover:bg-slate-100" : ""}`}
                       onClick={() => handleSort(col)}
                     >
                       <span className="inline-flex items-center gap-1">
@@ -320,10 +382,10 @@ export default function DataTable<T extends { id: string | number }>({
                             />
                           </td>
                         )}
-                        {columns.map((col) => (
+                        {columns.map((col, index) => (
                           <td
                             key={col.id}
-                            className={`px-4 py-3 text-slate-700 ${col.className ?? ""}`}
+                            className={`px-4 py-3 text-slate-700 ${!selectable && index === 0 ? "sticky-col bg-inherit" : ""} ${col.className ?? ""}`}
                           >
                             {col.render(row)}
                           </td>
@@ -344,24 +406,24 @@ export default function DataTable<T extends { id: string | number }>({
                 })}
             </tbody>
           </table>
-        </div>
+        </div>}
 
         {/* Pagination */}
         {(onPageChange || onPerPageChange) && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 text-sm text-slate-600">
+          <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
             <div>
               Showing <span className="font-medium">{showingStart}</span>–
               <span className="font-medium">{showingEnd}</span> of{" "}
               <span className="font-medium">{totalRows}</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 xs:flex-row xs:flex-wrap xs:items-center xs:justify-end">
               {onPerPageChange && (
                 <label className="flex items-center gap-2">
                   <span className="text-xs text-slate-500">Per page</span>
                   <select
                     value={perPage}
                     onChange={(e) => onPerPageChange(Number(e.target.value))}
-                    className="border border-slate-300 rounded px-2 py-1 text-sm"
+                    className="min-h-10 rounded border border-slate-300 px-2 text-sm"
                   >
                     {PAGE_SIZES.map((n) => (
                       <option key={n} value={n}>
@@ -376,18 +438,18 @@ export default function DataTable<T extends { id: string | number }>({
                   <button
                     onClick={() => onPageChange(Math.max(1, page - 1))}
                     disabled={page <= 1}
-                    className="px-2 py-1 border border-slate-300 rounded disabled:opacity-40"
+                    className="min-h-10 rounded border border-slate-300 px-3 disabled:opacity-40"
                   >
                     ‹ Prev
                   </button>
-                  <span>
+                  <span className="flex min-h-10 items-center justify-center px-2">
                     Page <span className="font-medium">{page}</span> of{" "}
                     {totalPages}
                   </span>
                   <button
                     onClick={() => onPageChange(Math.min(totalPages, page + 1))}
                     disabled={page >= totalPages}
-                    className="px-2 py-1 border border-slate-300 rounded disabled:opacity-40"
+                    className="min-h-10 rounded border border-slate-300 px-3 disabled:opacity-40"
                   >
                     Next ›
                   </button>

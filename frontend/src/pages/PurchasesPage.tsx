@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { purchaseOrdersApi, type PurchaseOrder } from "../api/purchaseOrders";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { PageContainer } from "../components/ui/PageContainer";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -44,25 +46,25 @@ export default function PurchasesPage() {
   const pages = Math.max(1, Math.ceil(total / perPage));
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
+    <PageContainer className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">Purchase Orders</h1>
         <Link
           to="/purchases/new"
-          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-md"
+          className="inline-flex min-h-11 items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
           + New PO
         </Link>
       </div>
 
-      <div className="mb-3 flex gap-2">
+      <div className="flex gap-2">
         <select
           value={status}
           onChange={(e) => {
             setStatus(e.target.value);
             setPage(1);
           }}
-          className="border rounded px-2 py-1 text-sm"
+          className="min-h-11 rounded border border-slate-300 px-3 text-sm"
         >
           <option value="">All statuses</option>
           <option value="draft">Draft</option>
@@ -78,8 +80,49 @@ export default function PurchasesPage() {
       )}
       {loading && <div className="text-sm text-gray-500">Loading…</div>}
 
-      <div className="bg-white rounded shadow overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="space-y-3 md:hidden">
+        {pos.map((po) => (
+          <MobileRowCard
+            key={po.id}
+            title={<span className="font-mono text-sm text-slate-900">{po.po_number}</span>}
+            subtitle={po.supplier_name}
+            meta={`${po.currency} ${Number(po.total).toFixed(2)}`}
+            fields={[
+              { label: "Warehouse", value: po.warehouse_name || "-" },
+              {
+                label: "Status",
+                value: (
+                  <span
+                    className={`inline-block rounded px-2 py-0.5 text-xs ${STATUS_STYLES[po.status]}`}
+                  >
+                    {po.status}
+                  </span>
+                ),
+              },
+              {
+                label: "Expected",
+                value: po.expected_at ? new Date(po.expected_at).toLocaleDateString() : "-",
+              },
+            ]}
+            actions={
+              <Link
+                to={`/purchases/${po.id}`}
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+              >
+                Open purchase
+              </Link>
+            }
+          />
+        ))}
+        {!loading && pos.length === 0 && (
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+            No purchase orders yet.
+          </div>
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded bg-white shadow md:block">
+        <table className="min-w-[720px] text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>
               <th className="px-3 py-2">PO #</th>
@@ -136,28 +179,28 @@ export default function PurchasesPage() {
         </table>
       </div>
 
-      <div className="mt-3 flex items-center justify-between text-sm">
+      <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
         <span>Total: {total}</span>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className="px-3 py-1 border rounded disabled:opacity-50"
+            className="min-h-10 rounded border px-3 disabled:opacity-50"
           >
             Prev
           </button>
-          <span>
+          <span className="min-h-10 px-2 leading-10">
             Page {page} / {pages}
           </span>
           <button
             disabled={page >= pages}
             onClick={() => setPage((p) => p + 1)}
-            className="px-3 py-1 border rounded disabled:opacity-50"
+            className="min-h-10 rounded border px-3 disabled:opacity-50"
           >
             Next
           </button>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

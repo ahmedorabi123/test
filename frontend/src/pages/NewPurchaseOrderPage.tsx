@@ -119,7 +119,7 @@ export default function NewPurchaseOrderPage() {
   };
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="max-w-3xl p-4 sm:p-6">
       <h1 className="text-2xl font-semibold mb-4">New Purchase Order</h1>
       {error && (
         <div className="bg-red-100 text-red-700 p-2 mb-3 rounded">{error}</div>
@@ -131,7 +131,7 @@ export default function NewPurchaseOrderPage() {
           <select
             value={supplierId}
             onChange={(e) => setSupplierId(e.target.value)}
-            className="w-full border rounded px-2 py-1"
+            className="min-h-11 w-full rounded border px-2 py-1"
           >
             <option value="">— select supplier —</option>
             {suppliers.map((s) => (
@@ -149,7 +149,7 @@ export default function NewPurchaseOrderPage() {
           <select
             value={warehouseId}
             onChange={(e) => setWarehouseId(e.target.value)}
-            className="w-full border rounded px-2 py-1"
+            className="min-h-11 w-full rounded border px-2 py-1"
           >
             <option value="">— none —</option>
             {warehouses.map((w) => (
@@ -160,7 +160,7 @@ export default function NewPurchaseOrderPage() {
           </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className="text-sm font-medium block mb-1">
               Expected at
@@ -169,7 +169,7 @@ export default function NewPurchaseOrderPage() {
               type="date"
               value={expectedAt}
               onChange={(e) => setExpectedAt(e.target.value)}
-              className="w-full border rounded px-2 py-1"
+              className="min-h-11 w-full rounded border px-2 py-1"
             />
           </div>
         </div>
@@ -192,7 +192,7 @@ export default function NewPurchaseOrderPage() {
           <select
             value={selectedVariant}
             onChange={(e) => setSelectedVariant(e.target.value)}
-            className="flex-1 border rounded px-2 py-1"
+            className="min-h-11 flex-1 rounded border px-2 py-1"
           >
             <option value="">— add variant —</option>
             {variants.map((v) => (
@@ -204,13 +204,14 @@ export default function NewPurchaseOrderPage() {
           <button
             onClick={addLine}
             disabled={!selectedVariant}
-            className="px-3 py-1 bg-indigo-600 text-white rounded disabled:opacity-50"
+            className="min-h-11 rounded bg-indigo-600 px-3 text-white disabled:opacity-50"
           >
             Add
           </button>
         </div>
 
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="min-w-[680px] text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>
               <th className="px-2 py-1">Item</th>
@@ -299,6 +300,7 @@ export default function NewPurchaseOrderPage() {
             </tr>
           </tfoot>
         </table>
+        </div>
       </div>
 
       <div className="mt-4 flex gap-2">

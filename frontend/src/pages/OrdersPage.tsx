@@ -12,6 +12,8 @@ import DataTable, {
   type SortDir,
 } from "../components/table/DataTable";
 import ImportExportBar from "../components/table/ImportExportBar";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { PageContainer } from "../components/ui/PageContainer";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
@@ -30,6 +32,15 @@ const FIN_STATUS_STYLES: Record<FinancialStatus, string> = {
   partially_refunded: "bg-purple-50 text-purple-700 ring-purple-600/20",
   refunded: "bg-rose-50 text-rose-700 ring-rose-600/20",
   voided: "bg-gray-100 text-gray-600 ring-gray-500/20",
+};
+
+const DELIVERY_STATUS_STYLES: Record<string, string> = {
+  delivered: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  in_transit: "bg-sky-50 text-sky-700 ring-sky-600/20",
+  out_for_delivery: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
+  pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  failed: "bg-rose-50 text-rose-700 ring-rose-600/20",
+  returned: "bg-purple-50 text-purple-700 ring-purple-600/20",
 };
 
 function formatMoney(val: string | number | undefined, currency = "USD") {
@@ -235,15 +246,9 @@ export default function OrdersPage() {
         render: (o) => {
           const ds = o.delivery_status;
           if (!ds) return <span className="text-xs text-slate-400">—</span>;
-          const styles: Record<string, string> = {
-            delivered: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-            in_transit: "bg-sky-50 text-sky-700 ring-sky-600/20",
-            out_for_delivery: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
-            pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
-            failed: "bg-rose-50 text-rose-700 ring-rose-600/20",
-            returned: "bg-purple-50 text-purple-700 ring-purple-600/20",
-          };
-          const cls = styles[ds] ?? "bg-slate-50 text-slate-700 ring-slate-600/20";
+          const cls =
+            DELIVERY_STATUS_STYLES[ds] ??
+            "bg-slate-50 text-slate-700 ring-slate-600/20";
           return (
             <span
               className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${cls}`}
@@ -303,21 +308,21 @@ export default function OrdersPage() {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-start justify-between">
+    <PageContainer className="space-y-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Orders</h1>
           <p className="text-sm text-slate-500 mt-1">
             {total.toLocaleString()} total · {formatMoney(totalValue)} gross
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end">
           <input
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search #, email, name…"
-            className="w-64 border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-64"
           />
           <select
             value={status}
@@ -325,7 +330,7 @@ export default function OrdersPage() {
               setParam("page", "1");
               setParam("status", e.target.value);
             }}
-            className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="">All statuses</option>
             <option value="pending">Pending</option>
@@ -340,7 +345,7 @@ export default function OrdersPage() {
               setParam("page", "1");
               setParam("source", e.target.value);
             }}
-            className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="">All sources</option>
             <option value="shopify">Shopify</option>
@@ -373,14 +378,14 @@ export default function OrdersPage() {
               setImportMode(e.target.value as "shopify" | "showroom")
             }
             title="Import mode"
-            className="border border-slate-300 rounded-lg px-2 py-2 text-xs"
+            className="min-h-11 rounded-lg border border-slate-300 px-2 py-2 text-xs"
           >
             <option value="shopify">Import as: Shopify export</option>
             <option value="showroom">Import as: Showroom sales</option>
           </select>
           <Link
             to="/orders/new"
-            className="inline-flex items-center gap-1 bg-indigo-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-indigo-700"
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             + New order
           </Link>
@@ -469,9 +474,87 @@ export default function OrdersPage() {
         }}
         selectable
         bulkActions={bulkActions}
+        mobileCardRenderer={(order, context) => {
+          const delivery = order.delivery_status;
+          return (
+            <MobileRowCard
+              title={
+                <Link
+                  to={`/orders/${order.id}`}
+                  className="font-mono text-indigo-700 hover:underline"
+                >
+                  {order.order_number}
+                </Link>
+              }
+              subtitle={order.customer_name || order.customer_email || "No customer"}
+              meta={formatMoney(order.total_price, order.currency)}
+              selectedControl={
+                <input
+                  type="checkbox"
+                  checked={context.checked}
+                  onChange={context.toggleSelected}
+                  onClick={(event) => event.stopPropagation()}
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  aria-label={`Select order ${order.order_number}`}
+                />
+              }
+              fields={[
+                {
+                  label: "Payment",
+                  value: (
+                    <span
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${FIN_STATUS_STYLES[order.financial_status]}`}
+                    >
+                      {order.financial_status.replace("_", " ")}
+                    </span>
+                  ),
+                },
+                {
+                  label: "Fulfillment",
+                  value: (
+                    <span
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLES[order.status]}`}
+                    >
+                      {order.status}
+                    </span>
+                  ),
+                },
+                {
+                  label: "Delivery",
+                  value: delivery ? (
+                    <span
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${DELIVERY_STATUS_STYLES[delivery] ?? "bg-slate-50 text-slate-700 ring-slate-600/20"}`}
+                    >
+                      {delivery.replace(/_/g, " ")}
+                    </span>
+                  ) : (
+                    "-"
+                  ),
+                },
+                {
+                  label: "Date",
+                  value: new Date(order.placed_at).toLocaleDateString(),
+                },
+                { label: "Items", value: order.items_count ?? 0 },
+                {
+                  label: "Channel",
+                  value: order.source === "shopify" ? "Online Store" : order.source,
+                },
+              ]}
+              actions={
+                <Link
+                  to={`/orders/${order.id}`}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  Open order
+                </Link>
+              }
+            />
+          );
+        }}
         syncToUrl={false}
       />
-    </div>
+    </PageContainer>
   );
 }
 

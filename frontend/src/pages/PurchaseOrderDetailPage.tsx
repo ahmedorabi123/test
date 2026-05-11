@@ -111,7 +111,7 @@ export default function PurchaseOrderDetailPage() {
       )}
 
       <div className="bg-white rounded shadow overflow-x-auto mb-4">
-        <table className="w-full text-sm">
+        <table className="min-w-[760px] text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>
               <th className="px-3 py-2">Item</th>

@@ -195,7 +195,7 @@ export default function ManualOrderPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="mx-auto max-w-5xl p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-900">
           New manual order
@@ -267,7 +267,7 @@ export default function ManualOrderPage() {
               </option>
             ))}
           </select>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <input
               type="text"
               placeholder="Customer name"
@@ -287,9 +287,9 @@ export default function ManualOrderPage() {
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-6">
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm font-medium text-slate-700">Line items</div>
-          <div className="relative w-80">
+          <div className="relative w-full sm:w-80">
             <input
               type="text"
               value={variantQuery}
@@ -340,9 +340,9 @@ export default function ManualOrderPage() {
         {lines.map((l) => (
           <div
             key={l.key}
-            className="grid grid-cols-12 gap-2 items-center py-2 border-b border-slate-100 last:border-b-0"
+            className="grid grid-cols-1 gap-2 border-b border-slate-100 py-3 last:border-b-0 sm:grid-cols-12 sm:items-center sm:py-2"
           >
-            <div className="col-span-5 text-sm text-slate-900 truncate">
+            <div className="text-sm text-slate-900 sm:col-span-5 sm:truncate">
               {l.title}
               {warehouseId && (
                 <div className="text-xs text-slate-500">
@@ -350,7 +350,7 @@ export default function ManualOrderPage() {
                 </div>
               )}
             </div>
-            <div className="col-span-2 text-xs text-slate-500 font-mono">
+            <div className="font-mono text-xs text-slate-500 sm:col-span-2">
               {l.sku || "—"}
             </div>
             <input
@@ -362,20 +362,20 @@ export default function ManualOrderPage() {
                   quantity: Math.max(1, Number(e.target.value)),
                 })
               }
-              className="col-span-1 border border-slate-300 rounded-md px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              className="min-h-10 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500 sm:col-span-1"
             />
             <input
               type="text"
               value={l.price}
               onChange={(e) => updateLine(l.key, { price: e.target.value })}
-              className="col-span-2 border border-slate-300 rounded-md px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              className="min-h-10 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500 sm:col-span-2"
             />
-            <div className="col-span-1 text-sm text-slate-700 text-right">
+            <div className="text-sm text-slate-700 sm:col-span-1 sm:text-right">
               {(Number(l.price) * Number(l.quantity)).toFixed(2)}
             </div>
             <button
               onClick={() => removeLine(l.key)}
-              className="col-span-1 text-rose-500 text-sm hover:text-rose-700"
+              className="min-h-10 text-left text-sm text-rose-500 hover:text-rose-700 sm:col-span-1 sm:text-center"
             >
               Remove
             </button>

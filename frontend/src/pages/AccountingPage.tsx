@@ -7,6 +7,8 @@ import {
   type Pnl,
   type BalanceSheet,
 } from "../api/accounting";
+import { PageContainer } from "../components/ui/PageContainer";
+import { Tabs } from "../components/ui/Tabs";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,8 +83,8 @@ function AccountsTab() {
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 px-1">
               {g}s
             </h3>
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+              <table className="min-w-full text-sm">
                 <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                   <tr>
                     <th className="px-4 py-2 text-left">Code</th>
@@ -168,7 +170,7 @@ function JournalTab() {
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-end">
+      <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
         <div>
           <label className="block text-xs text-slate-500 mb-1">From</label>
           <input
@@ -178,7 +180,7 @@ function JournalTab() {
               setFrom(e.target.value);
               setPage(1);
             }}
-            className="border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="min-h-11 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
         </div>
         <div>
@@ -190,7 +192,7 @@ function JournalTab() {
               setTo(e.target.value);
               setPage(1);
             }}
-            className="border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="min-h-11 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
         </div>
         <button
@@ -198,7 +200,7 @@ function JournalTab() {
             setPage(1);
             load();
           }}
-          className="bg-indigo-600 text-white px-4 py-1.5 rounded-md text-sm hover:bg-indigo-700"
+          className="min-h-11 rounded-md bg-indigo-600 px-4 py-1.5 text-sm text-white hover:bg-indigo-700"
         >
           Refresh
         </button>
@@ -209,8 +211,8 @@ function JournalTab() {
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-[760px] text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
               <th className="px-4 py-2 text-left">Date</th>
@@ -274,7 +276,8 @@ function JournalTab() {
                   {expanded === e.id && expandedEntry && (
                     <tr key={`${e.id}-lines`} className="bg-slate-50">
                       <td colSpan={7} className="px-8 py-3">
-                        <table className="w-full text-xs">
+                        <div className="overflow-x-auto">
+                        <table className="min-w-full text-xs">
                           <thead>
                             <tr className="text-slate-400 uppercase tracking-wide">
                               <th className="text-left pb-1">Account</th>
@@ -302,6 +305,7 @@ function JournalTab() {
                             ))}
                           </tbody>
                         </table>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -314,11 +318,11 @@ function JournalTab() {
 
       {/* Pagination */}
       {meta.total > meta.per_page && (
-        <div className="flex gap-2 justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
           <button
             disabled={page <= 1}
             onClick={() => setPage(page - 1)}
-            className="px-3 py-1 text-sm border rounded disabled:opacity-40 hover:bg-slate-50"
+            className="min-h-10 rounded border px-3 text-sm hover:bg-slate-50 disabled:opacity-40"
           >
             ← Prev
           </button>
@@ -328,7 +332,7 @@ function JournalTab() {
           <button
             disabled={page >= Math.ceil(meta.total / meta.per_page)}
             onClick={() => setPage(page + 1)}
-            className="px-3 py-1 text-sm border rounded disabled:opacity-40 hover:bg-slate-50"
+            className="min-h-10 rounded border px-3 text-sm hover:bg-slate-50 disabled:opacity-40"
           >
             Next →
           </button>
@@ -361,19 +365,19 @@ function TrialBalanceTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="block text-xs text-slate-500 mb-1">As of</label>
           <input
             type="date"
             value={asOf}
             onChange={(e) => setAsOf(e.target.value)}
-            className="border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="min-h-11 rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
         </div>
         <button
           onClick={load}
-          className="bg-indigo-600 text-white px-4 py-1.5 rounded-md text-sm hover:bg-indigo-700"
+          className="min-h-11 rounded-md bg-indigo-600 px-4 py-1.5 text-sm text-white hover:bg-indigo-700"
         >
           Run
         </button>
@@ -390,8 +394,8 @@ function TrialBalanceTab() {
       {loading && <p className="text-slate-500 text-sm">Loading…</p>}
 
       {data && !loading && (
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-[720px] text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
               <tr>
                 <th className="px-4 py-2 text-left">Code</th>
@@ -512,13 +516,14 @@ function PnlTab() {
       {data && !loading && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Revenue */}
-          <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="bg-emerald-50 px-4 py-2 border-b border-slate-200">
               <h3 className="font-semibold text-emerald-700 text-sm">
                 Revenue
               </h3>
             </div>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
               <tbody className="divide-y divide-slate-100">
                 {data.revenue.length === 0 && (
                   <tr>
@@ -550,14 +555,16 @@ function PnlTab() {
                 </tr>
               </tfoot>
             </table>
+            </div>
           </div>
 
           {/* Expenses */}
-          <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="bg-red-50 px-4 py-2 border-b border-slate-200">
               <h3 className="font-semibold text-red-700 text-sm">Expenses</h3>
             </div>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
               <tbody className="divide-y divide-slate-100">
                 {data.expenses.length === 0 && (
                   <tr>
@@ -589,11 +596,12 @@ function PnlTab() {
                 </tr>
               </tfoot>
             </table>
+            </div>
           </div>
 
           {/* Net Income */}
           <div
-            className={`lg:col-span-2 rounded-lg border px-6 py-4 flex justify-between items-center shadow-sm
+            className={`flex flex-col gap-2 rounded-lg border px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:col-span-2
             ${data.net_income >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"}`}
           >
             <span
@@ -639,13 +647,13 @@ function BalanceSheetTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <label className="text-sm text-slate-600">As of</label>
         <input
           type="date"
           value={asOf}
           onChange={(e) => setAsOf(e.target.value)}
-          className="border rounded px-2 py-1 text-sm"
+          className="min-h-11 rounded border px-2 py-1 text-sm"
         />
       </div>
 
@@ -657,12 +665,13 @@ function BalanceSheetTab() {
       {loading && <div className="text-sm text-slate-500">Loading…</div>}
 
       {data && (
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <section className="bg-white rounded shadow overflow-hidden">
             <header className="bg-emerald-50 px-3 py-2 text-sm font-semibold">
               Assets
             </header>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
               <tbody>
                 {data.assets.rows.map((r) => (
                   <tr key={r.code} className="border-t">
@@ -681,13 +690,15 @@ function BalanceSheetTab() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </section>
 
           <section className="bg-white rounded shadow overflow-hidden">
             <header className="bg-amber-50 px-3 py-2 text-sm font-semibold">
               Liabilities + Equity
             </header>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
               <tbody>
                 {data.liabilities.rows.map((r) => (
                   <tr key={r.code} className="border-t">
@@ -728,6 +739,7 @@ function BalanceSheetTab() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </section>
         </div>
       )}
@@ -799,7 +811,7 @@ function SalariesTab() {
   };
 
   return (
-    <div className="bg-white rounded shadow p-6 max-w-2xl">
+    <div className="w-full max-w-2xl rounded bg-white p-4 shadow sm:p-6">
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-slate-800">
           Post monthly salaries
@@ -812,14 +824,14 @@ function SalariesTab() {
       </div>
 
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="text-sm">
             <span className="block text-slate-600 mb-1">Month</span>
             <input
               type="month"
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
               required
             />
           </label>
@@ -831,7 +843,7 @@ function SalariesTab() {
               min="0"
               value={totalAmount}
               onChange={(e) => setTotalAmount(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
               placeholder="0.00"
               required
             />
@@ -841,7 +853,7 @@ function SalariesTab() {
             <select
               value={creditAccount}
               onChange={(e) => setCreditAccount(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
             >
               <option value="1000">1000 — Cash</option>
               <option value="2000">2000 — Accounts Payable</option>
@@ -855,7 +867,7 @@ function SalariesTab() {
               value={currency}
               onChange={(e) => setCurrency(e.target.value.toUpperCase())}
               maxLength={3}
-              className="w-full border border-slate-300 rounded px-3 py-2 uppercase"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
             />
           </label>
         </div>
@@ -869,7 +881,7 @@ function SalariesTab() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Salaries — January 2025"
-            className="w-full border border-slate-300 rounded px-3 py-2"
+            className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
           />
         </label>
 
@@ -888,7 +900,7 @@ function SalariesTab() {
         <button
           type="submit"
           disabled={submitting}
-          className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white text-sm font-medium px-4 py-2 rounded"
+          className="min-h-11 rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-slate-400"
         >
           {submitting ? "Posting…" : "Post salaries"}
         </button>
@@ -983,7 +995,7 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-4xl">
+    <div className="w-full max-w-4xl rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <h2 className="text-lg font-semibold text-slate-800 mb-1">
         New manual journal entry
       </h2>
@@ -991,7 +1003,7 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
         Post any double-entry transaction. Debits must equal credits.
       </p>
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="text-sm">
             <span className="block text-slate-600 mb-1">Date *</span>
             <input
@@ -999,17 +1011,17 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
               required
               value={entryDate}
               onChange={(e) => setEntryDate(e.target.value)}
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm col-span-2">
+          <label className="text-sm md:col-span-2">
             <span className="block text-slate-600 mb-1">Description *</span>
             <input
               required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Owner cash injection"
-              className="w-full border border-slate-300 rounded px-3 py-2"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
             />
           </label>
         </div>
@@ -1020,12 +1032,13 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
             value={currency}
             onChange={(e) => setCurrency(e.target.value.toUpperCase())}
             maxLength={3}
-            className="w-full border border-slate-300 rounded px-3 py-2 uppercase"
+            className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
           />
         </label>
 
-        <div className="border border-slate-200 rounded">
-          <table className="w-full text-sm">
+        <div className="rounded border border-slate-200">
+          <div className="overflow-x-auto">
+          <table className="min-w-[760px] text-sm">
             <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
               <tr>
                 <th className="px-2 py-2 text-left">Account</th>
@@ -1158,6 +1171,7 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
               </tr>
             </tfoot>
           </table>
+          </div>
           <button
             type="button"
             onClick={() =>
@@ -1171,7 +1185,7 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
                 },
               ])
             }
-            className="w-full text-xs text-indigo-600 hover:bg-indigo-50 py-1.5 border-t border-slate-200"
+            className="min-h-10 w-full border-t border-slate-200 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50"
           >
             + Add line
           </button>
@@ -1192,7 +1206,7 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
           <button
             type="submit"
             disabled={submitting || !balanced}
-            className="text-sm bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white font-medium px-5 py-2 rounded"
+            className="min-h-11 rounded bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-slate-400"
           >
             {submitting ? "Posting…" : "Post entry"}
           </button>
@@ -1227,7 +1241,7 @@ export default function AccountingPage() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <PageContainer className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Accounting</h1>
         <p className="text-slate-500 text-sm mt-1">
@@ -1236,22 +1250,7 @@ export default function AccountingPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-slate-200">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px
-              ${
-                tab === t.id
-                  ? "border-indigo-600 text-indigo-700"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-              }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs tabs={tabs} value={tab} onChange={setTab} />
 
       {tab === "journal" && <JournalTab />}
       {tab === "manual_entry" && (
@@ -1262,6 +1261,6 @@ export default function AccountingPage() {
       {tab === "trial_balance" && <TrialBalanceTab />}
       {tab === "pnl" && <PnlTab />}
       {tab === "balance_sheet" && <BalanceSheetTab />}
-    </div>
+    </PageContainer>
   );
 }

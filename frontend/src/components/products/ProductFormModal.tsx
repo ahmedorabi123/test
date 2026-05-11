@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { productsApi, type Product, type Variant } from "../../api/products";
 import { warehousesApi, type Warehouse } from "../../api/inventory";
+import { Modal } from "../ui/Modal";
 
 interface StockItemDraft {
   id?: string;
@@ -391,40 +392,13 @@ export default function ProductFormModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 p-4 sm:p-8"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-3xl rounded-xl bg-white shadow-2xl my-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {isEdit ? "Edit product" : "New product"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-            aria-label="Close"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M4.3 4.3a1 1 0 011.4 0L10 8.6l4.3-4.3a1 1 0 111.4 1.4L11.4 10l4.3 4.3a1 1 0 01-1.4 1.4L10 11.4l-4.3 4.3a1 1 0 01-1.4-1.4L8.6 10 4.3 5.7a1 1 0 010-1.4z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
-
+    <Modal open onClose={onClose} size="xl" title={isEdit ? "Edit product" : "New product"}>
         {loadingProduct ? (
-          <div className="px-6 py-12 text-center text-gray-400 text-sm">
+          <div className="py-12 text-center text-sm text-gray-400">
             Loading product…
           </div>
         ) : (
-          <form onSubmit={submit} className="px-6 py-4 space-y-5">
+          <form onSubmit={submit} className="space-y-5">
             {error && (
               <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
                 {error}
@@ -441,12 +415,12 @@ export default function ProductFormModal({
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Classic Tee"
                 required
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               />
             </div>
 
             {/* Handle + Status */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Handle
@@ -455,7 +429,7 @@ export default function ProductFormModal({
                   value={handle}
                   onChange={(e) => setHandle(e.target.value)}
                   placeholder="auto-generated from title"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                  className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                 />
               </div>
               <div>
@@ -467,7 +441,7 @@ export default function ProductFormModal({
                   onChange={(e) =>
                     setStatus(e.target.value as "active" | "draft" | "archived")
                   }
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                  className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                 >
                   <option value="draft">Draft</option>
                   <option value="active">Active</option>
@@ -477,7 +451,7 @@ export default function ProductFormModal({
             </div>
 
             {/* Vendor + Type */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Vendor
@@ -486,7 +460,7 @@ export default function ProductFormModal({
                   value={vendor}
                   onChange={(e) => setVendor(e.target.value)}
                   placeholder="e.g. ACME Apparel"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                  className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                 />
               </div>
               <div>
@@ -497,7 +471,7 @@ export default function ProductFormModal({
                   value={productType}
                   onChange={(e) => setProductType(e.target.value)}
                   placeholder="e.g. T-Shirts"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                  className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                 />
               </div>
             </div>
@@ -525,12 +499,12 @@ export default function ProductFormModal({
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 placeholder="comma-separated, e.g. summer, sale, new"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               />
             </div>
 
             {/* Published scope + gift card */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Published scope
@@ -540,7 +514,7 @@ export default function ProductFormModal({
                   onChange={(e) =>
                     setPublishedScope(e.target.value as "web" | "global")
                   }
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                  className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                 >
                   <option value="web">Online store (web)</option>
                   <option value="global">All channels (global)</option>
@@ -616,7 +590,7 @@ export default function ProductFormModal({
                   {visibleImages.map((image, idx) => (
                     <div
                       key={image.id ?? `image-${idx}`}
-                      className="grid grid-cols-12 gap-2 items-center"
+                      className="grid grid-cols-1 items-center gap-2 sm:grid-cols-12"
                     >
                       <input
                         value={image.src}
@@ -624,7 +598,7 @@ export default function ProductFormModal({
                           updateImage(idx, { src: e.target.value })
                         }
                         placeholder="Image URL"
-                        className="col-span-7 rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                        className="min-h-10 rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 sm:col-span-7"
                       />
                       <input
                         value={image.alt}
@@ -632,12 +606,12 @@ export default function ProductFormModal({
                           updateImage(idx, { alt: e.target.value })
                         }
                         placeholder="Alt text"
-                        className="col-span-4 rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                        className="min-h-10 rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 sm:col-span-4"
                       />
                       <button
                         type="button"
                         onClick={() => removeImage(idx)}
-                        className="col-span-1 text-xs text-gray-400 hover:text-red-500"
+                        className="min-h-10 text-xs text-gray-400 hover:text-red-500 sm:col-span-1"
                         aria-label="Remove image"
                       >
                         Remove
@@ -663,7 +637,7 @@ export default function ProductFormModal({
               </div>
 
               {/* Column headers */}
-              <div className="grid grid-cols-12 gap-2 px-1 mb-1">
+              <div className="mb-1 hidden grid-cols-12 gap-2 px-1 sm:grid">
                 <span className="col-span-4 text-xs text-gray-400">Title</span>
                 <span className="col-span-3 text-xs text-gray-400">SKU</span>
                 <span className="col-span-2 text-xs text-gray-400">Price</span>
@@ -678,14 +652,14 @@ export default function ProductFormModal({
                     key={v.id ?? `new-${idx}`}
                     className="rounded-lg border border-gray-200 p-2 space-y-2"
                   >
-                    <div className="grid grid-cols-12 gap-2 items-center">
+                    <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-12">
                       <input
                         value={v.title}
                         onChange={(e) =>
                           updateVariant(idx, { title: e.target.value })
                         }
                         placeholder="e.g. Black / M"
-                        className="col-span-4 rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                        className="min-h-10 rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 sm:col-span-4"
                       />
                       <input
                         value={v.sku}
@@ -693,7 +667,7 @@ export default function ProductFormModal({
                           updateVariant(idx, { sku: e.target.value })
                         }
                         placeholder="SKU"
-                        className="col-span-3 rounded-md border border-gray-200 px-2 py-1.5 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                        className="min-h-10 rounded-md border border-gray-200 px-2 py-1.5 font-mono text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 sm:col-span-3"
                       />
                       <input
                         value={v.price}
@@ -704,7 +678,7 @@ export default function ProductFormModal({
                         type="number"
                         step="0.01"
                         min="0"
-                        className="col-span-2 rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                        className="min-h-10 rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 sm:col-span-2"
                       />
                       <input
                         value={v.compare_at_price}
@@ -717,14 +691,14 @@ export default function ProductFormModal({
                         type="number"
                         step="0.01"
                         min="0"
-                        className="col-span-2 rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                        className="min-h-10 rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 sm:col-span-2"
                       />
                       <button
                         type="button"
                         onClick={() =>
                           updateVariant(idx, { _expanded: !v._expanded })
                         }
-                        className="col-span-1 text-xs text-indigo-600 hover:text-indigo-500"
+                        className="min-h-10 text-xs text-indigo-600 hover:text-indigo-500 sm:col-span-1"
                         aria-label="Toggle more attributes"
                         title="More attributes"
                       >
@@ -733,8 +707,8 @@ export default function ProductFormModal({
                     </div>
 
                     {v._expanded && (
-                      <div className="grid grid-cols-12 gap-2 pt-1 border-t border-gray-100">
-                        <div className="col-span-3">
+                      <div className="grid grid-cols-1 gap-2 border-t border-gray-100 pt-1 sm:grid-cols-12">
+                        <div className="sm:col-span-3">
                           <label className="block text-[10px] text-gray-500">
                             Barcode
                           </label>
@@ -746,7 +720,7 @@ export default function ProductFormModal({
                             className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs font-mono"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <label className="block text-[10px] text-gray-500">
                             Cost
                           </label>
@@ -763,7 +737,7 @@ export default function ProductFormModal({
                             className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <label className="block text-[10px] text-gray-500">
                             Weight
                           </label>
@@ -778,7 +752,7 @@ export default function ProductFormModal({
                             className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs"
                           />
                         </div>
-                        <div className="col-span-1">
+                        <div className="sm:col-span-1">
                           <label className="block text-[10px] text-gray-500">
                             Unit
                           </label>
@@ -798,7 +772,7 @@ export default function ProductFormModal({
                             <option value="oz">oz</option>
                           </select>
                         </div>
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <label className="block text-[10px] text-gray-500">
                             Inventory policy
                           </label>
@@ -816,7 +790,7 @@ export default function ProductFormModal({
                             <option value="continue">Continue selling</option>
                           </select>
                         </div>
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <label className="block text-[10px] text-gray-500">
                             HS code
                           </label>
@@ -828,7 +802,7 @@ export default function ProductFormModal({
                             className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs font-mono"
                           />
                         </div>
-                        <div className="col-span-3">
+                        <div className="sm:col-span-3">
                           <label className="block text-[10px] text-gray-500">
                             Country of origin
                           </label>
@@ -844,7 +818,7 @@ export default function ProductFormModal({
                             className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs uppercase"
                           />
                         </div>
-                        <div className="col-span-9 flex items-center gap-4 pt-1">
+                        <div className="flex flex-col gap-2 pt-1 sm:col-span-9 sm:flex-row sm:items-center sm:gap-4">
                           <label className="inline-flex items-center gap-1 text-xs text-gray-600">
                             <input
                               type="checkbox"
@@ -873,11 +847,11 @@ export default function ProductFormModal({
                           </label>
                         </div>
                         {warehouses.length > 0 && (
-                          <div className="col-span-12 border-t border-gray-100 pt-2">
+                          <div className="border-t border-gray-100 pt-2 sm:col-span-12">
                             <div className="mb-1 text-[10px] font-medium text-gray-500">
                               Warehouse stock
                             </div>
-                            <div className="grid grid-cols-12 gap-2 px-1 mb-1">
+                            <div className="mb-1 hidden grid-cols-12 gap-2 px-1 sm:grid">
                               <span className="col-span-6 text-[10px] text-gray-400">
                                 Warehouse
                               </span>
@@ -897,10 +871,10 @@ export default function ProductFormModal({
                                 return (
                                   <div
                                     key={warehouse.id}
-                                    className="grid grid-cols-12 gap-2 items-center"
+                                    className="grid grid-cols-1 items-center gap-2 sm:grid-cols-12"
                                   >
                                     <div
-                                      className="col-span-6 truncate text-xs text-gray-600"
+                                      className="truncate text-xs text-gray-600 sm:col-span-6"
                                       title={warehouse.name}
                                     >
                                       {warehouse.name}
@@ -913,7 +887,7 @@ export default function ProductFormModal({
                                           quantity_on_hand: e.target.value,
                                         })
                                       }
-                                      className="col-span-3 rounded-md border border-gray-200 px-2 py-1 text-xs"
+                                      className="min-h-10 rounded-md border border-gray-200 px-2 py-1 text-xs sm:col-span-3"
                                     />
                                     <input
                                       type="number"
@@ -924,7 +898,7 @@ export default function ProductFormModal({
                                           low_stock_threshold: e.target.value,
                                         })
                                       }
-                                      className="col-span-3 rounded-md border border-gray-200 px-2 py-1 text-xs"
+                                      className="min-h-10 rounded-md border border-gray-200 px-2 py-1 text-xs sm:col-span-3"
                                     />
                                   </div>
                                 );
@@ -952,18 +926,18 @@ export default function ProductFormModal({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4 -mx-6 px-6 -mb-4 pb-4">
+            <div className="flex flex-col-reverse gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="min-h-11 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting
                   ? isEdit
@@ -976,7 +950,6 @@ export default function ProductFormModal({
             </div>
           </form>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

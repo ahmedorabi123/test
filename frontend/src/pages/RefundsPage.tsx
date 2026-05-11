@@ -7,6 +7,8 @@ import DataTable, {
   type SortDir,
 } from "../components/table/DataTable";
 import ImportExportBar from "../components/table/ImportExportBar";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { PageContainer } from "../components/ui/PageContainer";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 type RefundDetail = Refund & { journal_entry_id?: string | null };
@@ -296,8 +298,8 @@ export default function RefundsPage() {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
+    <PageContainer className="space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
         <div className="flex-1">
           <h1 className="text-2xl font-semibold text-slate-900">Refunds</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -372,12 +374,12 @@ export default function RefundsPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center">
         <input
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search order, customer, reason..."
-          className="w-72 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-72"
         />
         <select
           value={status}
@@ -385,7 +387,7 @@ export default function RefundsPage() {
             setParam("status", e.target.value);
             setParam("page", "1");
           }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
           <option value="">All statuses</option>
           <option value="draft">Draft</option>
@@ -399,7 +401,7 @@ export default function RefundsPage() {
             setParam("kind", e.target.value);
             setParam("page", "1");
           }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
           <option value="">All kinds</option>
           <option value="shopify">Shopify</option>
@@ -413,7 +415,7 @@ export default function RefundsPage() {
             setParam("source", e.target.value);
             setParam("page", "1");
           }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
           <option value="">All sources</option>
           <option value="shopify">Shopify-linked</option>
@@ -426,7 +428,7 @@ export default function RefundsPage() {
             setParam("restock", e.target.value);
             setParam("page", "1");
           }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
           <option value="">All restock</option>
           <option value="true">Restock</option>
@@ -507,9 +509,100 @@ export default function RefundsPage() {
           setSearchParams(sp, { replace: true });
         }}
         renderExpanded={(row) => <RefundExpanded refundId={row.id} />}
+        mobileCardRenderer={(refund, context) => {
+          const value = refund.status || "processed";
+          const statusClass =
+            value === "processed"
+              ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+              : value === "approved"
+                ? "bg-sky-50 text-sky-700 ring-sky-600/20"
+                : value === "cancelled"
+                  ? "bg-gray-100 text-gray-600 ring-gray-500/20"
+                  : "bg-amber-50 text-amber-700 ring-amber-600/20";
+          const actionable =
+            !refund.shopify_refund_id && !["processed", "cancelled"].includes(value);
+          return (
+            <MobileRowCard
+              title={
+                <Link
+                  to={`/refunds/${refund.id}`}
+                  className="font-mono text-xs font-medium text-indigo-700 hover:underline"
+                >
+                  RF-{refund.id.slice(0, 8).toUpperCase()}
+                </Link>
+              }
+              subtitle={refund.customer?.name || refund.customer?.email || "No customer"}
+              meta={money(refund)}
+              fields={[
+                {
+                  label: "Order",
+                  value: refund.order ? (
+                    <Link
+                      to={`/orders/${refund.order.id}`}
+                      className="font-mono text-indigo-700 hover:underline"
+                    >
+                      {refund.order.order_number}
+                    </Link>
+                  ) : (
+                    refund.order_id.slice(0, 8)
+                  ),
+                },
+                {
+                  label: "Type",
+                  value: refund.kind === "exchange" ? "exchange" : refund.full ? "full" : "partial",
+                },
+                { label: "Reason", value: refund.reason || "-" },
+                { label: "Restock", value: refund.restock ? (refund.inventory_restocked ? "Restocked" : "Pending") : "No" },
+                {
+                  label: "Status",
+                  value: (
+                    <span
+                      className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${statusClass}`}
+                    >
+                      {value}
+                    </span>
+                  ),
+                },
+                {
+                  label: "Processed",
+                  value: refund.processed_at ? new Date(refund.processed_at).toLocaleDateString() : "-",
+                },
+              ]}
+              actions={
+                <>
+                  <button
+                    type="button"
+                    onClick={context.toggleExpanded}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  >
+                    {context.expanded ? "Hide details" : "Show details"}
+                  </button>
+                  {actionable && value === "draft" && (
+                    <button
+                      type="button"
+                      onClick={() => transitionRefund(refund, "approved")}
+                      className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                    >
+                      Approve
+                    </button>
+                  )}
+                  {actionable && (
+                    <button
+                      type="button"
+                      onClick={() => transitionRefund(refund, "processed")}
+                      className="inline-flex min-h-10 items-center justify-center rounded-md bg-indigo-600 px-3 text-sm font-medium text-white hover:bg-indigo-700"
+                    >
+                      Process
+                    </button>
+                  )}
+                </>
+              }
+            />
+          );
+        }}
         syncToUrl={false}
       />
-    </div>
+    </PageContainer>
   );
 }
 
@@ -534,7 +627,8 @@ function RefundExpanded({ refundId }: { refundId: string }) {
           Line items
         </div>
         {(refund.line_items ?? []).length > 0 ? (
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto">
+          <table className="min-w-full text-xs">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-3 py-2 text-left">Item</th>
@@ -562,6 +656,7 @@ function RefundExpanded({ refundId }: { refundId: string }) {
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <div className="px-3 py-3 text-sm text-slate-400">
             No line items recorded

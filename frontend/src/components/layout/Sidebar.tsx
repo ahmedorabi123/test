@@ -1,15 +1,25 @@
+import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../store";
 import { logout } from "../../store/slices/authSlice";
+import { cn } from "../../lib/cn";
+import { Button } from "../ui/Button";
+import { useLayoutState } from "./layoutState";
 
 type NavItem = {
   label: string;
   path: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   phase?: "live" | "soon";
-  resource?: string; // RBAC gating: hidden unless user has "<resource>:read" or is admin
+  resource?: string;
 };
+
+interface SidebarProps {
+  collapsed?: boolean;
+  mobile?: boolean;
+  onNavigate?: () => void;
+}
 
 const Icon = ({ d }: { d: string }) => (
   <svg
@@ -144,34 +154,65 @@ const navItems: NavItem[] = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({
+  collapsed = false,
+  mobile = false,
+  onNavigate,
+}: SidebarProps) {
   const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((s: RootState) => s.auth.user);
+  const { toggleSidebarCollapsed } = useLayoutState();
 
   const isAdmin = user?.roles?.includes("admin");
   const permissions = user?.permissions ?? [];
-  const canSee = (item: NavItem): boolean => {
+  const visibleItems = navItems.filter((item) => {
     if (!item.resource) return true;
     if (isAdmin) return true;
     return permissions.includes(`${item.resource}:read`);
-  };
-  const visibleItems = navItems.filter(canSee);
+  });
 
   return (
-    <aside className="flex flex-col w-60 min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-slate-100 py-6 px-3 shrink-0 border-r border-slate-800">
-      <div className="flex items-center gap-2 px-3 mb-8">
-        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
-          E
-        </div>
-        <div>
-          <div className="text-sm font-semibold leading-tight">Shopify ERP</div>
-          <div className="text-[10px] text-slate-400 uppercase tracking-wider">
-            Console
+    <aside
+      className={cn(
+        "flex h-full min-h-0 shrink-0 flex-col border-r border-slate-800 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 px-3 py-4 text-slate-100 transition-[width] duration-200 sm:py-6",
+        collapsed && !mobile ? "w-16" : "w-60",
+        mobile ? "w-full border-r-0" : "",
+      )}
+    >
+      <div
+        className={cn(
+          "mb-6 flex items-center gap-2 px-2",
+          collapsed && !mobile ? "justify-center px-0" : "justify-between",
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white shadow-md">
+            E
           </div>
+          {(!collapsed || mobile) && (
+            <div id="mobile-navigation-title" className="min-w-0">
+              <div className="truncate text-sm font-semibold leading-tight">
+                Shopify ERP
+              </div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                Console
+              </div>
+            </div>
+          )}
         </div>
+        {!mobile && !collapsed && (
+          <Button
+            variant="ghost"
+            iconOnly
+            aria-label="Collapse navigation"
+            onClick={toggleSidebarCollapsed}
+            className="hidden text-slate-400 hover:bg-slate-800 hover:text-white xl:inline-flex"
+            icon={<Icon d="M15 18l-6-6 6-6" />}
+          />
+        )}
       </div>
-      <nav className="flex-1 space-y-0.5">
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden pr-1">
         {visibleItems.map((item) => {
           const active =
             item.path === "/"
@@ -181,11 +222,18 @@ export default function Sidebar() {
             <Link
               key={item.path}
               to={item.path}
-              className={`group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+              title={collapsed && !mobile ? item.label : undefined}
+              aria-label={collapsed && !mobile ? item.label : undefined}
+              onClick={onNavigate}
+              className={cn(
+                "group flex min-h-11 items-center rounded-lg text-sm font-medium transition-all",
+                collapsed && !mobile
+                  ? "justify-center gap-0 px-0"
+                  : "gap-3 px-3",
                 active
                   ? "bg-indigo-500/15 text-white ring-1 ring-inset ring-indigo-400/30"
-                  : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
-              }`}
+                  : "text-slate-400 hover:bg-slate-800/60 hover:text-white",
+              )}
             >
               <span
                 className={
@@ -196,9 +244,11 @@ export default function Sidebar() {
               >
                 {item.icon}
               </span>
-              <span className="flex-1">{item.label}</span>
-              {item.phase === "soon" && (
-                <span className="text-[9px] font-medium uppercase tracking-wider text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded">
+              {(!collapsed || mobile) && (
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              )}
+              {(!collapsed || mobile) && item.phase === "soon" && (
+                <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-slate-500">
                   Soon
                 </span>
               )}
@@ -206,12 +256,27 @@ export default function Sidebar() {
           );
         })}
       </nav>
+      {collapsed && !mobile && (
+        <Button
+          variant="ghost"
+          iconOnly
+          aria-label="Expand navigation"
+          title="Expand navigation"
+          onClick={toggleSidebarCollapsed}
+          className="mt-3 hidden text-slate-400 hover:bg-slate-800 hover:text-white xl:inline-flex"
+          icon={<Icon d="M9 18l6-6-6-6" />}
+        />
+      )}
       <button
         onClick={() => dispatch(logout())}
-        className="mt-4 flex items-center gap-2 px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition"
+        title={collapsed && !mobile ? "Sign out" : undefined}
+        className={cn(
+          "mt-3 flex min-h-11 items-center rounded-lg text-sm text-slate-400 transition hover:bg-slate-800/60 hover:text-white",
+          collapsed && !mobile ? "justify-center px-0" : "gap-2 px-3",
+        )}
       >
         <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H5a3 3 0 01-3-3V7a3 3 0 013-3h5a3 3 0 013 3v1" />
-        <span>Sign out</span>
+        {(!collapsed || mobile) && <span>Sign out</span>}
       </button>
     </aside>
   );

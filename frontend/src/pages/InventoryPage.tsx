@@ -17,6 +17,9 @@ import DataTable, {
   type SortDir,
 } from "../components/table/DataTable";
 import ImportExportBar from "../components/table/ImportExportBar";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { Modal } from "../components/ui/Modal";
+import { PageContainer } from "../components/ui/PageContainer";
 
 interface VariantOption {
   id: string;
@@ -148,9 +151,7 @@ function NewStockItemModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Set stock</h2>
+    <Modal open onClose={onClose} size="md" title="Set stock">
         {error && (
           <div className="mb-3 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-md text-sm">
             {error}
@@ -162,7 +163,7 @@ function NewStockItemModal({
               Warehouse
             </label>
             <select
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               value={warehouseId}
               onChange={(e) => {
                 setWarehouseId(e.target.value);
@@ -204,7 +205,7 @@ function NewStockItemModal({
                   setExistingStockItemId(null);
                   setSearch(e.target.value);
                 }}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
               />
               {variantId && (
                 <button
@@ -215,7 +216,7 @@ function NewStockItemModal({
                     setExistingStockItemId(null);
                     setSearch("");
                   }}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600"
+                  className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-600"
                 >
                   Clear
                 </button>
@@ -273,7 +274,7 @@ function NewStockItemModal({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
                 Quantity on hand
@@ -283,7 +284,7 @@ function NewStockItemModal({
                 min={0}
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
             <div>
@@ -295,17 +296,17 @@ function NewStockItemModal({
                 min={0}
                 value={threshold}
                 onChange={(e) => setThreshold(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-slate-200">
+        <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="text-sm text-slate-600 hover:text-slate-900 px-3 py-2"
+            className="min-h-11 px-3 text-sm text-slate-600 hover:text-slate-900"
           >
             Cancel
           </button>
@@ -313,13 +314,12 @@ function NewStockItemModal({
             type="button"
             disabled={saving}
             onClick={save}
-            className="bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save stock"}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -349,21 +349,20 @@ function AdjustModal({
   const available = Math.max(onHand - si.quantity_reserved - unavailable, 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-1">
-          Adjust stock
-        </h2>
-        <p className="text-xs text-slate-500 mb-4">
-          {si.product_title} · {si.variant_title} @ {si.warehouse_name}
-        </p>
+    <Modal
+      open
+      onClose={onClose}
+      size="sm"
+      title="Adjust stock"
+      description={`${si.product_title} · ${si.variant_title} @ ${si.warehouse_name}`}
+    >
         {state.error && (
           <div className="mb-3 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-md text-sm">
             {state.error}
           </div>
         )}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <label className="text-sm font-medium text-slate-700">
               Physical on hand
             </label>
@@ -372,11 +371,11 @@ function AdjustModal({
               min={0}
               value={state.onHand}
               onChange={(e) => onChange({ onHand: e.target.value })}
-              className="w-28 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-right"
+              className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-right sm:w-28"
             />
           </div>
           <div className="space-y-1">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <label className="text-sm font-medium text-slate-700">
                 Unavailable
               </label>
@@ -385,7 +384,7 @@ function AdjustModal({
                 min={0}
                 value={state.unavailable}
                 onChange={(e) => onChange({ unavailable: e.target.value })}
-                className="w-28 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-right"
+                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-right sm:w-28"
               />
             </div>
             {unavailable > 0 && (
@@ -396,7 +395,7 @@ function AdjustModal({
                 onChange={(e) =>
                   onChange({ unavailabilityReason: e.target.value })
                 }
-                className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
               />
             )}
           </div>
@@ -428,11 +427,11 @@ function AdjustModal({
             Available = physical on hand - committed - unavailable.
           </p>
         </div>
-        <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-slate-200">
+        <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="text-sm text-slate-600 hover:text-slate-900 px-3 py-2"
+            className="min-h-11 px-3 text-sm text-slate-600 hover:text-slate-900"
           >
             Cancel
           </button>
@@ -440,13 +439,12 @@ function AdjustModal({
             type="button"
             disabled={state.saving}
             onClick={onSave}
-            className="bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {state.saving ? "Saving…" : "Save"}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -755,8 +753,8 @@ export default function InventoryPage() {
   const lowCount = rows.filter((r) => r.low_stock).length;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-start justify-between">
+    <PageContainer className="space-y-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Inventory</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -771,7 +769,7 @@ export default function InventoryPage() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 xs:flex-row xs:flex-wrap xl:justify-end">
           <ImportExportBar
             resource="stock_items"
             allowImport={false}
@@ -785,7 +783,7 @@ export default function InventoryPage() {
           />
           <button
             onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-1 bg-indigo-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-indigo-700"
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             + Set stock
           </button>
@@ -795,7 +793,7 @@ export default function InventoryPage() {
       </div>
 
       {/* Search + filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center">
         <input
           type="search"
           placeholder="Search by SKU, product or variant…"
@@ -804,7 +802,7 @@ export default function InventoryPage() {
             setSearch(e.target.value);
             setParam("page", "1");
           }}
-          className="w-64 border border-slate-300 rounded-lg px-3 py-2 text-sm"
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-64"
         />
         <select
           value={warehouseId}
@@ -812,7 +810,7 @@ export default function InventoryPage() {
             setParam("page", "1");
             setParam("warehouse_id", e.target.value);
           }}
-          className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
+          className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
           {!warehousesLoaded && <option value="">Loading…</option>}
           <option value="">All warehouses</option>
@@ -899,8 +897,53 @@ export default function InventoryPage() {
         }}
         selectable
         bulkActions={bulkActions}
+        mobileCardRenderer={(stockItem, context) => (
+          <MobileRowCard
+            title={stockItem.product_title ?? "Unknown product"}
+            subtitle={stockItem.variant_title ?? stockItem.sku ?? "Default"}
+            meta={
+              <span
+                className={`font-semibold ${
+                  stockItem.available === 0
+                    ? "text-red-600"
+                    : stockItem.low_stock
+                      ? "text-amber-600"
+                      : "text-emerald-600"
+                }`}
+              >
+                {stockItem.available} available
+              </span>
+            }
+            selectedControl={
+              <input
+                type="checkbox"
+                checked={context.checked}
+                onChange={context.toggleSelected}
+                onClick={(event) => event.stopPropagation()}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                aria-label={`Select stock item ${stockItem.sku || stockItem.id}`}
+              />
+            }
+            fields={[
+              { label: "SKU", value: stockItem.sku || "-" },
+              { label: "Warehouse", value: stockItem.warehouse_name || "-" },
+              { label: "On hand", value: stockItem.quantity_on_hand },
+              { label: "Committed", value: stockItem.quantity_reserved },
+              { label: "Unavailable", value: stockItem.quantity_unavailable || "-" },
+              { label: "Stock", value: stockItem.low_stock ? "Low" : "OK" },
+            ]}
+            actions={
+              <button
+                onClick={() => openAdjust(stockItem)}
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+              >
+                Adjust stock
+              </button>
+            }
+          />
+        )}
         syncToUrl={false}
       />
-    </div>
+    </PageContainer>
   );
 }

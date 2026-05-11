@@ -252,8 +252,8 @@ export default function CustomerDetailPage() {
         {/* Last order featured */}
         {lo && (
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-slate-900">
                   Last order
                 </span>
@@ -267,7 +267,7 @@ export default function CustomerDetailPage() {
                   {new Date(lo.placed_at).toLocaleString()}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded bg-slate-100 px-2 py-0.5 capitalize">
                   {lo.financial_status?.replace("_", " ")}
                 </span>
@@ -283,7 +283,8 @@ export default function CustomerDetailPage() {
               </div>
             </div>
             {lo.line_items && lo.line_items.length > 0 && (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="min-w-[680px] text-sm">
                 <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
                   <tr>
                     <th className="px-4 py-2 text-left">Item</th>
@@ -328,6 +329,7 @@ export default function CustomerDetailPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         )}
@@ -568,7 +570,8 @@ export default function CustomerDetailPage() {
             Recent orders
           </div>
           {customer.orders && customer.orders.length > 0 ? (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="min-w-[680px] text-sm">
               <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
                 <tr>
                   <th className="px-4 py-2 text-left">Order</th>
@@ -605,6 +608,7 @@ export default function CustomerDetailPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : (
             <div className="px-4 py-6 text-center text-sm text-slate-400">
               No orders yet

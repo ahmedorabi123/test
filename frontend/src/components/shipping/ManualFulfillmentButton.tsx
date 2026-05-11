@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Order } from "../../api/orders";
 import { fulfillmentsApi } from "../../api/fulfillments";
+import { Modal } from "../ui/Modal";
 
 interface LineRow {
   order_line_item_id: string;
@@ -98,35 +99,22 @@ export default function ManualFulfillmentButton({
         Create shipment
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-xl p-6 space-y-4 max-h-[90vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between">
-              <h2 className="text-lg font-semibold">
-                Create shipment for {order.order_number}
-              </h2>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-slate-400 hover:text-slate-700"
-              >
-                ✕
-              </button>
-            </div>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        size="lg"
+        title={`Create shipment for ${order.order_number}`}
+      >
+            <div className="space-y-4">
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs text-slate-600">Carrier</label>
                 <input
                   list="carrier-presets"
                   value={carrier}
                   onChange={(e) => setCarrier(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
                 <datalist id="carrier-presets">
                   <option value="Bosta" />
@@ -143,16 +131,16 @@ export default function ManualFulfillmentButton({
                 <input
                   value={trackingNumber}
                   onChange={(e) => setTrackingNumber(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="text-xs text-slate-600">Tracking URL</label>
                 <input
                   value={trackingUrl}
                   onChange={(e) => setTrackingUrl(e.target.value)}
                   placeholder="https://…"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
               </div>
             </div>
@@ -168,7 +156,7 @@ export default function ManualFulfillmentButton({
                 {rows.map((r, i) => (
                   <div
                     key={r.order_line_item_id}
-                    className="px-3 py-2 flex items-center gap-2"
+                    className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center"
                   >
                     <input
                       type="checkbox"
@@ -200,7 +188,7 @@ export default function ManualFulfillmentButton({
                         };
                         setRows(next);
                       }}
-                      className="w-20 border border-slate-300 rounded px-2 py-1 text-sm tabular-nums"
+                      className="min-h-10 w-full rounded border border-slate-300 px-2 py-1 text-sm tabular-nums sm:w-20"
                     />
                     <span className="text-xs text-slate-400">/ {r.max}</span>
                   </div>
@@ -219,24 +207,23 @@ export default function ManualFulfillmentButton({
 
             {err && <div className="text-sm text-rose-600">{err}</div>}
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setOpen(false)}
-                className="px-3 py-2 text-sm rounded-lg border border-slate-300 hover:bg-slate-50"
+                className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 onClick={submit}
                 disabled={submitting}
-                className="px-3 py-2 text-sm bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-60"
+                className="min-h-11 rounded-lg bg-sky-600 px-3 text-sm text-white hover:bg-sky-700 disabled:opacity-60"
               >
                 {submitting ? "Creating…" : "Create shipment"}
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </>
   );
 }

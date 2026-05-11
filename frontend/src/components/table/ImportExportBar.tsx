@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import api from "../../api/client";
+import { Modal } from "../ui/Modal";
 
 export type ExportFormat = "csv" | "json" | "xlsx";
 
@@ -188,24 +189,18 @@ export default function ImportExportBar({
       )}
 
       {/* Import modal */}
-      {importOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
-            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-semibold">Import {resource}</h3>
-              <button
-                onClick={() => {
-                  setImportOpen(false);
-                  setFile(null);
-                  setPreview(null);
-                  setError(null);
-                }}
-                className="text-slate-400 hover:text-slate-700"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-5 overflow-auto flex-1">
+      <Modal
+        open={importOpen}
+        onClose={() => {
+          setImportOpen(false);
+          setFile(null);
+          setPreview(null);
+          setError(null);
+        }}
+        size="lg"
+        title={`Import ${resource}`}
+      >
+            <div>
               {!preview && (
                 <div>
                   <p className="text-sm text-slate-600 mb-3">
@@ -234,7 +229,7 @@ export default function ImportExportBar({
 
                     return (
                       <>
-                        <div className="grid grid-cols-4 gap-3 mb-4 text-sm">
+                        <div className="mb-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                           <Stat label="Rows" value={preview.total ?? 0} />
                           <Stat
                             label="Valid"
@@ -285,7 +280,7 @@ export default function ImportExportBar({
                 </div>
               )}
             </div>
-            <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2 bg-slate-50">
+            <div className="mt-4 flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50 pt-3 sm:flex-row sm:justify-end">
               <button
                 onClick={() => {
                   setImportOpen(false);
@@ -293,7 +288,7 @@ export default function ImportExportBar({
                   setPreview(null);
                   setError(null);
                 }}
-                className="px-3 py-1.5 text-sm border border-slate-300 rounded-md bg-white"
+                className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm"
               >
                 Cancel
               </button>
@@ -301,7 +296,7 @@ export default function ImportExportBar({
                 <button
                   onClick={handleValidate}
                   disabled={!file || busy}
-                  className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md disabled:opacity-50"
+                  className="min-h-11 rounded-md bg-indigo-600 px-3 text-sm text-white disabled:opacity-50"
                 >
                   {busy ? "Validating…" : "Validate"}
                 </button>
@@ -312,23 +307,21 @@ export default function ImportExportBar({
                     onClick={() => {
                       setPreview(null);
                     }}
-                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-md bg-white"
+                    className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm"
                   >
                     Back
                   </button>
                   <button
                     onClick={handleCommit}
                     disabled={busy || (preview.errors?.length ?? 0) > 0}
-                    className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md disabled:opacity-50"
+                    className="min-h-11 rounded-md bg-green-600 px-3 text-sm text-white disabled:opacity-50"
                   >
                     {busy ? "Importing…" : `Commit ${preview.valid ?? 0} rows`}
                   </button>
                 </>
               )}
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

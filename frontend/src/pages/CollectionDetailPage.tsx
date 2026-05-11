@@ -169,10 +169,10 @@ export default function CollectionDetailPage() {
   const isReadOnly = !isNew && collection?.kind === "smart";
 
   return (
-    <div className="max-w-3xl mx-auto pb-24">
+    <div className="mx-auto max-w-3xl px-4 pb-24 sm:px-0">
       {/* Sticky save bar */}
       {(isDirty || isNew) && !isReadOnly && (
-        <div className="sticky top-0 z-30 bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center gap-4 shadow-sm">
+        <div className="sticky top-0 z-30 flex flex-col gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:px-6">
           <span className="text-sm text-amber-800 font-medium flex-1">
             {isNew
               ? "New collection — fill in details below"
@@ -180,14 +180,14 @@ export default function CollectionDetailPage() {
           </span>
           <button
             onClick={handleDiscard}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Discard
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+            className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
           >
             {saving ? "Saving…" : isNew ? "Create" : "Save changes"}
           </button>
@@ -195,7 +195,7 @@ export default function CollectionDetailPage() {
       )}
 
       {/* Page header */}
-      <div className="flex items-center gap-3 mb-6 mt-4">
+      <div className="mb-6 mt-4 flex flex-wrap items-center gap-3">
         <Link
           to="/collections"
           className="text-slate-400 hover:text-slate-600 text-sm"
@@ -234,7 +234,7 @@ export default function CollectionDetailPage() {
       )}
 
       {/* Title + Description */}
-      <div className="bg-white rounded-xl ring-1 ring-slate-200 p-6 space-y-4 mb-4">
+      <div className="mb-4 space-y-4 rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:p-6">
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
           Details
         </h2>
@@ -279,7 +279,7 @@ export default function CollectionDetailPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl ring-1 ring-slate-200 p-6 space-y-4 mb-4">
+      <div className="mb-4 space-y-4 rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:p-6">
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
           Media
         </h2>
@@ -304,11 +304,11 @@ export default function CollectionDetailPage() {
       </div>
 
       {/* Visibility */}
-      <div className="bg-white rounded-xl ring-1 ring-slate-200 p-6 space-y-4 mb-4">
+      <div className="mb-4 space-y-4 rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:p-6">
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
           Visibility
         </h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">
               Published date
@@ -351,7 +351,7 @@ export default function CollectionDetailPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl ring-1 ring-slate-200 p-6 space-y-4 mb-4">
+      <div className="mb-4 space-y-4 rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:p-6">
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
           Sorting
         </h2>

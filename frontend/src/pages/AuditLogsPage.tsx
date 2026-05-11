@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { auditLogsApi, type AuditLogEntry } from "../api/audit_logs";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { PageContainer } from "../components/ui/PageContainer";
 
 export default function AuditLogsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -55,7 +57,7 @@ export default function AuditLogsPage() {
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <PageContainer className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Audit logs</h1>
         <p className="text-sm text-slate-500 mt-1">
@@ -63,7 +65,7 @@ export default function AuditLogsPage() {
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:items-center">
         <input
           type="text"
           placeholder="Action (e.g. customer.create)"
@@ -72,7 +74,7 @@ export default function AuditLogsPage() {
             setParam("page", "1");
             setParam("action_type", e.target.value);
           }}
-          className="border border-slate-300 rounded-lg px-3 py-2 text-sm w-64"
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-64"
         />
         <input
           type="text"
@@ -82,7 +84,7 @@ export default function AuditLogsPage() {
             setParam("page", "1");
             setParam("subject_type", e.target.value);
           }}
-          className="border border-slate-300 rounded-lg px-3 py-2 text-sm w-64"
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-64"
         />
       </div>
 
@@ -92,7 +94,45 @@ export default function AuditLogsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white">
+        <div className="space-y-3 p-3 md:hidden">
+          {loading && <div className="py-8 text-center text-sm text-slate-400">Loading…</div>}
+          {!loading && rows.length === 0 && (
+            <div className="py-8 text-center text-sm text-slate-400">No audit entries</div>
+          )}
+          {rows.map((row) => {
+            const open = expandedId === row.id;
+            return (
+              <div key={row.id} className="space-y-2">
+                <MobileRowCard
+                  title={<span className="font-mono text-xs">{row.action}</span>}
+                  subtitle={row.user?.email || "system"}
+                  meta={new Date(row.occurred_at).toLocaleDateString()}
+                  fields={[
+                    { label: "Subject", value: row.subject_type || "-" },
+                    { label: "Subject ID", value: row.subject_id ? `${row.subject_id.slice(0, 8)}...` : "-" },
+                    { label: "IP", value: row.ip_address || "-" },
+                  ]}
+                  actions={
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(open ? null : row.id)}
+                      className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                    >
+                      {open ? "Hide details" : "Show details"}
+                    </button>
+                  }
+                />
+                {open && (
+                  <pre className="overflow-x-auto rounded-md border border-slate-200 bg-white p-3 text-xs">
+                    {JSON.stringify(row.diff ?? {}, null, 2)}
+                  </pre>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
             <tr>
@@ -174,9 +214,10 @@ export default function AuditLogsPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-slate-600">
+      <div className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
         <span>
           Page {page} of {totalPages}
         </span>
@@ -184,19 +225,19 @@ export default function AuditLogsPage() {
           <button
             disabled={page <= 1}
             onClick={() => setParam("page", String(page - 1))}
-            className="px-3 py-1 border border-slate-300 rounded-md disabled:opacity-40"
+            className="min-h-10 rounded-md border border-slate-300 px-3 disabled:opacity-40"
           >
             ← Prev
           </button>
           <button
             disabled={page >= totalPages}
             onClick={() => setParam("page", String(page + 1))}
-            className="px-3 py-1 border border-slate-300 rounded-md disabled:opacity-40"
+            className="min-h-10 rounded-md border border-slate-300 px-3 disabled:opacity-40"
           >
             Next →
           </button>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

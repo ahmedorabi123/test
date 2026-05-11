@@ -401,7 +401,8 @@ export default function OrderDetailPage() {
         <div className="px-4 py-3 border-b border-slate-200">
           <h2 className="text-sm font-semibold text-slate-900">Line items</h2>
         </div>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="min-w-[720px] text-sm">
           <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
             <tr>
               <th className="px-4 py-2 text-left">Product / SKU</th>
@@ -452,6 +453,7 @@ export default function OrderDetailPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {allocations.length > 0 && (
@@ -473,7 +475,7 @@ export default function OrderDetailPage() {
               );
               return (
                 <div key={line.id} className="px-4 py-3">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <div className="text-sm font-medium text-slate-900">
                         {line.title}
@@ -483,7 +485,7 @@ export default function OrderDetailPage() {
                         {line.quantity} ordered
                       </div>
                     </div>
-                    <div className="w-40 pt-1">
+                    <div className="w-full pt-1 sm:w-40">
                       <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                         <div
                           className="h-full bg-emerald-500"
@@ -492,7 +494,7 @@ export default function OrderDetailPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
                     {line.allocations.map((allocation) => (
                       <div
                         key={allocation.id}
@@ -535,7 +537,10 @@ export default function OrderDetailPage() {
         </div>
         <div className="divide-y divide-slate-100">
           {timeline.map((entry, index) => (
-            <div key={`${entry.type}-${entry.occurred_at}-${index}`} className="px-4 py-3">
+            <div
+              key={`${entry.type}-${entry.occurred_at}-${index}`}
+              className="px-4 py-3"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-medium text-slate-900">

@@ -6,6 +6,7 @@ import {
   stockTransfersApi,
   type Warehouse,
 } from "../../api/inventory";
+import { Modal } from "../ui/Modal";
 
 interface VariantOption {
   id: string;
@@ -102,10 +103,7 @@ export function TransferStockButton({
       >
         Transfer
       </button>
-      {open && (
-        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-5">
-            <h3 className="text-lg font-semibold mb-3">Transfer stock</h3>
+      <Modal open={open} onClose={() => setOpen(false)} size="md" title="Transfer stock">
             <form onSubmit={submit} className="space-y-3">
               <label className="block text-sm">
                 <span className="block text-slate-600 mb-1">Variant</span>
@@ -113,7 +111,7 @@ export function TransferStockButton({
                   required
                   value={variantId}
                   onChange={(e) => setVariantId(e.target.value)}
-                  className="w-full border border-slate-300 rounded px-3 py-2"
+                  className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                 >
                   <option value="">Select variant…</option>
                   {variants.map((v) => (
@@ -123,14 +121,14 @@ export function TransferStockButton({
                   ))}
                 </select>
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="text-sm">
                   <span className="block text-slate-600 mb-1">From</span>
                   <select
                     required
                     value={from}
                     onChange={(e) => setFrom(e.target.value)}
-                    className="w-full border border-slate-300 rounded px-3 py-2"
+                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                   >
                     <option value="">—</option>
                     {warehouses.map((w) => (
@@ -146,7 +144,7 @@ export function TransferStockButton({
                     required
                     value={to}
                     onChange={(e) => setTo(e.target.value)}
-                    className="w-full border border-slate-300 rounded px-3 py-2"
+                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                   >
                     <option value="">—</option>
                     {warehouses
@@ -168,7 +166,7 @@ export function TransferStockButton({
                   required
                   value={qty}
                   onChange={(e) => setQty(e.target.value)}
-                  className="w-full border border-slate-300 rounded px-3 py-2"
+                  className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                 />
               </label>
               {error && (
@@ -176,25 +174,23 @@ export function TransferStockButton({
                   {error}
                 </div>
               )}
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="text-sm px-3 py-1.5 rounded border border-slate-300"
+                  className="min-h-11 rounded border border-slate-300 px-3 text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="text-sm bg-amber-600 hover:bg-amber-700 text-white font-medium px-4 py-1.5 rounded"
+                  className="min-h-11 rounded bg-amber-600 px-4 text-sm font-medium text-white hover:bg-amber-700"
                 >
                   Transfer
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </>
   );
 }
@@ -314,25 +310,22 @@ export function ShowroomReportButton({
           </div>
         </div>
       )}
-      {open && (
-        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-5 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-1">
-              Post showroom sales report
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Records sales sold by a consignment showroom. Posts a sales
-              journal entry, COGS, and deducts inventory at the showroom.
-            </p>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        size="xl"
+        title="Post showroom sales report"
+          description="Records sales sold by a consignment showroom. Posts a sales journal entry, COGS, and deducts inventory at the showroom."
+      >
             <form onSubmit={submit} className="space-y-3">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <label className="text-sm">
                   <span className="block text-slate-600 mb-1">Showroom *</span>
                   <select
                     required
                     value={warehouseId}
                     onChange={(e) => setWarehouseId(e.target.value)}
-                    className="w-full border border-slate-300 rounded px-3 py-2"
+                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                   >
                     <option value="">Select showroom…</option>
                     {showrooms.map((w) => (
@@ -349,7 +342,7 @@ export function ShowroomReportButton({
                     required
                     value={period}
                     onChange={(e) => setPeriod(e.target.value)}
-                    className="w-full border border-slate-300 rounded px-3 py-2"
+                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                   />
                 </label>
                 <label className="text-sm">
@@ -358,7 +351,7 @@ export function ShowroomReportButton({
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value.toUpperCase())}
                     maxLength={3}
-                    className="w-full border border-slate-300 rounded px-3 py-2 uppercase"
+                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
                   />
                 </label>
               </div>
@@ -371,8 +364,9 @@ export function ShowroomReportButton({
                 </div>
               )}
 
-              <div className="border border-slate-200 rounded">
-                <table className="w-full text-sm">
+              <div className="rounded border border-slate-200">
+                <div className="overflow-x-auto">
+                <table className="min-w-[620px] text-sm">
                   <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
                     <tr>
                       <th className="px-2 py-2 text-left">Variant</th>
@@ -457,6 +451,7 @@ export function ShowroomReportButton({
                     ))}
                   </tbody>
                 </table>
+                </div>
                 <button
                   type="button"
                   onClick={() =>
@@ -465,7 +460,7 @@ export function ShowroomReportButton({
                       { variant_id: "", quantity: "", unit_price: "" },
                     ])
                   }
-                  className="w-full text-xs text-indigo-600 hover:bg-indigo-50 py-1.5 border-t border-slate-200"
+                  className="min-h-10 w-full border-t border-slate-200 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50"
                 >
                   + Add line
                 </button>
@@ -477,7 +472,7 @@ export function ShowroomReportButton({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
-                  className="w-full border border-slate-300 rounded px-3 py-2"
+                  className="w-full rounded border border-slate-300 px-3 py-2"
                 />
               </label>
 
@@ -487,26 +482,24 @@ export function ShowroomReportButton({
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="text-sm px-3 py-1.5 rounded border border-slate-300"
+                  className="min-h-11 rounded border border-slate-300 px-3 text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || noShowrooms}
-                  className="text-sm bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-medium px-4 py-1.5 rounded"
+                  className="min-h-11 rounded bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400"
                 >
                   {submitting ? "Posting…" : "Post report"}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </>
   );
 }

@@ -578,9 +578,9 @@ export default function ProductDetailPage() {
                   return (
                     <div key={v.id ?? `new-${idx}`} className="p-4 space-y-3">
                       {/* Row 1: title, sku, price, compare, inventory */}
-                      <div className="grid grid-cols-12 gap-2 items-start">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-12 sm:items-start">
                         {/* Title */}
-                        <div className="col-span-3">
+                        <div className="sm:col-span-3">
                           <label className="block text-[10px] font-medium text-slate-500 mb-1">
                             Title
                           </label>
@@ -594,7 +594,7 @@ export default function ProductDetailPage() {
                           />
                         </div>
                         {/* SKU */}
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <label className="block text-[10px] font-medium text-slate-500 mb-1">
                             SKU
                           </label>
@@ -608,7 +608,7 @@ export default function ProductDetailPage() {
                           />
                         </div>
                         {/* Price */}
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <label className="block text-[10px] font-medium text-slate-500 mb-1">
                             Price
                           </label>
@@ -630,7 +630,7 @@ export default function ProductDetailPage() {
                           )}
                         </div>
                         {/* Compare at */}
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <label className="block text-[10px] font-medium text-slate-500 mb-1">
                             Compare at
                           </label>
@@ -652,7 +652,7 @@ export default function ProductDetailPage() {
                           />
                         </div>
                         {/* Inventory */}
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                           <label className="block text-[10px] font-medium text-slate-500 mb-1">
                             Inventory
                           </label>
@@ -693,7 +693,7 @@ export default function ProductDetailPage() {
                           )}
                         </div>
                         {/* Actions */}
-                        <div className="col-span-1 flex flex-col items-end gap-1 pt-5">
+                        <div className="flex gap-3 pt-1 sm:col-span-1 sm:flex-col sm:items-end sm:gap-1 sm:pt-5">
                           <button
                             type="button"
                             onClick={() =>
@@ -721,8 +721,8 @@ export default function ProductDetailPage() {
 
                       {/* Expanded: extra fields */}
                       {v._expanded && (
-                        <div className="grid grid-cols-12 gap-2 pt-2 border-t border-slate-100">
-                          <div className="col-span-2">
+                        <div className="grid grid-cols-1 gap-2 border-t border-slate-100 pt-2 sm:grid-cols-12">
+                          <div className="sm:col-span-2">
                             <label className="block text-[10px] text-slate-500">
                               Barcode
                             </label>
@@ -734,7 +734,7 @@ export default function ProductDetailPage() {
                               className="w-full rounded border border-slate-200 px-2 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-400"
                             />
                           </div>
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <label className="block text-[10px] text-slate-500">
                               Cost per item
                             </label>
@@ -751,7 +751,7 @@ export default function ProductDetailPage() {
                               className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
                             />
                           </div>
-                          <div className="col-span-1">
+                          <div className="sm:col-span-1">
                             <label className="block text-[10px] text-slate-500">
                               Weight
                             </label>
@@ -766,7 +766,7 @@ export default function ProductDetailPage() {
                               className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
                             />
                           </div>
-                          <div className="col-span-1">
+                          <div className="sm:col-span-1">
                             <label className="block text-[10px] text-slate-500">
                               Unit
                             </label>
@@ -786,7 +786,7 @@ export default function ProductDetailPage() {
                               <option value="oz">oz</option>
                             </select>
                           </div>
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <label className="block text-[10px] text-slate-500">
                               Inventory policy
                             </label>
@@ -804,7 +804,7 @@ export default function ProductDetailPage() {
                               <option value="continue">Continue selling</option>
                             </select>
                           </div>
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <label className="block text-[10px] text-slate-500">
                               HS code
                             </label>
@@ -816,7 +816,7 @@ export default function ProductDetailPage() {
                               className="w-full rounded border border-slate-200 px-2 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-400"
                             />
                           </div>
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <label className="block text-[10px] text-slate-500">
                               Country of origin
                             </label>
@@ -832,7 +832,7 @@ export default function ProductDetailPage() {
                               className="w-full rounded border border-slate-200 px-2 py-1 text-xs uppercase focus:outline-none focus:ring-1 focus:ring-indigo-400"
                             />
                           </div>
-                          <div className="col-span-12 flex items-center gap-4 pt-1">
+                          <div className="flex flex-col gap-2 pt-1 sm:col-span-12 sm:flex-row sm:items-center sm:gap-4">
                             <label className="inline-flex items-center gap-1.5 text-xs text-slate-600">
                               <input
                                 type="checkbox"
@@ -1047,7 +1047,7 @@ export default function ProductDetailPage() {
                   .map((row, idx) => (
                     <div
                       key={`${row.namespace}-${row.key}-${idx}`}
-                      className="grid grid-cols-12 gap-1.5"
+                      className="grid grid-cols-1 gap-1.5 sm:grid-cols-12"
                     >
                       <input
                         value={row.namespace}
@@ -1057,7 +1057,7 @@ export default function ProductDetailPage() {
                           })
                         }
                         placeholder="namespace"
-                        className="col-span-3 rounded border border-slate-300 px-2 py-1.5 text-xs"
+                        className="rounded border border-slate-300 px-2 py-1.5 text-xs sm:col-span-3"
                       />
                       <input
                         value={row.key}
@@ -1065,7 +1065,7 @@ export default function ProductDetailPage() {
                           updateCustomMetafield(idx, { key: e.target.value })
                         }
                         placeholder="key"
-                        className="col-span-3 rounded border border-slate-300 px-2 py-1.5 text-xs"
+                        className="rounded border border-slate-300 px-2 py-1.5 text-xs sm:col-span-3"
                       />
                       <input
                         value={row.value}
@@ -1073,12 +1073,12 @@ export default function ProductDetailPage() {
                           updateCustomMetafield(idx, { value: e.target.value })
                         }
                         placeholder="value"
-                        className="col-span-5 rounded border border-slate-300 px-2 py-1.5 text-xs"
+                        className="rounded border border-slate-300 px-2 py-1.5 text-xs sm:col-span-5"
                       />
                       <button
                         type="button"
                         onClick={() => removeCustomMetafield(idx)}
-                        className="col-span-1 text-xs text-slate-400 hover:text-red-500"
+                        className="min-h-10 text-left text-xs text-slate-400 hover:text-red-500 sm:col-span-1 sm:text-center"
                       >
                         ×
                       </button>

@@ -7,6 +7,8 @@ import DataTable, {
   type SortDir,
 } from "../components/table/DataTable";
 import ImportExportBar from "../components/table/ImportExportBar";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { PageContainer } from "../components/ui/PageContainer";
 
 export default function CustomersPage() {
   const [rows, setRows] = useState<Customer[]>([]);
@@ -203,15 +205,15 @@ export default function CustomersPage() {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-end justify-between mb-6">
+    <PageContainer>
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Customers</h1>
           <p className="text-sm text-slate-500 mt-1">
             {total} customer{total === 1 ? "" : "s"} · Shopify + manual
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end">
           <input
             type="text"
             value={searchInput}
@@ -223,7 +225,7 @@ export default function CustomersPage() {
               }
             }}
             placeholder="Search name / email / phone…"
-            className="w-72 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 lg:w-72"
           />
           <ImportExportBar
             resource="customers"
@@ -236,7 +238,7 @@ export default function CustomersPage() {
           />
           <Link
             to="/customers/new"
-            className="inline-flex items-center gap-1 bg-indigo-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-indigo-700"
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             + New customer
           </Link>
@@ -271,8 +273,54 @@ export default function CustomersPage() {
         }}
         selectable
         bulkActions={bulkActions}
+        mobileCardRenderer={(customer, context) => {
+          const address = customer.default_address || {};
+          const city = (address.city as string) || "";
+          const country = (address.country as string) || "";
+          return (
+            <MobileRowCard
+              title={
+                <Link
+                  to={`/customers/${customer.id}`}
+                  className="font-medium text-indigo-700 hover:underline"
+                >
+                  {customer.display_name || customer.email || "Customer"}
+                </Link>
+              }
+              subtitle={customer.email || "No email"}
+              meta={`${Number(customer.total_spent).toFixed(2)} ${customer.currency}`}
+              selectedControl={
+                <input
+                  type="checkbox"
+                  checked={context.checked}
+                  onChange={context.toggleSelected}
+                  onClick={(event) => event.stopPropagation()}
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  aria-label={`Select customer ${customer.display_name || customer.email}`}
+                />
+              }
+              fields={[
+                { label: "Orders", value: customer.orders_count },
+                { label: "Location", value: [city, country].filter(Boolean).join(", ") || "-" },
+                { label: "Source", value: customer.source === "shopify" ? "Shopify" : "Manual" },
+                {
+                  label: "Last order",
+                  value: customer.last_order_at ? new Date(customer.last_order_at).toLocaleDateString() : "No orders",
+                },
+              ]}
+              actions={
+                <Link
+                  to={`/customers/${customer.id}`}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  Open customer
+                </Link>
+              }
+            />
+          );
+        }}
         syncToUrl={false}
       />
-    </div>
+    </PageContainer>
   );
 }

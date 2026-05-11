@@ -12,6 +12,9 @@ import DataTable, {
   type SortDir,
 } from "../components/table/DataTable";
 import StagesDrawer from "../components/manufacturing/StagesDrawer";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { Modal } from "../components/ui/Modal";
+import { PageContainer } from "../components/ui/PageContainer";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700 ring-gray-500/20",
@@ -189,22 +192,22 @@ export default function ProductionPage() {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-start justify-between">
+    <PageContainer className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Production</h1>
           <p className="text-sm text-slate-500 mt-1">
             {total.toLocaleString()} production order(s)
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 xs:flex-row xs:flex-wrap xs:items-center sm:justify-end">
           <select
             value={status}
             onChange={(e) => {
               setParam("page", "1");
               setParam("status", e.target.value);
             }}
-            className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="">All statuses</option>
             <option value="draft">Draft</option>
@@ -214,7 +217,7 @@ export default function ProductionPage() {
           </select>
           <button
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-1 bg-indigo-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-indigo-700"
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             + New production order
           </button>
@@ -247,6 +250,57 @@ export default function ProductionPage() {
           sp.set("page", "1");
           setSearchParams(sp, { replace: true });
         }}
+        mobileCardRenderer={(order) => (
+          <MobileRowCard
+            title={<span className="font-medium text-slate-900">{order.number}</span>}
+            subtitle={
+              order.parent_variant
+                ? `${order.parent_variant.product_title}${order.parent_variant.title ? ` · ${order.parent_variant.title}` : ""}`
+                : "No parent variant"
+            }
+            meta={
+              <span
+                className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+                  STATUS_STYLES[order.status] || STATUS_STYLES.draft
+                }`}
+              >
+                {order.status.replace("_", " ")}
+              </span>
+            }
+            fields={[
+              { label: "SKU", value: order.parent_variant?.sku || "-" },
+              { label: "Warehouse", value: order.warehouse_name || "-" },
+              { label: "Quantity", value: order.quantity },
+              { label: "Created", value: new Date(order.created_at).toLocaleString() },
+            ]}
+            actions={
+              <>
+                <button
+                  onClick={() => setStagesFor(order.id)}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  Stages
+                </button>
+                {order.status === "draft" && (
+                  <button
+                    onClick={() => runOrder(order)}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700"
+                  >
+                    Run
+                  </button>
+                )}
+                {(order.status === "draft" || order.status === "in_progress") && (
+                  <button
+                    onClick={() => cancelOrder(order)}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md bg-rose-50 px-3 text-sm font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20 hover:bg-rose-100"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </>
+            }
+          />
+        )}
         syncToUrl={false}
       />
 
@@ -274,7 +328,7 @@ export default function ProductionPage() {
           Open BOM editor →
         </Link>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -342,17 +396,8 @@ function NewProductionOrderModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4">
-        <div className="flex items-start justify-between">
-          <h2 className="text-lg font-semibold">New production order</h2>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-700"
-          >
-            ✕
-          </button>
-        </div>
+    <Modal open onClose={onClose} size="md" title="New production order">
+      <div className="space-y-4">
 
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-600">
@@ -381,7 +426,7 @@ function NewProductionOrderModal({
                 value={variantQuery}
                 onChange={(e) => setVariantQuery(e.target.value)}
                 placeholder="Search SKU or product name…"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
               {variantResults.length > 0 && (
                 <div className="border border-slate-200 rounded-lg max-h-48 overflow-auto divide-y divide-slate-100">
@@ -393,7 +438,7 @@ function NewProductionOrderModal({
                         setVariantQuery("");
                         setVariantResults([]);
                       }}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+                      className="w-full min-h-11 px-3 py-2 text-left text-sm hover:bg-slate-50"
                     >
                       <div className="font-medium">{v.product_title}</div>
                       <div className="text-xs text-slate-500">
@@ -415,7 +460,7 @@ function NewProductionOrderModal({
           <select
             value={warehouseId}
             onChange={(e) => setWarehouseId(e.target.value)}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             {warehouses.map((w) => (
               <option key={w.id} value={w.id}>
@@ -432,7 +477,7 @@ function NewProductionOrderModal({
             min={1}
             value={quantity}
             onChange={(e) => setQuantity(parseInt(e.target.value || "0", 10))}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
 
@@ -442,28 +487,28 @@ function NewProductionOrderModal({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
 
         {err && <div className="text-sm text-rose-600">{err}</div>}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <button
             onClick={onClose}
-            className="px-3 py-2 text-sm rounded-lg border border-slate-300 hover:bg-slate-50"
+            className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm hover:bg-slate-50"
           >
             Cancel
           </button>
           <button
             onClick={submit}
             disabled={submitting}
-            className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60"
+            className="min-h-11 rounded-lg bg-indigo-600 px-3 text-sm text-white hover:bg-indigo-700 disabled:opacity-60"
           >
             {submitting ? "Creating…" : "Create"}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -99,7 +99,7 @@ export default function RefundDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <section className="bg-white rounded-xl border border-slate-200 p-4 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900 mb-3">Refund</h2>
-          <dl className="grid grid-cols-2 gap-3 text-sm">
+          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
             <Info label="Reason" value={refund.reason || "-"} />
             <Info label="Processed" value={formatDate(refund.processed_at)} />
             <Info label="Restock" value={refund.restock ? "Yes" : "No"} />
@@ -159,7 +159,8 @@ export default function RefundDetailPage() {
         <div className="px-4 py-3 border-b border-slate-200 text-sm font-semibold text-slate-900">
           Refunded items
         </div>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="min-w-[640px] text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
               <th className="px-4 py-2 text-left">Item</th>
@@ -190,6 +191,7 @@ export default function RefundDetailPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

@@ -6,6 +6,8 @@ import DataTable, {
   type SortDir,
 } from "../components/table/DataTable";
 import ImportExportBar from "../components/table/ImportExportBar";
+import { MobileRowCard } from "../components/table/MobileRowCard";
+import { PageContainer } from "../components/ui/PageContainer";
 
 const STATUS_STYLES: Record<string, string> = {
   success: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
@@ -201,8 +203,8 @@ export default function ShipmentsPage() {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
+    <PageContainer className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="flex-1">
           <h1 className="text-2xl font-semibold text-slate-900">Shipments</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -271,12 +273,12 @@ export default function ShipmentsPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center">
         <input
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search tracking, order, customer..."
-          className="w-72 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-72"
         />
         <select
           value={carrier}
@@ -284,7 +286,7 @@ export default function ShipmentsPage() {
             setParam("carrier", e.target.value);
             setParam("page", "1");
           }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
           <option value="">All carriers</option>
           <option value="bosta">Bosta</option>
@@ -298,7 +300,7 @@ export default function ShipmentsPage() {
             setParam("status", e.target.value);
             setParam("page", "1");
           }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
           <option value="">All statuses</option>
           {Object.keys(STATUS_STYLES).map((value) => (
@@ -313,7 +315,7 @@ export default function ShipmentsPage() {
             setParam("source", e.target.value);
             setParam("page", "1");
           }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
           <option value="">All sources</option>
           <option value="shopify">Shopify</option>
@@ -327,7 +329,7 @@ export default function ShipmentsPage() {
             setParam("page", "1");
           }}
           placeholder="Delivery status"
-          className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-40"
         />
       </div>
 
@@ -353,9 +355,56 @@ export default function ShipmentsPage() {
           sp.set("page", "1");
           setSearchParams(sp, { replace: true });
         }}
+        mobileCardRenderer={(shipment) => (
+          <MobileRowCard
+            title={
+              <Link
+                to={`/shipments/${shipment.id}`}
+                className="font-mono text-indigo-700 hover:underline"
+              >
+                {shipment.tracking_number || shipment.id.slice(0, 8)}
+              </Link>
+            }
+            subtitle={shipment.customer?.name || shipment.customer?.email || "No customer"}
+            meta={<StatusBadge value={shipment.delivery_status} />}
+            fields={[
+              { label: "Carrier", value: shipment.carrier || shipment.tracking_company || "-" },
+              { label: "Status", value: <StatusBadge value={shipment.status} /> },
+              {
+                label: "Order",
+                value: shipment.order ? (
+                  <Link
+                    to={`/orders/${shipment.order.id}`}
+                    className="font-mono text-indigo-700 hover:underline"
+                  >
+                    {shipment.order.order_number}
+                  </Link>
+                ) : (
+                  shipment.order_id.slice(0, 8)
+                ),
+              },
+              {
+                label: "Shipped",
+                value: shipment.shipped_at ? new Date(shipment.shipped_at).toLocaleDateString() : "-",
+              },
+              {
+                label: "Delivered",
+                value: shipment.delivered_at ? new Date(shipment.delivered_at).toLocaleDateString() : "-",
+              },
+            ]}
+            actions={
+              <Link
+                to={`/shipments/${shipment.id}`}
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+              >
+                Open shipment
+              </Link>
+            }
+          />
+        )}
         syncToUrl={false}
       />
-    </div>
+    </PageContainer>
   );
 }
 

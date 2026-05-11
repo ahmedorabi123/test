@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { refundsApi } from "../../api/refunds";
 import { warehousesApi, type Warehouse } from "../../api/inventory";
 import api from "../../api/client";
+import { Modal } from "../ui/Modal";
 
 interface OrderOption {
   id: string;
@@ -186,21 +187,15 @@ export default function ManualRefundButton({
       >
         + Manual refund
       </button>
-      {open && (
-        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-baseline justify-between mb-3">
-              <h3 className="text-lg font-semibold">New manual refund</h3>
-              <button
-                onClick={() => {
-                  reset();
-                  setOpen(false);
-                }}
-                className="text-slate-400 hover:text-slate-700"
-              >
-                ✕
-              </button>
-            </div>
+      <Modal
+        open={open}
+        onClose={() => {
+          reset();
+          setOpen(false);
+        }}
+        size="xl"
+        title="New manual refund"
+      >
             <form onSubmit={submit} className="space-y-3">
               <div className="relative">
                 <label className="block text-sm">
@@ -212,7 +207,7 @@ export default function ManualRefundButton({
                       setOrder(null);
                     }}
                     placeholder="Search by order # or email"
-                    className="w-full border border-slate-300 rounded px-3 py-2"
+                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                   />
                 </label>
                 {orderResults.length > 0 && !order && (
@@ -221,7 +216,7 @@ export default function ManualRefundButton({
                       <li
                         key={o.id}
                         onClick={() => pickOrder(o.id)}
-                        className="px-3 py-2 hover:bg-indigo-50 cursor-pointer flex justify-between"
+                        className="flex cursor-pointer flex-col gap-1 px-3 py-2 hover:bg-indigo-50 sm:flex-row sm:justify-between"
                       >
                         <span>
                           <strong>{o.order_number}</strong> —{" "}
@@ -243,8 +238,9 @@ export default function ManualRefundButton({
                       {orderIneligibleReason(order)}
                     </div>
                   )}
-                  <div className="border border-slate-200 rounded">
-                    <table className="w-full text-sm">
+                  <div className="rounded border border-slate-200">
+                    <div className="overflow-x-auto">
+                    <table className="min-w-[680px] text-sm">
                       <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
                         <tr>
                           <th className="px-2 py-2 text-left">Line item</th>
@@ -325,9 +321,10 @@ export default function ManualRefundButton({
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <label className="text-sm">
                       <span className="block text-slate-600 mb-1">
                         Total amount *
@@ -339,7 +336,7 @@ export default function ManualRefundButton({
                         required
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
-                        className="w-full border border-slate-300 rounded px-3 py-2"
+                        className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                       />
                     </label>
                     <label className="text-sm">
@@ -347,7 +344,7 @@ export default function ManualRefundButton({
                       <select
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
-                        className="w-full border border-slate-300 rounded px-3 py-2"
+                        className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
                       >
                         <option value="">—</option>
                         <option value="customer_change">
@@ -375,7 +372,7 @@ export default function ManualRefundButton({
                         value={restockWarehouseId}
                         onChange={(e) => setRestockWarehouseId(e.target.value)}
                         disabled={!restock}
-                        className="w-full border border-slate-300 rounded px-3 py-2 disabled:bg-slate-100"
+                        className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 disabled:bg-slate-100"
                       >
                         <option value="">—</option>
                         {warehouses.map((w) => (
@@ -393,7 +390,7 @@ export default function ManualRefundButton({
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       rows={2}
-                      className="w-full border border-slate-300 rounded px-3 py-2"
+                      className="w-full rounded border border-slate-300 px-3 py-2"
                     />
                   </label>
                 </>
@@ -405,29 +402,31 @@ export default function ManualRefundButton({
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => {
                     reset();
                     setOpen(false);
                   }}
-                  className="text-sm px-3 py-1.5 rounded border border-slate-300"
+                  className="min-h-11 rounded border border-slate-300 px-3 text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || !order || orderIneligibleReason(order) !== null}
-                  className="text-sm bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white font-medium px-4 py-1.5 rounded"
+                  disabled={
+                    submitting ||
+                    !order ||
+                    orderIneligibleReason(order) !== null
+                  }
+                  className="min-h-11 rounded bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-slate-400"
                 >
                   {submitting ? "Posting…" : "Post refund"}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </>
   );
 }

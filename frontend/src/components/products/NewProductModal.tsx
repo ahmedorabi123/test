@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { productsApi, type Product, type Variant } from "../../api/products";
+import { Modal } from "../ui/Modal";
 
 interface Props {
   onClose: () => void;
@@ -111,32 +112,8 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 p-4 sm:p-8"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-2xl rounded-xl bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">New product</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-            aria-label="Close"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M4.3 4.3a1 1 0 011.4 0L10 8.6l4.3-4.3a1 1 0 111.4 1.4L11.4 10l4.3 4.3a1 1 0 01-1.4 1.4L10 11.4l-4.3 4.3a1 1 0 01-1.4-1.4L8.6 10 4.3 5.7a1 1 0 010-1.4z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={submit} className="px-6 py-4 space-y-5">
+    <Modal open onClose={onClose} size="xl" title="New product">
+        <form onSubmit={submit} className="space-y-5">
           {error && (
             <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
               {error}
@@ -152,11 +129,11 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Classic Tee"
               required
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+              className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Handle
@@ -165,7 +142,7 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
                 value={handle}
                 onChange={(e) => setHandle(e.target.value)}
                 placeholder="auto-generated from title"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               />
             </div>
             <div>
@@ -177,7 +154,7 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
                 onChange={(e) =>
                   setStatus(e.target.value as "active" | "draft" | "archived")
                 }
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               >
                 <option value="draft">Draft</option>
                 <option value="active">Active</option>
@@ -186,7 +163,7 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Vendor
@@ -195,7 +172,7 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
                 value={vendor}
                 onChange={(e) => setVendor(e.target.value)}
                 placeholder="e.g. ACME Apparel"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               />
             </div>
             <div>
@@ -206,7 +183,7 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
                 value={productType}
                 onChange={(e) => setProductType(e.target.value)}
                 placeholder="e.g. T-Shirts"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               />
             </div>
           </div>
@@ -242,7 +219,7 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
               {variants.map((v, idx) => (
                 <div
                   key={idx}
-                  className="grid grid-cols-12 gap-2 items-start rounded-lg border border-gray-200 p-2"
+                  className="grid grid-cols-1 items-start gap-2 rounded-lg border border-gray-200 p-2 sm:grid-cols-12"
                 >
                   <input
                     value={v.title}
@@ -250,7 +227,7 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
                       updateVariant(idx, { title: e.target.value })
                     }
                     placeholder="Title (e.g. Black / M)"
-                    className="col-span-4 rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                    className="min-h-10 rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 sm:col-span-4"
                   />
                   <input
                     value={v.sku}
@@ -258,7 +235,7 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
                       updateVariant(idx, { sku: e.target.value })
                     }
                     placeholder="SKU"
-                    className="col-span-3 rounded-md border border-gray-200 px-2 py-1.5 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                    className="min-h-10 rounded-md border border-gray-200 px-2 py-1.5 font-mono text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 sm:col-span-3"
                   />
                   <input
                     value={v.price}
@@ -269,7 +246,7 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
                     type="number"
                     step="0.01"
                     min="0"
-                    className="col-span-2 rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                    className="min-h-10 rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 sm:col-span-2"
                   />
                   <input
                     value={v.compare_at_price}
@@ -280,13 +257,13 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
                     type="number"
                     step="0.01"
                     min="0"
-                    className="col-span-2 rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none"
+                    className="min-h-10 rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 sm:col-span-2"
                   />
                   <button
                     type="button"
                     onClick={() => removeVariant(idx)}
                     disabled={variants.length === 1}
-                    className="col-span-1 text-xs text-red-500 hover:text-red-700 disabled:text-gray-300 disabled:cursor-not-allowed py-1.5"
+                    className="min-h-10 text-xs text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:text-gray-300 sm:col-span-1"
                     aria-label="Remove variant"
                   >
                     ✕
@@ -296,24 +273,23 @@ export default function NewProductModal({ onClose, onCreated }: Props) {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4 -mx-6 px-6 -mb-4 pb-4">
+          <div className="flex flex-col-reverse gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="min-h-11 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? "Creating…" : "Create product"}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

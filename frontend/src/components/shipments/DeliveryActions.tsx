@@ -56,8 +56,12 @@ export default function DeliveryActions({
       );
       onUpdated(updated);
     } catch (e) {
-      const err = e as { response?: { data?: { error?: { detail?: string } } } };
-      setError(err.response?.data?.error?.detail ?? "Failed to update delivery");
+      const err = e as {
+        response?: { data?: { error?: { detail?: string } } };
+      };
+      setError(
+        err.response?.data?.error?.detail ?? "Failed to update delivery",
+      );
     } finally {
       setBusy(null);
     }
@@ -77,9 +81,7 @@ export default function DeliveryActions({
           {busy === to ? "…" : LABEL[to]}
         </button>
       ))}
-      {error && (
-        <span className="text-xs text-rose-600">{error}</span>
-      )}
+      {error && <span className="text-xs text-rose-600">{error}</span>}
     </div>
   );
 }
