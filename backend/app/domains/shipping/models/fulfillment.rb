@@ -1,5 +1,6 @@
 class Fulfillment < ApplicationRecord
   STATUSES = %w[pending open success cancelled error failure].freeze
+  DELIVERY_STATUSES = %w[pending in_transit delivered failed].freeze
 
   belongs_to :order, inverse_of: :fulfillments
   has_many   :fulfillment_line_items, dependent: :destroy, inverse_of: :fulfillment
@@ -8,6 +9,7 @@ class Fulfillment < ApplicationRecord
   accepts_nested_attributes_for :fulfillment_line_items, allow_destroy: true
 
   validates :status, inclusion: { in: STATUSES }
+  validates :delivery_status, inclusion: { in: DELIVERY_STATUSES }, allow_nil: true
 
   before_validation :coerce_tags
   after_save        :sync_order_last_delivery_status, if: :saved_change_to_delivery_status?

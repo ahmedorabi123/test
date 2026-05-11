@@ -18,6 +18,7 @@ class FulfillmentSerializer
       carrier_data:            fulfillment.respond_to?(:carrier_data) ? fulfillment.carrier_data : {},
       shipped_at:              fulfillment.shipped_at,
       delivered_at:            fulfillment.delivered_at,
+      in_transit_at:           (fulfillment.respond_to?(:in_transit_at) ? fulfillment.in_transit_at : nil),
       location_id:             fulfillment.location_id,
       shopify_fulfillment_id:  fulfillment.shopify_fulfillment_id,
       created_at:              fulfillment.created_at,

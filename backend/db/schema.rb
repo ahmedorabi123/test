@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_08_123000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_11_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -164,6 +164,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_08_123000) do
     t.text "notes"
     t.jsonb "tags", default: [], null: false
     t.jsonb "carrier_data", default: {}, null: false
+    t.datetime "in_transit_at"
     t.index ["delivered_at"], name: "index_fulfillments_on_delivered_at"
     t.index ["delivery_status"], name: "index_fulfillments_on_delivery_status"
     t.index ["order_id", "created_at"], name: "idx_fulfillments_order_created_at_desc", order: { created_at: :desc }

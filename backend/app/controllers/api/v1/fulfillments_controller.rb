@@ -48,6 +48,24 @@ module Api
         render json: { data: FulfillmentSerializer.call(fulfillment.reload) }
       end
 
+      # POST /api/v1/fulfillments/:id/transition_delivery  { to: "in_transit" | "delivered" | "failed", note: "..." }
+      def transition_delivery
+        fulfillment = Fulfillment.find(params[:id])
+        authorize fulfillment, :transition_delivery?
+        target = params[:to].to_s
+        return render_error(400, "bad_request", "missing 'to'") if target.blank?
+
+        updated = Shipping::TransitionDelivery.call(
+          fulfillment,
+          to:    target,
+          actor: current_user,
+          note:  params[:note].presence
+        )
+        render json: { data: FulfillmentSerializer.call(updated) }
+      rescue Shipping::TransitionDelivery::InvalidTransition => e
+        render_error(422, "unprocessable_entity", e.message)
+      end
+
       # POST /api/v1/fulfillments
       # Creates a manual fulfillment (non-Shopify) for an ERP-only order.
       # Body: { fulfillment: { order_id:, tracking_company:, tracking_number:,

@@ -27,6 +27,9 @@ Rails.application.routes.draw do
   # API v1
   namespace :api do
     namespace :v1 do
+      # Dashboard (read-only aggregated metrics for the cockpit)
+      get "dashboard/summary", to: "dashboard#summary"
+
       # Users & RBAC
       resources :users, only: %i[index show create update destroy] do
         member do
@@ -103,6 +106,7 @@ Rails.application.routes.draw do
         member do
           get :events
           patch :annotation
+          post :transition_delivery
         end
       end
 
