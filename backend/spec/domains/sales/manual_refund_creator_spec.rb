@@ -55,6 +55,36 @@ RSpec.describe Sales::ManualRefundCreator do
         described_class.call(order_id: order.id, amount: "10", restock: true, restock_warehouse_id: warehouse.id)
       }.to raise_error(described_class::InvalidInput, /line_items/)
     end
+
+    it "rejects cancelled orders" do
+      order.update_columns(status: "cancelled")
+      expect {
+        described_class.call(order_id: order.id, amount: "10.00")
+      }.to raise_error(described_class::InvalidInput, /cancel/i)
+    end
+
+    it "rejects unpaid orders (pending financial_status)" do
+      order.update_columns(financial_status: "pending")
+      expect {
+        described_class.call(order_id: order.id, amount: "10.00")
+      }.to raise_error(described_class::InvalidInput, /paid|refund/i)
+    end
+
+    it "rejects voided orders" do
+      order.update_columns(financial_status: "voided")
+      expect {
+        described_class.call(order_id: order.id, amount: "10.00")
+      }.to raise_error(described_class::InvalidInput)
+    end
+
+    it "rejects refund qty exceeding line item available quantity" do
+      expect {
+        described_class.call(
+          order_id: order.id, amount: "125.00",
+          line_items: [ { order_line_item_id: line_item.id, quantity: 5, subtotal: "125.00" } ]
+        )
+      }.to raise_error(described_class::InvalidInput)
+    end
   end
 
   it "creates a refund and flags order partially_refunded" do

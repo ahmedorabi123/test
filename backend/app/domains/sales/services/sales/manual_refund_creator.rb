@@ -30,9 +30,12 @@ module Sales
       @attrs = attrs.to_h.with_indifferent_access
     end
 
+    REFUNDABLE_FINANCIAL_STATES = %w[paid partially_paid partially_refunded].freeze
+
     def call
       validate!
       order = Order.find(@attrs[:order_id])
+      ensure_order_refundable!(order)
       amount = @attrs[:amount].to_d
       raise InvalidInput, "amount must be > 0" if amount <= 0
 
@@ -42,9 +45,10 @@ module Sales
         return existing
       end
 
-      already_refunded = order.refunds.sum(:amount).to_d
+      already_refunded = order.refunds.where.not(status: "cancelled").sum(:amount).to_d
       remaining = order.total_price.to_d - already_refunded
       raise InvalidInput, "amount exceeds remaining refundable (#{remaining})" if amount > remaining
+      validate_line_quantities!(order)
 
       Refund.transaction do
         status = @attrs[:status].presence_in(::Refund::STATUSES) || "processed"
@@ -89,6 +93,41 @@ module Sales
     def line_items_selected?
       Array(@attrs[:line_items]).any? do |li|
         li.to_h.with_indifferent_access[:quantity].to_i.positive?
+      end
+    end
+
+    def ensure_order_refundable!(order)
+      if order.status.to_s == "cancelled"
+        raise InvalidInput, "Order is cancelled — issue a void instead; cancellation already reversed the books."
+      end
+      unless REFUNDABLE_FINANCIAL_STATES.include?(order.financial_status.to_s)
+        raise InvalidInput,
+              "Only paid orders can be refunded (financial_status=#{order.financial_status}). " \
+              "Unpaid orders must be voided or cancelled instead."
+      end
+    end
+
+    def validate_line_quantities!(order)
+      return if Array(@attrs[:line_items]).empty?
+
+      already_per_oli = RefundLineItem.joins(:refund)
+                                      .where(refunds: { order_id: order.id })
+                                      .where.not(refunds: { status: "cancelled" })
+                                      .group(:order_line_item_id).sum(:quantity)
+
+      Array(@attrs[:line_items]).each do |li|
+        h = li.to_h.with_indifferent_access
+        qty = h[:quantity].to_i
+        next if qty <= 0
+        oli = order.line_items.find_by(id: h[:order_line_item_id])
+        raise InvalidInput, "order_line_item #{h[:order_line_item_id]} not found on order" unless oli
+
+        already = already_per_oli[oli.id].to_i
+        remaining = oli.quantity.to_i - already
+        if qty > remaining
+          raise InvalidInput,
+                "refund quantity #{qty} exceeds remaining refundable #{remaining} for line item #{oli.id}"
+        end
       end
     end
 
@@ -160,6 +199,11 @@ module Sales
 
     def post_journal(refund)
       ::Accounting::PartialRefundJournalHandler.call(refund)
+      begin
+        ::Accounting::PostCogsReversalHandler.call(refund.reload)
+      rescue StandardError => e
+        Rails.logger.error "[ManualRefundCreator] COGS reversal failed for refund=#{refund.id}: #{e.message}"
+      end
     end
 
     def flag_order_status(order)

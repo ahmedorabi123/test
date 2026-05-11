@@ -27,6 +27,13 @@ RSpec.describe Sales::OrderStateMachine do
         described_class.call(order, to: "processing")
       }.to raise_error(Sales::OrderStateMachine::InvalidTransition)
     end
+
+    it "rejects fulfilled → cancelled (use refund/return instead)" do
+      order.update!(status: "fulfilled")
+      expect {
+        described_class.call(order, to: "cancelled")
+      }.to raise_error(Sales::OrderStateMachine::InvalidTransition)
+    end
   end
 
   describe "financial transitions" do

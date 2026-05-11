@@ -37,6 +37,7 @@ module Shipping
     def call
       raise InvalidInput, "order is required"            unless @order
       raise InvalidInput, "tracking_company is required" if @tracking_company.blank?
+      ensure_order_shippable!
 
       fulfillment = nil
       ApplicationRecord.transaction do
@@ -91,6 +92,19 @@ module Shipping
     end
 
     private
+
+    BLOCKED_ORDER_STATES = %w[cancelled].freeze
+    BLOCKED_FINANCIAL_STATES = %w[voided refunded].freeze
+
+    def ensure_order_shippable!
+      if BLOCKED_ORDER_STATES.include?(@order.status.to_s)
+        raise InvalidInput, "Cannot create a shipment for a #{@order.status} order."
+      end
+      if BLOCKED_FINANCIAL_STATES.include?(@order.financial_status.to_s)
+        raise InvalidInput,
+              "Cannot create a shipment for an order with financial_status=#{@order.financial_status}."
+      end
+    end
 
     def fulfillment_rows
       rows = @line_items.presence

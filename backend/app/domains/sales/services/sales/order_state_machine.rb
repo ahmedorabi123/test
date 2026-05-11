@@ -17,10 +17,13 @@ module Sales
   class OrderStateMachine
     class InvalidTransition < StandardError; end
 
+    # NOTE: Once goods have shipped, an order can no longer be cancelled —
+    # it must be returned/refunded. This is enforced by removing "cancelled"
+    # from `fulfilled`'s legal next states.
     LEGAL_STATUS = {
       "pending"    => %w[processing fulfilled cancelled],
       "processing" => %w[fulfilled cancelled],
-      "fulfilled"  => %w[cancelled],
+      "fulfilled"  => [],
       "cancelled"  => [],
       "refunded"   => []
     }.freeze

@@ -81,4 +81,25 @@ RSpec.describe Shipping::CreateManualFulfillment do
       described_class.call(order: order, tracking_company: "")
     }.to raise_error(Shipping::CreateManualFulfillment::InvalidInput)
   end
+
+  it "rejects cancelled orders" do
+    order.update_columns(status: "cancelled")
+    expect {
+      described_class.call(order: order, tracking_company: "Bosta", tracking_number: "X")
+    }.to raise_error(Shipping::CreateManualFulfillment::InvalidInput, /cancelled/i)
+  end
+
+  it "rejects voided orders" do
+    order.update_columns(financial_status: "voided")
+    expect {
+      described_class.call(order: order, tracking_company: "Bosta", tracking_number: "X")
+    }.to raise_error(Shipping::CreateManualFulfillment::InvalidInput)
+  end
+
+  it "rejects fully refunded orders" do
+    order.update_columns(financial_status: "refunded")
+    expect {
+      described_class.call(order: order, tracking_company: "Bosta", tracking_number: "X")
+    }.to raise_error(Shipping::CreateManualFulfillment::InvalidInput)
+  end
 end

@@ -109,24 +109,30 @@ module Api
       end
 
       # POST /api/v1/orders/bulk  (cancel/tag — no deletion)
+      # Cancellations route through Sales::OrderStateMachine so reservations
+      # are released, sale journals reversed and audit logs recorded —
+      # never raw-update status here.
       def bulk
         authorize Order, :index?
         ids = Array(params[:ids])
         action_type = params[:action_type].to_s
         scope = Order.where(id: ids)
         count = 0
+        skipped = []
 
         case action_type
         when "cancel"
           scope.where.not(status: "cancelled").find_each do |o|
-            o.update!(status: "cancelled", cancelled_at: Time.current)
+            Sales::OrderStateMachine.call(o, to: "cancelled", actor: current_user)
             count += 1
+          rescue Sales::OrderStateMachine::InvalidTransition => e
+            skipped << { id: o.id, reason: e.message }
           end
         else
           return render_error(400, "bad_request", "Unsupported action: #{action_type}")
         end
 
-        render json: { data: { action: action_type, affected: count } }
+        render json: { data: { action: action_type, affected: count, skipped: skipped } }
       end
 
       # POST /api/v1/orders/:id/transition  { to: "paid" | "fulfilled" | "cancelled" | ... }
