@@ -5,6 +5,7 @@ import {
   type Fulfillment,
   type ShipmentEvent,
 } from "../api/fulfillments";
+import DeliveryActions from "../components/shipments/DeliveryActions";
 
 function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleString() : "-";
@@ -83,6 +84,15 @@ export default function ShipmentDetailPage() {
           <span className="rounded bg-slate-100 px-2 py-1 capitalize">
             {shipment.carrier || shipment.tracking_company || "carrier unknown"}
           </span>
+        </div>
+        <div className="mt-3">
+          <DeliveryActions
+            fulfillment={shipment}
+            onUpdated={(updated) => {
+              setShipment(updated);
+              fulfillmentsApi.events(updated.id).then(setEvents).catch(() => {});
+            }}
+          />
         </div>
       </div>
 

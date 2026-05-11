@@ -7,6 +7,7 @@ import {
   type OrderTimelineEntry,
 } from "../api/orders";
 import ManualFulfillmentButton from "../components/shipping/ManualFulfillmentButton";
+import DeliveryActions from "../components/shipments/DeliveryActions";
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
@@ -574,16 +575,29 @@ export default function OrderDetailPage() {
             {(order.fulfillments ?? []).map((f) => (
               <div key={f.id} className="px-4 py-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium font-mono">
+                  <Link
+                    to={`/shipments/${f.id}`}
+                    className="font-medium font-mono text-indigo-700 hover:underline"
+                  >
                     {f.tracking_number ?? "—"}
-                  </span>
+                  </Link>
                   <Badge value={f.status} map={STATUS_STYLES} />
                 </div>
-                {f.carrier && (
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    {f.carrier}
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <div className="text-xs text-slate-500">
+                    {f.carrier && <span>{f.carrier}</span>}
+                    {f.delivery_status && (
+                      <span className="ml-2 capitalize">
+                        · {f.delivery_status.replace(/_/g, " ")}
+                      </span>
+                    )}
                   </div>
-                )}
+                  <DeliveryActions
+                    fulfillment={f}
+                    onUpdated={reloadOrder}
+                    size="sm"
+                  />
+                </div>
               </div>
             ))}
           </div>

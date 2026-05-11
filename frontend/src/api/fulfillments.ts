@@ -31,6 +31,7 @@ export interface Fulfillment {
   carrier_data?: Record<string, unknown>;
   shipped_at: string | null;
   delivered_at: string | null;
+  in_transit_at?: string | null;
   location_id: number | null;
   shopify_fulfillment_id: number | null;
   created_at: string;
@@ -109,5 +110,17 @@ export const fulfillmentsApi = {
   }) =>
     api
       .post<{ data: Fulfillment }>("/fulfillments", { fulfillment: payload })
+      .then((r) => r.data.data),
+
+  transitionDelivery: (
+    id: string,
+    to: "in_transit" | "delivered" | "failed",
+    note?: string,
+  ) =>
+    api
+      .post<{ data: Fulfillment }>(`/fulfillments/${id}/transition_delivery`, {
+        to,
+        note,
+      })
       .then((r) => r.data.data),
 };

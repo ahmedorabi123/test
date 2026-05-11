@@ -142,12 +142,6 @@ const navItems: NavItem[] = [
     phase: "live",
     resource: "user",
   },
-  {
-    label: "Settings",
-    path: "/settings",
-    icon: <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
-    phase: "soon",
-  },
 ];
 
 export default function Sidebar() {

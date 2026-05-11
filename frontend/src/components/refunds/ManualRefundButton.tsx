@@ -22,6 +22,26 @@ interface OrderLineItem {
 
 interface OrderDetail extends OrderOption {
   line_items: OrderLineItem[];
+  status?: string;
+  financial_status?: string;
+}
+
+const REFUNDABLE_FINANCIAL_STATES = [
+  "paid",
+  "partially_paid",
+  "partially_refunded",
+];
+
+function orderIneligibleReason(o: OrderDetail | null): string | null {
+  if (!o) return null;
+  if (o.status === "cancelled") return "Cancelled orders cannot be refunded.";
+  if (
+    o.financial_status &&
+    !REFUNDABLE_FINANCIAL_STATES.includes(o.financial_status)
+  ) {
+    return `Order is ${o.financial_status.replace(/_/g, " ")} — only paid, partially paid, or partially refunded orders can be refunded.`;
+  }
+  return null;
 }
 
 interface RefundLineDraft {
@@ -98,6 +118,11 @@ export default function ManualRefundButton({
     e.preventDefault();
     if (!order) return;
     setError("");
+    const ineligible = orderIneligibleReason(order);
+    if (ineligible) {
+      setError(ineligible);
+      return;
+    }
     if (Number(amount) <= 0) {
       setError("Amount must be > 0");
       return;
@@ -213,6 +238,11 @@ export default function ManualRefundButton({
 
               {order && (
                 <>
+                  {orderIneligibleReason(order) && (
+                    <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2">
+                      {orderIneligibleReason(order)}
+                    </div>
+                  )}
                   <div className="border border-slate-200 rounded">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
@@ -388,7 +418,7 @@ export default function ManualRefundButton({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || !order}
+                  disabled={submitting || !order || orderIneligibleReason(order) !== null}
                   className="text-sm bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white font-medium px-4 py-1.5 rounded"
                 >
                   {submitting ? "Posting…" : "Post refund"}
