@@ -60,6 +60,8 @@ export const purchaseOrdersApi = {
       status?: string;
       supplier_id?: string;
       search?: string;
+      sort?: string;
+      dir?: "asc" | "desc";
     } = {},
   ) =>
     api

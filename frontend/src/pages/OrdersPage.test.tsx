@@ -1,11 +1,14 @@
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { server } from "../test/server";
 import { renderWithProviders } from "../test/renderWithProviders";
+import { setBreakpoint } from "../test/breakpoint";
 import OrdersPage from "./OrdersPage";
 
 describe("OrdersPage", () => {
+  beforeEach(() => setBreakpoint("desktop"));
+
   it("renders the Orders heading and an order row from the API", async () => {
     server.use(
       http.get("*/api/v1/orders", () =>
@@ -55,5 +58,28 @@ describe("OrdersPage", () => {
         screen.getByText(/service unavailable|failed|error/i)
       ).toBeInTheDocument();
     });
+  });
+
+  it("places the Delivery column before the Delivery method column", async () => {
+    server.use(
+      http.get("*/api/v1/orders", () =>
+        HttpResponse.json({
+          data: [],
+          meta: { total: 0, page: 1, per_page: 25, summary: { total_value: "0" } },
+        })
+      )
+    );
+    renderWithProviders(<OrdersPage />, { route: "/orders" });
+    await waitFor(() => {
+      expect(screen.getByText(/No records found|No orders/i)).toBeInTheDocument();
+    });
+    const headers = screen.getAllByRole("columnheader").map((c) => c.textContent || "");
+    const deliveryIdx = headers.findIndex(
+      (t) => /Delivery/i.test(t) && !/Delivery method/i.test(t)
+    );
+    const methodIdx = headers.findIndex((t) => /Delivery method/i.test(t));
+    expect(deliveryIdx).toBeGreaterThanOrEqual(0);
+    expect(methodIdx).toBeGreaterThanOrEqual(0);
+    expect(deliveryIdx).toBeLessThan(methodIdx);
   });
 });

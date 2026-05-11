@@ -231,15 +231,6 @@ export default function OrdersPage() {
         ),
       },
       {
-        id: "delivery_method",
-        header: "Delivery method",
-        render: (o) => (
-          <span className="text-xs text-slate-600 truncate max-w-[180px] block">
-            {o.delivery_method || "—"}
-          </span>
-        ),
-      },
-      {
         id: "delivery_status",
         header: "Delivery",
         sortKey: "delivery_status",
@@ -257,6 +248,15 @@ export default function OrdersPage() {
             </span>
           );
         },
+      },
+      {
+        id: "delivery_method",
+        header: "Delivery method",
+        render: (o) => (
+          <span className="text-xs text-slate-600 truncate max-w-[180px] block">
+            {o.delivery_method || "—"}
+          </span>
+        ),
       },
       {
         id: "tags",

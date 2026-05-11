@@ -105,6 +105,9 @@ export const accountingApi = {
     entry_type?: string;
     status?: string;
     page?: number;
+    per_page?: number;
+    sort?: string;
+    dir?: "asc" | "desc";
   }): Promise<{ data: JournalEntry[]; meta: JournalEntriesMeta }> =>
     api
       .get<{

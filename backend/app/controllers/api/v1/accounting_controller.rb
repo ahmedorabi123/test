@@ -9,16 +9,18 @@ module Api
         render json: { data: accounts.map { |a| AccountSerializer.call(a) } }
       end
 
-      # GET /api/v1/accounting/journal_entries?from=&to=&entry_type=&page=
+      # GET /api/v1/accounting/journal_entries?from=&to=&entry_type=&page=&per_page=&sort=&dir=
       def journal_entries
-        scope = JournalEntry.includes(journal_lines: :account).order(entry_date: :desc, created_at: :desc)
+        scope = JournalEntry.includes(journal_lines: :account)
         scope = scope.where("entry_date >= ?", params[:from]) if params[:from].present?
         scope = scope.where("entry_date <= ?", params[:to])   if params[:to].present?
         scope = scope.where(entry_type: params[:entry_type])  if params[:entry_type].present?
         scope = scope.where(status: params[:status])          if params[:status].present?
 
+        scope = apply_journal_sort(scope)
+
         page     = [params[:page].to_i, 1].max
-        per_page = 25
+        per_page = (params[:per_page].to_i.positive? ? params[:per_page].to_i : 25).clamp(1, 200)
         total    = scope.count
         records  = scope.offset((page - 1) * per_page).limit(per_page)
 
@@ -272,6 +274,18 @@ module Api
       end
 
       private
+
+      JOURNAL_SORT_KEYS = %w[entry_date description status entry_type created_at].freeze
+
+      def apply_journal_sort(scope)
+        key = params[:sort].to_s
+        dir = params[:dir].to_s.downcase == "asc" ? :asc : :desc
+        if JOURNAL_SORT_KEYS.include?(key)
+          scope.order(key => dir, created_at: :desc)
+        else
+          scope.order(entry_date: :desc, created_at: :desc)
+        end
+      end
 
       def authorize_accounting
         # Use a synthetic record class for policy lookup

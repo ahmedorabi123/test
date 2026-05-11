@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   accountingApi,
   type Account,
@@ -7,10 +7,45 @@ import {
   type Pnl,
   type BalanceSheet,
 } from "../api/accounting";
+import { MobileRowCard } from "../components/table/MobileRowCard";
 import { PageContainer } from "../components/ui/PageContainer";
 import { Tabs } from "../components/ui/Tabs";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+type SortDir = "asc" | "desc";
+
+function nextDir(current: SortDir | null): SortDir {
+  return current === "asc" ? "desc" : "asc";
+}
+
+function SortHeader({
+  label,
+  active,
+  dir,
+  onClick,
+  align = "left",
+}: {
+  label: string;
+  active: boolean;
+  dir: SortDir;
+  onClick: () => void;
+  align?: "left" | "right";
+}) {
+  return (
+    <th
+      onClick={onClick}
+      className={`px-4 py-2 cursor-pointer select-none hover:bg-slate-100 ${align === "right" ? "text-right" : "text-left"}`}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        <span className={`text-xs ${active ? "text-indigo-600" : "text-slate-300"}`}>
+          {active ? (dir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </span>
+    </th>
+  );
+}
 
 function fmt(n: number) {
   return n.toLocaleString("en-US", {
@@ -53,6 +88,8 @@ function AccountsTab() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [sortKey, setSortKey] = useState<"code" | "name">("code");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   useEffect(() => {
     accountingApi
@@ -61,6 +98,23 @@ function AccountsTab() {
       .catch(() => setError("Failed to load chart of accounts"))
       .finally(() => setLoading(false));
   }, []);
+
+  const onSort = (key: "code" | "name") => {
+    if (sortKey === key) setSortDir(nextDir(sortDir));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortRows = (rows: Account[]) => {
+    const sorted = [...rows].sort((a, b) => {
+      const av = a[sortKey] ?? "";
+      const bv = b[sortKey] ?? "";
+      return av.localeCompare(bv);
+    });
+    return sortDir === "asc" ? sorted : sorted.reverse();
+  };
 
   if (loading) return <p className="text-slate-500 p-6">Loading…</p>;
   if (error) return <p className="text-red-500 p-6">{error}</p>;
@@ -76,19 +130,54 @@ function AccountsTab() {
   return (
     <div className="space-y-6">
       {groups.map((g) => {
-        const rows = accounts.filter((a) => a.account_type === g);
+        const rows = sortRows(accounts.filter((a) => a.account_type === g));
         if (!rows.length) return null;
         return (
           <div key={g}>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 px-1">
               {g}s
             </h3>
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+            {/* Mobile cards */}
+            <div className="space-y-2 md:hidden">
+              {rows.map((a) => (
+                <MobileRowCard
+                  key={a.id}
+                  title={
+                    <span className="font-mono text-sm text-slate-900">{a.code}</span>
+                  }
+                  subtitle={a.name}
+                  fields={[
+                    { label: "Normal side", value: <Badge v={a.normal_side} /> },
+                    { label: "Currency", value: a.currency },
+                    {
+                      label: "Status",
+                      value: a.active ? (
+                        <span className="text-emerald-600 text-xs">Active</span>
+                      ) : (
+                        <span className="text-slate-400 text-xs">Inactive</span>
+                      ),
+                    },
+                  ]}
+                />
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
               <table className="min-w-full text-sm">
                 <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                   <tr>
-                    <th className="px-4 py-2 text-left">Code</th>
-                    <th className="px-4 py-2 text-left">Name</th>
+                    <SortHeader
+                      label="Code"
+                      active={sortKey === "code"}
+                      dir={sortDir}
+                      onClick={() => onSort("code")}
+                    />
+                    <SortHeader
+                      label="Name"
+                      active={sortKey === "name"}
+                      dir={sortDir}
+                      onClick={() => onSort("name")}
+                    />
                     <th className="px-4 py-2 text-left">Normal Side</th>
                     <th className="px-4 py-2 text-left">Currency</th>
                     <th className="px-4 py-2 text-left">Status</th>
@@ -135,6 +224,9 @@ function JournalTab() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [meta, setMeta] = useState({ page: 1, per_page: 25, total: 0 });
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState<number>(25);
+  const [sortKey, setSortKey] = useState<string>("entry_date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -143,18 +235,27 @@ function JournalTab() {
   const load = useCallback(() => {
     setLoading(true);
     accountingApi
-      .journalEntries({ from, to, page })
+      .journalEntries({ from, to, page, per_page: perPage, sort: sortKey, dir: sortDir })
       .then((r) => {
         setEntries(r.data);
         setMeta(r.meta);
       })
       .catch(() => setError("Failed to load journal entries"))
       .finally(() => setLoading(false));
-  }, [from, to, page]);
+  }, [from, to, page, perPage, sortKey, sortDir]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const toggleSort = (key: string) => {
+    if (sortKey === key) setSortDir(nextDir(sortDir));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+    setPage(1);
+  };
 
   const toggleExpand = async (id: string) => {
     if (expanded === id) {
@@ -166,6 +267,8 @@ function JournalTab() {
     const r = await accountingApi.journalEntry(id);
     setExpandedEntry(r.data);
   };
+
+  const totalPages = Math.max(1, Math.ceil(meta.total / meta.per_page));
 
   return (
     <div className="space-y-4">
@@ -211,14 +314,70 @@ function JournalTab() {
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+      {/* Mobile cards */}
+      <div className="space-y-2 md:hidden">
+        {loading && <p className="text-slate-400 text-sm py-6 text-center">Loading…</p>}
+        {!loading && entries.length === 0 && (
+          <p className="text-slate-400 text-sm py-6 text-center">No entries in this date range</p>
+        )}
+        {entries.map((e) => (
+          <div key={e.id} className="space-y-2">
+            <MobileRowCard
+              title={<span className="font-mono text-xs text-slate-800">{e.entry_date}</span>}
+              subtitle={e.description}
+              meta={<Badge v={e.status} />}
+              fields={[
+                { label: "Type", value: e.entry_type ? <Badge v={e.entry_type} /> : "—" },
+                { label: "Debits", value: <span className="font-mono">{fmt(e.total_debits)}</span> },
+                { label: "Credits", value: <span className="font-mono">{fmt(e.total_credits)}</span> },
+              ]}
+              actions={
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(e.id)}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  {expanded === e.id ? "Hide lines" : "Show lines"}
+                </button>
+              }
+            />
+            {expanded === e.id && expandedEntry && (
+              <div className="overflow-x-auto rounded-md border border-slate-200 bg-slate-50 p-3">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="text-slate-400 uppercase tracking-wide">
+                      <th className="text-left pb-1">Account</th>
+                      <th className="text-left pb-1">Side</th>
+                      <th className="text-right pb-1">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {(expandedEntry.lines ?? []).map((l) => (
+                      <tr key={l.id}>
+                        <td className="py-1 font-mono text-slate-600">
+                          {l.account_code} — {l.account_name}
+                        </td>
+                        <td className="py-1"><Badge v={l.side} /></td>
+                        <td className="py-1 text-right font-mono">{fmt(l.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
         <table className="min-w-[760px] text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
-              <th className="px-4 py-2 text-left">Date</th>
-              <th className="px-4 py-2 text-left">Description</th>
-              <th className="px-4 py-2 text-left">Type</th>
-              <th className="px-4 py-2 text-left">Status</th>
+              <SortHeader label="Date" active={sortKey === "entry_date"} dir={sortDir} onClick={() => toggleSort("entry_date")} />
+              <SortHeader label="Description" active={sortKey === "description"} dir={sortDir} onClick={() => toggleSort("description")} />
+              <SortHeader label="Type" active={sortKey === "entry_type"} dir={sortDir} onClick={() => toggleSort("entry_type")} />
+              <SortHeader label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
               <th className="px-4 py-2 text-right">Debits</th>
               <th className="px-4 py-2 text-right">Credits</th>
               <th className="px-4 py-2"></th>
@@ -316,9 +475,27 @@ function JournalTab() {
         </table>
       </div>
 
-      {/* Pagination */}
-      {meta.total > meta.per_page && (
-        <div className="flex flex-wrap justify-end gap-2">
+      {/* Pagination + per-page */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-slate-600">
+        <span>Page {meta.page} of {totalPages}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Per page</span>
+            <select
+              value={perPage}
+              onChange={(e) => {
+                setPerPage(Number(e.target.value));
+                setPage(1);
+              }}
+              className="min-h-10 rounded border border-slate-300 px-2 text-sm"
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             disabled={page <= 1}
             onClick={() => setPage(page - 1)}
@@ -326,18 +503,15 @@ function JournalTab() {
           >
             ← Prev
           </button>
-          <span className="text-sm text-slate-500 self-center">
-            Page {meta.page} / {Math.ceil(meta.total / meta.per_page)}
-          </span>
           <button
-            disabled={page >= Math.ceil(meta.total / meta.per_page)}
+            disabled={page >= totalPages}
             onClick={() => setPage(page + 1)}
             className="min-h-10 rounded border px-3 text-sm hover:bg-slate-50 disabled:opacity-40"
           >
             Next →
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -349,6 +523,8 @@ function TrialBalanceTab() {
   const [data, setData] = useState<TrialBalance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [sortKey, setSortKey] = useState<"code" | "name" | "balance">("code");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -362,6 +538,25 @@ function TrialBalanceTab() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const toggleSort = (key: "code" | "name" | "balance") => {
+    if (sortKey === key) setSortDir(nextDir(sortDir));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortedRows = useMemo(() => {
+    if (!data) return [];
+    const sorted = [...data.data].sort((a, b) => {
+      if (sortKey === "balance") return a.balance - b.balance;
+      const av = a[sortKey] ?? "";
+      const bv = b[sortKey] ?? "";
+      return String(av).localeCompare(String(bv));
+    });
+    return sortDir === "asc" ? sorted : sorted.reverse();
+  }, [data, sortKey, sortDir]);
 
   return (
     <div className="space-y-4">
@@ -394,20 +589,50 @@ function TrialBalanceTab() {
       {loading && <p className="text-slate-500 text-sm">Loading…</p>}
 
       {data && !loading && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+        <>
+        {/* Mobile cards */}
+        <div className="space-y-2 md:hidden">
+          {sortedRows.map((r) => (
+            <MobileRowCard
+              key={r.code}
+              title={<span className="font-mono text-sm">{r.code}</span>}
+              subtitle={r.name}
+              meta={<Badge v={r.account_type} />}
+              fields={[
+                { label: "Debits", value: <span className="font-mono">{fmt(r.debits)}</span> },
+                { label: "Credits", value: <span className="font-mono">{fmt(r.credits)}</span> },
+                {
+                  label: "Balance",
+                  value: (
+                    <span className={`font-mono font-semibold ${r.balance >= 0 ? "text-slate-800" : "text-red-500"}`}>
+                      {fmt(r.balance)}
+                    </span>
+                  ),
+                },
+              ]}
+            />
+          ))}
+          <div className="mt-2 rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold flex justify-between">
+            <span>Totals</span>
+            <span className="font-mono">Dr {fmt(data.totals.debits)} · Cr {fmt(data.totals.credits)}</span>
+          </div>
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="min-w-[720px] text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
               <tr>
-                <th className="px-4 py-2 text-left">Code</th>
-                <th className="px-4 py-2 text-left">Account</th>
+                <SortHeader label="Code" active={sortKey === "code"} dir={sortDir} onClick={() => toggleSort("code")} />
+                <SortHeader label="Account" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
                 <th className="px-4 py-2 text-left">Type</th>
                 <th className="px-4 py-2 text-right">Debits</th>
                 <th className="px-4 py-2 text-right">Credits</th>
-                <th className="px-4 py-2 text-right">Balance</th>
+                <SortHeader label="Balance" active={sortKey === "balance"} dir={sortDir} onClick={() => toggleSort("balance")} align="right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {data.data.map((r) => (
+              {sortedRows.map((r) => (
                 <tr key={r.code} className="hover:bg-slate-50">
                   <td className="px-4 py-2 font-mono text-slate-500">
                     {r.code}
@@ -451,6 +676,7 @@ function TrialBalanceTab() {
             </tfoot>
           </table>
         </div>
+        </>
       )}
     </div>
   );

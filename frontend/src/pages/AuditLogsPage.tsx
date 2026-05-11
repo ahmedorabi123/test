@@ -7,7 +7,11 @@ import { PageContainer } from "../components/ui/PageContainer";
 export default function AuditLogsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-  const perPage = 50;
+  const perPage = (() => {
+    const raw = parseInt(searchParams.get("per_page") || "50", 10);
+    if (![25, 50, 100].includes(raw)) return 50;
+    return raw;
+  })();
   const action = searchParams.get("action_type") || "";
   const subjectType = searchParams.get("subject_type") || "";
   const userId = searchParams.get("user_id") || "";
@@ -48,7 +52,7 @@ export default function AuditLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, action, subjectType, userId]);
+  }, [page, perPage, action, subjectType, userId]);
 
   useEffect(() => {
     load();
@@ -221,7 +225,26 @@ export default function AuditLogsPage() {
         <span>
           Page {page} of {totalPages}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Per page</span>
+            <select
+              value={perPage}
+              onChange={(e) => {
+                const sp = new URLSearchParams(searchParams);
+                sp.set("per_page", e.target.value);
+                sp.set("page", "1");
+                setSearchParams(sp, { replace: true });
+              }}
+              className="min-h-10 rounded border border-slate-300 px-2 text-sm"
+            >
+              {[25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             disabled={page <= 1}
             onClick={() => setParam("page", String(page - 1))}
