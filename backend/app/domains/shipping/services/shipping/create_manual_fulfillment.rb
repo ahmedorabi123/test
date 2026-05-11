@@ -16,6 +16,7 @@ module Shipping
   #   actor:           User (for audit trail in state machine)
   class CreateManualFulfillment
     class InvalidInput < StandardError; end
+    class AlreadyFulfilled < StandardError; end
 
     def self.call(...)
       new(...).call
@@ -39,6 +40,9 @@ module Shipping
       raise InvalidInput, "tracking_company is required" if @tracking_company.blank?
       ensure_order_shippable!
 
+      rows = normalized_rows
+      ensure_not_over_fulfilled!(rows)
+
       fulfillment = nil
       ApplicationRecord.transaction do
         fulfillment = Fulfillment.create!(
@@ -52,15 +56,10 @@ module Shipping
           shipped_at:       @shipped_at
         )
 
-        fulfillment_rows.each do |row|
-          oli_id = row[:order_line_item_id] || row["order_line_item_id"]
-          qty    = (row[:quantity] || row["quantity"]).to_i
-          next if qty <= 0
-          oli = @order.line_items.find_by(id: oli_id)
-          next unless oli
+        rows.each do |row|
           fulfillment.fulfillment_line_items.create!(
-            order_line_item_id: oli.id,
-            quantity:           qty
+            order_line_item_id: row[:order_line_item_id],
+            quantity:           row[:quantity]
           )
         end
       end
@@ -116,6 +115,41 @@ module Shipping
 
         { order_line_item_id: line_item.id, quantity: remaining }
       end.compact
+    end
+
+    # Normalize raw input rows to canonical { order_line_item_id:, quantity: }
+    # tuples, dropping unknown line item ids and non-positive quantities, and
+    # aggregating multiple rows that target the same line item.
+    def normalized_rows
+      by_oli = Hash.new(0)
+      fulfillment_rows.each do |row|
+        oli_id = row[:order_line_item_id] || row["order_line_item_id"]
+        qty    = (row[:quantity] || row["quantity"]).to_i
+        next if qty <= 0
+        next unless @order.line_items.exists?(id: oli_id)
+        by_oli[oli_id] += qty
+      end
+      by_oli.map { |oli_id, qty| { order_line_item_id: oli_id, quantity: qty } }
+    end
+
+    # Raises AlreadyFulfilled if any line item would be fulfilled beyond its
+    # ordered quantity. Re-reads `fulfilled_quantity` from the database to avoid
+    # race conditions against concurrent fulfillments.
+    def ensure_not_over_fulfilled!(rows)
+      return if rows.empty?
+      ids = rows.map { |r| r[:order_line_item_id] }
+      olis = @order.line_items.where(id: ids).index_by(&:id)
+      offenders = rows.filter_map do |row|
+        oli = olis[row[:order_line_item_id]]
+        next unless oli
+        remaining = [ oli.quantity.to_i - oli.fulfilled_quantity.to_i, 0 ].max
+        if row[:quantity] > remaining
+          { line_item_id: oli.id, sku: oli.sku, requested: row[:quantity], remaining: remaining }
+        end
+      end
+      return if offenders.empty?
+      raise AlreadyFulfilled,
+            "Cannot fulfill more than ordered. Already fulfilled lines: #{offenders.map { |o| "#{o[:sku] || o[:line_item_id]} (requested #{o[:requested]}, only #{o[:remaining]} remaining)" }.join('; ')}"
     end
   end
 end

@@ -23,13 +23,39 @@ module Accounting
       idem_key = "#{IDEMPOTENCY_PREFIX}-#{@fulfillment.id}"
       return if JournalEntry.exists?(idempotency_key: idem_key)
 
+      zero_cost_lines = []
+
       total = @fulfillment.fulfillment_line_items.sum do |fli|
         variant = fli.order_line_item&.variant
-        cost = variant&.cost.presence || variant&.cost_per_item.presence || variant&.last_purchase_cost || 0
-        cost * fli.quantity.to_i
+        result  = Catalog::VariantCostResolver.call(variant)
+        if result.zero? && fli.quantity.to_i > 0
+          zero_cost_lines << { variant_id: variant&.id, sku: variant&.sku, quantity: fli.quantity.to_i, source: result.source }
+        end
+        result.cost * fli.quantity.to_i
       end
 
-      return if total <= 0
+      if total <= 0
+        if zero_cost_lines.any?
+          AuditLog.create!(
+            action:       "cogs.skipped_zero_cost",
+            subject_type: @fulfillment.class.name,
+            subject_id:   @fulfillment.id,
+            diff:         { order_id: @fulfillment.order_id, order_number: @fulfillment.order&.order_number, lines: zero_cost_lines },
+            occurred_at:  Time.current
+          )
+        end
+        return
+      end
+
+      if zero_cost_lines.any?
+        AuditLog.create!(
+          action:       "cogs.partial_zero_cost",
+          subject_type: @fulfillment.class.name,
+          subject_id:   @fulfillment.id,
+          diff:         { order_id: @fulfillment.order_id, order_number: @fulfillment.order&.order_number, lines: zero_cost_lines },
+          occurred_at:  Time.current
+        )
+      end
 
       currency = @fulfillment.order.currency.presence || "EGP"
 

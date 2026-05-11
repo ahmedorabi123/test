@@ -7,6 +7,9 @@ import {
   type OrderTimelineEntry,
 } from "../api/orders";
 import ManualFulfillmentButton from "../components/shipping/ManualFulfillmentButton";
+import ManualRefundButton, {
+  isOrderRefundable,
+} from "../components/refunds/ManualRefundButton";
 import DeliveryActions from "../components/shipments/DeliveryActions";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -259,6 +262,34 @@ export default function OrderDetailPage() {
             New order
           </Link>
           <ManualFulfillmentButton order={order} onCreated={reloadOrder} />
+          <ManualRefundButton
+            order={{
+              id: order.id,
+              order_number: order.order_number,
+              total_price: String(order.total_price ?? "0"),
+              currency: order.currency,
+              customer_name: order.customer_name ?? undefined,
+              status: order.status,
+              financial_status: order.financial_status,
+              line_items: (order.line_items ?? []).map((li) => ({
+                id: li.id,
+                title: li.title,
+                variant_title: li.variant_title ?? undefined,
+                sku: li.sku ?? undefined,
+                quantity: li.quantity,
+                price: String(li.price ?? "0"),
+              })),
+            }}
+            onCreated={reloadOrder}
+            triggerLabel="Issue refund"
+            triggerClassName="px-3 py-2 text-sm border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!isOrderRefundable(order)}
+            disabledReason={
+              isOrderRefundable(order)
+                ? undefined
+                : "Order is not in a refundable state"
+            }
+          />
         </div>
       </div>
 
@@ -402,57 +433,57 @@ export default function OrderDetailPage() {
           <h2 className="text-sm font-semibold text-slate-900">Line items</h2>
         </div>
         <div className="overflow-x-auto">
-        <table className="min-w-[720px] text-sm">
-          <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
-            <tr>
-              <th className="px-4 py-2 text-left">Product / SKU</th>
-              <th className="px-4 py-2 text-right">Qty</th>
-              <th className="px-4 py-2 text-right">Price</th>
-              <th className="px-4 py-2 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {(order.line_items ?? []).map((li) => (
-              <tr key={li.id}>
-                <td className="px-4 py-3">
-                  <div className="font-medium text-slate-900">{li.title}</div>
-                  {li.variant_title && (
-                    <div className="text-xs text-slate-500">
-                      {li.variant_title}
-                    </div>
-                  )}
-                  {li.sku && (
-                    <div className="text-xs text-slate-400 font-mono">
-                      {li.sku}
-                    </div>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {li.quantity}
-                  <div className="text-xs text-slate-400">
-                    {li.fulfilled_quantity ?? 0} fulfilled
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {formatMoney(li.price, order.currency)}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums font-medium">
-                  {formatMoney(li.line_total, order.currency)}
-                </td>
-              </tr>
-            ))}
-            {!order.line_items?.length && (
+          <table className="min-w-[720px] text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
               <tr>
-                <td
-                  colSpan={4}
-                  className="px-4 py-4 text-center text-slate-400"
-                >
-                  No line items
-                </td>
+                <th className="px-4 py-2 text-left">Product / SKU</th>
+                <th className="px-4 py-2 text-right">Qty</th>
+                <th className="px-4 py-2 text-right">Price</th>
+                <th className="px-4 py-2 text-right">Total</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(order.line_items ?? []).map((li) => (
+                <tr key={li.id}>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-slate-900">{li.title}</div>
+                    {li.variant_title && (
+                      <div className="text-xs text-slate-500">
+                        {li.variant_title}
+                      </div>
+                    )}
+                    {li.sku && (
+                      <div className="text-xs text-slate-400 font-mono">
+                        {li.sku}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {li.quantity}
+                    <div className="text-xs text-slate-400">
+                      {li.fulfilled_quantity ?? 0} fulfilled
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {formatMoney(li.price, order.currency)}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums font-medium">
+                    {formatMoney(li.line_total, order.currency)}
+                  </td>
+                </tr>
+              ))}
+              {!order.line_items?.length && (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-4 py-4 text-center text-slate-400"
+                  >
+                    No line items
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

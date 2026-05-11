@@ -90,6 +90,16 @@ module Api
         before = @stock_item.quantity_on_hand
         before_unavailable = @stock_item.quantity_unavailable
         before_reason = @stock_item.unavailability_reason
+        adjustment_reason = params.dig(:stock_item, :adjustment_reason).presence ||
+                            params[:adjustment_reason].presence ||
+                            "correction"
+        adjustment_note = params.dig(:stock_item, :adjustment_note).presence ||
+                          params[:adjustment_note].presence
+
+        unless Inventory::ManualAdjustment::REASONS.include?(adjustment_reason)
+          return render_error(422, "invalid_adjustment_reason",
+                              "adjustment_reason must be one of #{Inventory::ManualAdjustment::REASONS.join(', ')}")
+        end
 
         if attrs[:low_stock_threshold].present?
           @stock_item.update!(low_stock_threshold: Integer(attrs[:low_stock_threshold]))
@@ -115,16 +125,19 @@ module Api
           new_qty = Integer(attrs[:quantity_on_hand])
           delta   = new_qty - before
           if delta != 0
-            Inventory::WriteMovement.call(
-              stock_item: @stock_item,
-              delta:      delta,
-              reason:     "adjusted",
-              note:       "Manual on-hand adjustment"
+            Inventory::ManualAdjustment.call(
+              stock_item:        @stock_item,
+              delta:             delta,
+              adjustment_reason: adjustment_reason,
+              note:              adjustment_note,
+              actor:             current_user
             )
           end
         end
 
         render json: { data: StockItemSerializer.call(@stock_item.reload) }
+      rescue Inventory::ManualAdjustment::InvalidReason => e
+        render_error(422, "invalid_adjustment_reason", e.message)
       end
 
       def destroy

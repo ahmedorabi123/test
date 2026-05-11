@@ -28,13 +28,39 @@ module Accounting
       idem_key = "#{IDEMPOTENCY_PREFIX}-#{@refund.id}"
       return if JournalEntry.exists?(idempotency_key: idem_key)
 
+      zero_cost_lines = []
+
       total = restockable_lines.sum do |rli|
         variant = rli.order_line_item&.variant
-        cost = variant_cost(variant)
-        cost * rli.quantity.to_i
+        result  = Catalog::VariantCostResolver.call(variant)
+        if result.zero? && rli.quantity.to_i > 0
+          zero_cost_lines << { variant_id: variant&.id, sku: variant&.sku, quantity: rli.quantity.to_i, source: result.source }
+        end
+        result.cost * rli.quantity.to_i
       end
 
-      return if total <= 0
+      if total <= 0
+        if zero_cost_lines.any?
+          AuditLog.create!(
+            action:       "cogs_reversal.skipped_zero_cost",
+            subject_type: @refund.class.name,
+            subject_id:   @refund.id,
+            diff:         { order_id: @refund.order_id, lines: zero_cost_lines },
+            occurred_at:  Time.current
+          )
+        end
+        return
+      end
+
+      if zero_cost_lines.any?
+        AuditLog.create!(
+          action:       "cogs_reversal.partial_zero_cost",
+          subject_type: @refund.class.name,
+          subject_id:   @refund.id,
+          diff:         { order_id: @refund.order_id, lines: zero_cost_lines },
+          occurred_at:  Time.current
+        )
+      end
 
       order = @refund.order
       currency = order&.currency.presence || "EGP"
@@ -76,8 +102,7 @@ module Accounting
     end
 
     def variant_cost(variant)
-      return 0 unless variant
-      variant.cost.presence || variant.cost_per_item.presence || variant.last_purchase_cost || 0
+      Catalog::VariantCostResolver.call(variant).cost
     end
   end
 end

@@ -90,6 +90,8 @@ module Api
         render json: { data: FulfillmentSerializer.call(fulfillment) }, status: :created
       rescue Shipping::CreateManualFulfillment::InvalidInput => e
         render_error(422, "unprocessable_entity", e.message)
+      rescue Shipping::CreateManualFulfillment::AlreadyFulfilled => e
+        render_error(422, "already_fulfilled", e.message)
       rescue ActiveRecord::RecordInvalid => e
         render_error(422, "unprocessable_entity", e.message)
       end
