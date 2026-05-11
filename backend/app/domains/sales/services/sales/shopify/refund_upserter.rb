@@ -182,6 +182,7 @@ module Sales
         else
           ::Accounting::PartialRefundJournalHandler.call(refund)
         end
+        ::Accounting::PostCogsReversalHandler.call(refund.reload)
       rescue => e
         Rails.logger.error("[RefundUpserter] Accounting error for refund #{refund.id}: #{e.message}")
       end
