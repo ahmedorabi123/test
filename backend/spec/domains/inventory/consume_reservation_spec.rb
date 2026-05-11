@@ -12,6 +12,7 @@ RSpec.describe Inventory::ConsumeReservation do
 
   it "consumes an active reservation, deducts on-hand, and updates fulfillment counters" do
     stock_item
+    Inventory::RecordCostLayer.call(stock_item: stock_item, quantity: 8, unit_cost: 4.25, source: stock_item)
     line_item
     Inventory::SyncOrderReservations.call(order, warehouse: warehouse)
     fulfillment_line_item = fulfillment.fulfillment_line_items.create!(
@@ -21,12 +22,15 @@ RSpec.describe Inventory::ConsumeReservation do
 
     expect {
       described_class.call(fulfillment_line_item, warehouse: warehouse)
-    }.to change(StockMovement, :count).by(1)
+    }.to change { StockMovement.where(reason: "fulfilled").count }.by(1)
+      .and change { StockMovement.where(reason: "reservation_consumed").count }.by(1)
 
     expect(stock_item.reload.quantity_on_hand).to eq(6)
     expect(stock_item.quantity_reserved).to eq(1)
     expect(line_item.reload.fulfilled_quantity).to eq(2)
     expect(line_item.stock_reservations.active.sum(:quantity)).to eq(1)
+    expect(fulfillment_line_item.reload.cost_breakdown.first["unit_cost"]).to eq("4.25")
+    expect(StockMovement.where(reason: "reservation_consumed").count).to eq(1)
   end
 
   it "is idempotent for the same fulfillment line item" do

@@ -40,7 +40,14 @@ module Inventory
         note:       audit_note
       )
 
-      post_write_off_journal(movement) if movement && @adjustment_reason == "write_off" && @delta.negative?
+      if movement && @adjustment_reason == "write_off" && @delta.negative?
+        cost_result = Inventory::ConsumeCostLayers.call(
+          stock_item: @stock_item,
+          quantity: @delta.abs,
+          reference: movement
+        )
+        post_write_off_journal(movement, cost_result)
+      end
 
       if @actor && movement
         AuditLog.create!(
@@ -67,21 +74,20 @@ module Inventory
       [ "[#{@adjustment_reason}]", @note ].reject(&:blank?).join(" ")
     end
 
-    def post_write_off_journal(movement)
+    def post_write_off_journal(movement, cost_result)
       variant = @stock_item.variant
-      result  = Catalog::VariantCostResolver.call(variant)
-      if result.zero?
+      if cost_result.zero?
         AuditLog.create!(
           action:       "cogs.write_off_zero_cost",
           subject_type: "StockMovement",
           subject_id:   movement.id,
-          diff:         { variant_id: variant&.id, sku: variant&.sku, qty: @delta.abs, source: result.source },
+          diff:         { variant_id: variant&.id, sku: variant&.sku, qty: @delta.abs, source: cost_result.source },
           occurred_at:  Time.current
         )
         return
       end
 
-      total = result.cost * @delta.abs
+      total = cost_result.total_cost
       currency = @stock_item.warehouse&.currency.presence || "EGP"
       idem_key = "inv-adjust-#{movement.id}"
       return if JournalEntry.exists?(idempotency_key: idem_key)

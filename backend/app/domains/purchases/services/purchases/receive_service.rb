@@ -96,6 +96,14 @@ module Purchases
         reference:  @po
       )
 
+      Inventory::RecordCostLayer.call(
+        stock_item: stock_item,
+        quantity: qty,
+        unit_cost: li.unit_cost,
+        source: li,
+        details: { purchase_order_id: @po.id, po_number: @po.po_number }
+      )
+
       li.update!(quantity_received: li.quantity_received + qty)
       Variant.where(id: li.variant_id).update_all(last_purchase_cost: li.unit_cost, updated_at: Time.current)
       {

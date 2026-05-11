@@ -56,21 +56,23 @@ module Inventory
 
           if current_active && current_active.stock_item_id != stock_item.id
             @affected_stock_item_ids << current_active.stock_item_id
-            current_active.update!(status: "released")
+            ReservationsCommand.release(order_line_item: line_item, quantity: current_active.quantity)
             current_active = nil
           end
 
           reservation_quantity = reservation_quantity_for(target_quantity, available_for_line)
           if reservation_quantity <= 0
-            current_active&.update!(status: "released")
+            ReservationsCommand.release(order_line_item: line_item) if current_active
             @affected_stock_item_ids << stock_item.id
             next
           end
 
-          reservation = current_active || line_item.stock_reservations.build(stock_item: stock_item, status: "active")
-          reservation.quantity = reservation_quantity
-          reservation.note = partial_note(reservation_quantity, target_quantity)
-          reservation.save!
+          ReservationsCommand.reserve(
+            order_line_item: line_item,
+            stock_item: stock_item,
+            quantity: reservation_quantity,
+            note: partial_note(reservation_quantity, target_quantity)
+          )
           @affected_stock_item_ids << stock_item.id
         end
       end
@@ -79,8 +81,8 @@ module Inventory
     def release_line!(line_item)
       line_item.stock_reservations.active.find_each do |reservation|
         @affected_stock_item_ids << reservation.stock_item_id
-        reservation.update!(status: "released")
       end
+      ReservationsCommand.release(order_line_item: line_item)
       true
     end
 

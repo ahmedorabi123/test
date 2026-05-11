@@ -141,6 +141,7 @@ module Sales
             reason:     "refund_restock",
             reference:  rli
           )
+          ::Inventory::RestoreCostLayers.call(refund_line_item: rli, stock_item: stock_item)
           performed = true
         end
 

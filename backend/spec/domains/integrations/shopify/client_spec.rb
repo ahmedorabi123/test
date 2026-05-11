@@ -90,20 +90,32 @@ RSpec.describe ::Shopify::Client do
       expect { client.query("{ shop { name } }") }.not_to raise_error
     end
 
-    it "still allows webhook registration (POST /webhooks.json)" do
-      stub_request(:post, /webhooks\.json/)
-        .to_return(status: 201, body: { webhook: { id: 1 } }.to_json)
-      expect { client.post("webhooks.json", payload: { webhook: {} }) }.not_to raise_error
+    it "blocks webhook registration" do
+      expect { client.post("webhooks.json", payload: { webhook: {} }) }
+        .to raise_error(described_class::ReadOnlyError)
     end
 
-    it "still allows webhook deletion" do
-      stub_request(:delete, /webhooks\/1\.json/).to_return(status: 200, body: "{}")
-      expect { client.delete("webhooks/1.json") }.not_to raise_error
+    it "blocks webhook deletion" do
+      expect { client.delete("webhooks/1.json") }
+        .to raise_error(described_class::ReadOnlyError)
     end
 
     it "allows REST GETs (reads always permitted)" do
       stub_request(:get, /products\.json/).to_return(status: 200, body: { products: [] }.to_json)
       expect { client.get("products.json") }.not_to raise_error
     end
+  end
+
+  it "defaults to read-only unless SHOPIFY_WRITES_ENABLED is explicit" do
+    original_read_only = ENV["READ_ONLY_SHOPIFY"]
+    original_writes = ENV["SHOPIFY_WRITES_ENABLED"]
+    ENV.delete("READ_ONLY_SHOPIFY")
+    ENV.delete("SHOPIFY_WRITES_ENABLED")
+
+    expect { client.post("products.json", payload: { product: { title: "x" } }) }
+      .to raise_error(described_class::ReadOnlyError)
+  ensure
+    ENV["READ_ONLY_SHOPIFY"] = original_read_only
+    ENV["SHOPIFY_WRITES_ENABLED"] = original_writes
   end
 end

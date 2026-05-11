@@ -72,6 +72,52 @@ RSpec.describe "Api::V1::Products", type: :request do
       post "/api/v1/products", params: { product: { title: "" } }, as: :json, headers: auth_headers(admin)
       expect(response).to have_http_status(:unprocessable_content)
     end
+
+    it "creates nested product options and values" do
+      payload = {
+        product: {
+          title: "Option Tee",
+          status: "active",
+          product_options_attributes: [
+            { name: "Size", position: 1, product_option_values_attributes: [
+              { value: "Small", position: 1 },
+              { value: "Medium", position: 2 }
+            ] }
+          ]
+        }
+      }
+
+      expect {
+        post "/api/v1/products", params: payload, as: :json, headers: auth_headers(admin)
+      }.to change(ProductOption, :count).by(1).and change(ProductOptionValue, :count).by(2)
+
+      expect(response).to have_http_status(:created)
+    end
+  end
+
+  describe "POST /api/v1/products/:id/images" do
+    it "uploads local product images through ActiveStorage" do
+      product = create(:product)
+      file = Tempfile.new(["product", ".png"])
+      file.binmode
+      file.write("png")
+      file.rewind
+
+      post "/api/v1/products/#{product.id}/images",
+           params: { files: [Rack::Test::UploadedFile.new(file.path, "image/png", original_filename: "product.png")] },
+           headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:created), response.body
+      expect(JSON.parse(response.body).dig("data", 0, "filename")).to eq("product.png"), response.body
+      attachment_count = ActiveStorage::Attachment.where(
+        record_type: "Product",
+        record_id: product.id,
+        name: "uploaded_images"
+      ).count
+      expect(attachment_count).to eq(1), "attachments=#{attachment_count}, blobs=#{ActiveStorage::Blob.count}, body=#{response.body}"
+    ensure
+      file&.close!
+    end
   end
 
   describe "PATCH /api/v1/products/:id" do

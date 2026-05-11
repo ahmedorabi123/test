@@ -32,11 +32,11 @@ module Accounting
 
       total = restockable_lines.sum do |rli|
         variant = rli.order_line_item&.variant
-        result  = Catalog::VariantCostResolver.call(variant)
+        result  = cost_result_for(rli, variant)
         if result.zero? && rli.quantity.to_i > 0
           zero_cost_lines << { variant_id: variant&.id, sku: variant&.sku, quantity: rli.quantity.to_i, source: result.source }
         end
-        result.cost * rli.quantity.to_i
+        result.total_cost
       end
 
       if total <= 0
@@ -101,8 +101,43 @@ module Accounting
       end
     end
 
-    def variant_cost(variant)
-      Catalog::VariantCostResolver.call(variant).cost
+    CostResult = Struct.new(:total_cost, :source, keyword_init: true) do
+      def zero?
+        total_cost.to_d <= 0
+      end
+    end
+
+    def cost_result_for(refund_line_item, variant)
+      breakdown = Array(refund_line_item.cost_breakdown)
+      if breakdown.any?
+        return CostResult.new(
+          total_cost: breakdown.sum { |row| row.to_h.with_indifferent_access[:total_cost].to_d }.round(2),
+          source: "fifo_restore"
+        )
+      end
+
+      original = original_fulfillment_breakdown(refund_line_item)
+      if original.any?
+        unit_total = original.sum { |row| row[:unit_cost].to_d * row[:quantity].to_i }
+        quantity = original.sum { |row| row[:quantity].to_i }
+        unit_cost = quantity.positive? ? (unit_total / quantity).round(4) : 0.to_d
+        return CostResult.new(
+          total_cost: (unit_cost * refund_line_item.quantity.to_i).round(2),
+          source: "fifo"
+        )
+      end
+
+      result = Catalog::VariantCostResolver.call(variant)
+      CostResult.new(
+        total_cost: (result.cost.to_d * refund_line_item.quantity.to_i).round(2),
+        source: result.source
+      )
+    end
+
+    def original_fulfillment_breakdown(refund_line_item)
+      refund_line_item.order_line_item&.fulfillment_line_items&.flat_map do |fulfillment_line_item|
+        Array(fulfillment_line_item.cost_breakdown).map { |row| row.to_h.with_indifferent_access }
+      end || []
     end
   end
 end

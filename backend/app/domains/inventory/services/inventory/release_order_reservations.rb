@@ -11,9 +11,9 @@ module Inventory
 
     def call
       ActiveRecord::Base.transaction do
-        @order.stock_reservations.active.find_each do |reservation|
-          @affected_stock_item_ids << reservation.stock_item_id
-          reservation.update!(status: "released")
+        @order.line_items.includes(:stock_reservations).each do |line_item|
+          line_item.stock_reservations.active.each { |reservation| @affected_stock_item_ids << reservation.stock_item_id }
+          ReservationsCommand.release(order_line_item: line_item)
         end
       end
 

@@ -35,6 +35,7 @@ RSpec.describe Purchases::ReceiveService do
     si = StockItem.find_by(variant: variant, warehouse: warehouse)
     expect(si.quantity_on_hand).to eq(20)
     expect(StockMovement.where(stock_item: si, reason: "received").count).to eq(1)
+    expect(StockCostLayer.where(stock_item: si, qty_remaining: 20).first.unit_cost).to eq(6.0)
   end
 
   it "marks partial when only some received" do

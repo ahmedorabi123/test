@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_11_220518) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_12_020100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -170,6 +170,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_11_220518) do
     t.integer "quantity", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "cost_breakdown", default: [], null: false
     t.index ["fulfillment_id"], name: "index_fulfillment_line_items_on_fulfillment_id"
     t.index ["order_line_item_id"], name: "index_fulfillment_line_items_on_order_line_item_id"
   end
@@ -480,6 +481,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_11_220518) do
     t.bigint "location_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "cost_breakdown", default: [], null: false
     t.index ["order_line_item_id"], name: "index_refund_line_items_on_order_line_item_id"
     t.index ["refund_id", "shopify_line_item_id"], name: "idx_refund_line_items_refund_shopify_line", unique: true, where: "(shopify_line_item_id IS NOT NULL)"
     t.index ["refund_id"], name: "index_refund_line_items_on_refund_id"
@@ -553,6 +555,30 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_11_220518) do
     t.datetime "updated_at", null: false
     t.index ["local_type", "local_id"], name: "index_shopify_mappings_on_local"
     t.index ["shopify_gid"], name: "index_shopify_mappings_on_shopify_gid", unique: true
+  end
+
+  create_table "stock_cost_layers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "stock_item_id", null: false
+    t.uuid "variant_id", null: false
+    t.uuid "warehouse_id", null: false
+    t.datetime "received_at", null: false
+    t.integer "quantity_received", null: false
+    t.integer "qty_remaining", null: false
+    t.decimal "unit_cost", precision: 15, scale: 4, default: "0.0", null: false
+    t.string "source_type", null: false
+    t.string "source_id", null: false
+    t.jsonb "details", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["source_type", "source_id"], name: "index_stock_cost_layers_on_source_type_and_source_id"
+    t.index ["stock_item_id", "received_at", "created_at"], name: "idx_on_stock_item_id_received_at_created_at_b74f583169"
+    t.index ["stock_item_id"], name: "index_stock_cost_layers_on_stock_item_id"
+    t.index ["variant_id", "warehouse_id", "received_at"], name: "idx_on_variant_id_warehouse_id_received_at_fbb7ea3ac5"
+    t.index ["variant_id"], name: "index_stock_cost_layers_on_variant_id"
+    t.index ["warehouse_id"], name: "index_stock_cost_layers_on_warehouse_id"
+    t.check_constraint "qty_remaining >= 0", name: "stock_cost_layers_qty_remaining_non_negative"
+    t.check_constraint "quantity_received > 0", name: "stock_cost_layers_quantity_received_positive"
+    t.check_constraint "unit_cost >= 0::numeric", name: "stock_cost_layers_unit_cost_non_negative"
   end
 
   create_table "stock_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -762,6 +788,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_11_220518) do
   add_foreign_key "role_permissions", "roles"
   add_foreign_key "shipment_events", "fulfillments", on_delete: :cascade
   add_foreign_key "shipment_events", "users", column: "actor_id"
+  add_foreign_key "stock_cost_layers", "stock_items"
+  add_foreign_key "stock_cost_layers", "variants"
+  add_foreign_key "stock_cost_layers", "warehouses"
   add_foreign_key "stock_items", "variants"
   add_foreign_key "stock_items", "warehouses"
   add_foreign_key "stock_movements", "stock_items"

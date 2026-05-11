@@ -86,9 +86,14 @@ ADMIN_PASSWORD=changeme123!
 Register all supported topics against your tunnel once:
 
 ```bash
+SHOPIFY_WRITES_ENABLED=true \
 WEBHOOK_BASE_URL=https://<tunnel>.trycloudflare.com \
   docker compose -f backend/docker-compose.yml exec backend bin/rails shopify:register_webhooks
 ```
+
+By default `Shopify::Client` is read-only and blocks every REST write and
+GraphQL mutation, including webhook registration. Use the write opt-in only for
+an intentional one-off registration task.
 
 Topics handled (see `Shopify::EventNormalizer::SUPPORTED_TOPICS`):
 

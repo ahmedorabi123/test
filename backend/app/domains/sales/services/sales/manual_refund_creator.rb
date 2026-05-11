@@ -193,6 +193,7 @@ module Sales
           reason:     "refund_restock",
           reference:  refund
         )
+        Inventory::RestoreCostLayers.call(refund_line_item: rli, stock_item: si)
       end
       refund.update!(inventory_restocked: true)
     end

@@ -13,21 +13,8 @@ module Inventory
     def call
       return @order_line_item if @quantity <= 0
 
-      remaining = @quantity
-      ActiveRecord::Base.transaction do
-        @order_line_item.stock_reservations.active.lock.order(:created_at).each do |reservation|
-          break if remaining <= 0
-
-          @affected_stock_item_ids << reservation.stock_item_id
-          if remaining >= reservation.quantity
-            remaining -= reservation.quantity
-            reservation.update!(status: "released")
-          else
-            reservation.update!(quantity: reservation.quantity - remaining)
-            remaining = 0
-          end
-        end
-      end
+      @order_line_item.stock_reservations.active.each { |reservation| @affected_stock_item_ids << reservation.stock_item_id }
+      ReservationsCommand.release(order_line_item: @order_line_item, quantity: @quantity)
 
       @affected_stock_item_ids.uniq.each do |stock_item_id|
         stock_item = StockItem.find_by(id: stock_item_id)

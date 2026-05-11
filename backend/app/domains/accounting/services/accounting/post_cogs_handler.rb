@@ -27,11 +27,11 @@ module Accounting
 
       total = @fulfillment.fulfillment_line_items.sum do |fli|
         variant = fli.order_line_item&.variant
-        result  = Catalog::VariantCostResolver.call(variant)
+        result  = cost_result_for(fli, variant)
         if result.zero? && fli.quantity.to_i > 0
           zero_cost_lines << { variant_id: variant&.id, sku: variant&.sku, quantity: fli.quantity.to_i, source: result.source }
         end
-        result.cost * fli.quantity.to_i
+        result.total_cost
       end
 
       if total <= 0
@@ -75,6 +75,30 @@ module Accounting
           { account_code: "1200", side: "credit", amount: total,
             description: "Inventory consumed – #{@fulfillment.order.order_number}" }
         ]
+      )
+    end
+
+    private
+
+    CostResult = Struct.new(:total_cost, :source, keyword_init: true) do
+      def zero?
+        total_cost.to_d <= 0
+      end
+    end
+
+    def cost_result_for(fulfillment_line_item, variant)
+      breakdown = Array(fulfillment_line_item.cost_breakdown)
+      if breakdown.any?
+        return CostResult.new(
+          total_cost: breakdown.sum { |row| row.to_h.with_indifferent_access[:total_cost].to_d }.round(2),
+          source: "fifo"
+        )
+      end
+
+      result = Catalog::VariantCostResolver.call(variant)
+      CostResult.new(
+        total_cost: (result.cost.to_d * fulfillment_line_item.quantity.to_i).round(2),
+        source: result.source
       )
     end
   end

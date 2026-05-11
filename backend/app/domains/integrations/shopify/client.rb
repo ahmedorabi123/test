@@ -14,10 +14,6 @@ module Shopify
 
     DEFAULT_TIMEOUT = 15
 
-    # Paths exempt from READ_ONLY_SHOPIFY=true (i.e. always allowed to write).
-    # Webhook registration must remain functional in production.
-    WRITE_WHITELIST = %r{\A(?:/?admin/api/[^/]+/)?webhooks(?:/|\.json|\z)}.freeze
-
     def initialize(
       shop_domain:     ENV.fetch("SHOPIFY_SHOP_DOMAIN"),
       access_token:    ENV.fetch("SHOPIFY_ADMIN_ACCESS_TOKEN"),
@@ -110,12 +106,13 @@ module Shopify
     attr_reader :shop_domain, :access_token, :api_version, :timeout
 
     def read_only?
-      ENV["READ_ONLY_SHOPIFY"].to_s.downcase == "true"
+      return true if ENV["READ_ONLY_SHOPIFY"].to_s.downcase == "true"
+
+      ENV["SHOPIFY_WRITES_ENABLED"].to_s.downcase != "true"
     end
 
     def enforce_read_only!(path)
       return unless read_only?
-      return if path.to_s.match?(WRITE_WHITELIST)
       raise ReadOnlyError, "Shopify is in read-only mode (READ_ONLY_SHOPIFY=true); writes to #{path} are blocked."
     end
 

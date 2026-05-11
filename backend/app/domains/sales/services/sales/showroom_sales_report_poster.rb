@@ -92,6 +92,7 @@ module Sales
     end
 
     def deduct_inventory(order, warehouse)
+      @line_costs = {}
       order.line_items.each do |li|
         next unless li.variant_id
 
@@ -104,6 +105,11 @@ module Sales
           reason:     "showroom_sale",
           reference:  order
         )
+        @line_costs[li.id] = Inventory::ConsumeCostLayers.call(
+          stock_item: si,
+          quantity: li.quantity,
+          reference: nil
+        ).total_cost
       end
     end
 
@@ -111,9 +117,10 @@ module Sales
       ::Accounting::PostSaleJournalHandler.call(order)
 
       total_cogs = order.line_items.sum do |li|
-        variant = li.variant
-        cost = variant&.cost.presence || variant&.cost_per_item.presence || variant&.last_purchase_cost || 0
-        cost * li.quantity.to_i
+        @line_costs&.[](li.id).presence || begin
+          result = Catalog::VariantCostResolver.call(li.variant)
+          result.cost * li.quantity.to_i
+        end
       end
       return if total_cogs <= 0
 

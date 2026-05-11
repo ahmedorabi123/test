@@ -34,7 +34,11 @@ module Shopify
         occurred_at: normalized[:occurred_at]
       )
 
-      dispatch_to_domain(normalized)
+      if pipeline_v2?
+        ::Shopify::Pipeline::Dispatch.call(normalized)
+      else
+        dispatch_to_domain(normalized)
+      end
 
       event.mark_processed!
     rescue => e
@@ -43,6 +47,10 @@ module Shopify
     end
 
     private
+
+    def pipeline_v2?
+      ENV["SHOPIFY_PIPELINE_V2"].to_s.downcase == "true"
+    end
 
     def dispatch_to_domain(normalized)
       case normalized[:type]

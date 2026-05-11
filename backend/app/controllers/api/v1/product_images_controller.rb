@@ -17,19 +17,23 @@ module Api
         files = [ params[:file] ] if files.empty? && params[:file].present?
         return render_error(422, "no_file", "Please attach at least one file under 'files' or 'file'") if files.empty?
 
-        attached = []
-        files.each do |file|
+        attached = files.map do |file|
           unless ALLOWED_TYPES.include?(file.content_type)
             return render_error(422, "unsupported_type", "Unsupported file type: #{file.content_type}")
           end
           if file.size > MAX_SIZE_BYTES
             return render_error(422, "file_too_large", "File #{file.original_filename} exceeds #{MAX_SIZE_BYTES / 1.megabyte} MB")
           end
-          blob = @product.uploaded_images.attach(io: file.to_io, filename: file.original_filename, content_type: file.content_type)
-          attached << blob
+
+          blob = ActiveStorage::Blob.create_and_upload!(
+            io: file.to_io,
+            filename: file.original_filename,
+            content_type: file.content_type
+          )
+          @product.uploaded_images_attachments.create!(blob: blob)
         end
 
-        render json: { data: @product.uploaded_images.map { |i| attachment_payload(i) } }, status: :created
+        render json: { data: attached.map { |i| attachment_payload(i) } }, status: :created
       rescue ActiveStorage::IntegrityError => e
         render_error(422, "integrity_error", e.message)
       end

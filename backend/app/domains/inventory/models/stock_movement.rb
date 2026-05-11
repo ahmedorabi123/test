@@ -1,5 +1,9 @@
 class StockMovement < ApplicationRecord
-  REASONS = %w[received fulfilled returned adjusted shopify_sync transfer initial_stock manufactured consumed showroom_sale refund_restock].freeze
+  REASONS = %w[
+    received fulfilled returned adjusted shopify_sync transfer initial_stock
+    manufactured consumed showroom_sale refund_restock reserved
+    reservation_released reservation_consumed
+  ].freeze
 
   belongs_to :stock_item, inverse_of: :stock_movements
 

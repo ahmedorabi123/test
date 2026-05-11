@@ -28,18 +28,22 @@ module Inventory
         return nil if consume_quantity <= 0
 
         stock_item.with_lock do
-          if reservation
-            if consume_quantity >= reservation.quantity
-              reservation.update!(status: "consumed")
-            else
-              reservation.update!(quantity: reservation.quantity - consume_quantity)
-            end
-          end
+          ReservationsCommand.consume(
+            order_line_item: order_line_item,
+            quantity: consume_quantity,
+            stock_item: reservation&.stock_item
+          ) if reservation
 
           WriteMovement.call(
             stock_item: stock_item,
             delta: -consume_quantity,
             reason: "fulfilled",
+            reference: @fulfillment_line_item
+          )
+
+          ConsumeCostLayers.call(
+            stock_item: stock_item,
+            quantity: consume_quantity,
             reference: @fulfillment_line_item
           )
 

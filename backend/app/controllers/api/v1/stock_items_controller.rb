@@ -76,6 +76,16 @@ module Api
             reason:     new_record ? "initial_stock" : "adjusted",
             note:       new_record ? "Initial stock" : "Manual stock addition"
           )
+          result = Catalog::VariantCostResolver.call(variant)
+          if result.cost.positive?
+            Inventory::RecordCostLayer.call(
+              stock_item: si,
+              quantity: qty,
+              unit_cost: result.cost,
+              source: si,
+              details: { source: result.source, reason: new_record ? "initial_stock" : "manual_stock_addition" }
+            )
+          end
         end
 
         render json: { data: StockItemSerializer.call(si.reload) }, status: :created
