@@ -5,7 +5,7 @@ require "rails"
 require "active_model/railtie"
 require "active_job/railtie"
 require "active_record/railtie"
-# require "active_storage/engine"
+require "active_storage/engine"
 require "action_controller/railtie"
 # require "action_mailer/railtie"
 # require "action_mailbox/engine"
@@ -45,6 +45,9 @@ module Backend
 
     # Use Sidekiq for background jobs
     config.active_job.queue_adapter = :sidekiq
+
+    # ActiveStorage service (overridden in test env)
+    config.active_storage.service = (ENV["RAILS_ENV"] == "test" ? :test : :local)
 
     # Structured logging (SemanticLogger)
     config.log_level = :info

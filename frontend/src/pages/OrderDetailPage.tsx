@@ -7,9 +7,8 @@ import {
   type OrderTimelineEntry,
 } from "../api/orders";
 import ManualFulfillmentButton from "../components/shipping/ManualFulfillmentButton";
-import ManualRefundButton, {
-  isOrderRefundable,
-} from "../components/refunds/ManualRefundButton";
+import ManualRefundButton from "../components/refunds/ManualRefundButton";
+import { isOrderRefundable } from "../components/refunds/refundability";
 import DeliveryActions from "../components/shipments/DeliveryActions";
 
 const STATUS_STYLES: Record<string, string> = {

@@ -49,6 +49,7 @@ export default function ManualOrderPage() {
   const [variantQuery, setVariantQuery] = useState("");
   const [variantHits, setVariantHits] = useState<VariantHit[]>([]);
   const [variantSearching, setVariantSearching] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(true);
   const [variantById, setVariantById] = useState<Record<string, VariantHit>>(
     {},
   );
@@ -75,7 +76,7 @@ export default function ManualOrderPage() {
   // Debounced variant search via /variants?search=&include=stock_items_summary
   useEffect(() => {
     const q = variantQuery.trim();
-    if (q.length < 2) {
+    if (q.length < 2 || !warehouseId) {
       setVariantHits([]);
       return;
     }
@@ -88,7 +89,8 @@ export default function ManualOrderPage() {
             search: q,
             per_page: 25,
             include: "stock_items_summary",
-            warehouse_id: warehouseId || undefined,
+            warehouse_id: warehouseId,
+            in_stock: inStockOnly ? "true" : undefined,
           },
         });
         if (!cancelled) setVariantHits(res.data.data);
@@ -102,7 +104,7 @@ export default function ManualOrderPage() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [variantQuery, warehouseId]);
+  }, [variantQuery, warehouseId, inStockOnly]);
 
   const addVariant = (v: VariantHit) => {
     setVariantById((prev) => ({ ...prev, [v.id]: v }));
@@ -147,7 +149,6 @@ export default function ManualOrderPage() {
     }
     return v.stock_items.reduce((acc, i) => acc + (i.available ?? 0), 0);
   };
-
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -289,45 +290,82 @@ export default function ManualOrderPage() {
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-6">
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm font-medium text-slate-700">Line items</div>
-          <div className="relative w-full sm:w-80">
-            <input
-              type="text"
-              value={variantQuery}
-              onChange={(e) => setVariantQuery(e.target.value)}
-              placeholder="Search variant by SKU, name, product…"
-              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            {variantQuery.trim().length >= 2 && (
-              <div className="absolute z-10 mt-1 w-full max-h-72 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
-                {variantSearching && (
-                  <div className="px-3 py-2 text-xs text-slate-500">
-                    Searching…
-                  </div>
-                )}
-                {!variantSearching && variantHits.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-slate-500">
-                    No matches
-                  </div>
-                )}
-                {variantHits.map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => addVariant(v)}
-                    className="block w-full text-left px-3 py-2 hover:bg-indigo-50 text-sm"
-                  >
-                    <div className="font-medium text-slate-800">
-                      {v.product_title}
-                      {v.title ? ` · ${v.title}` : ""}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="inline-flex items-center gap-1 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={inStockOnly}
+                onChange={(e) => setInStockOnly(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              In stock only
+            </label>
+            <div className="relative w-full sm:w-80">
+              <input
+                type="text"
+                value={variantQuery}
+                onChange={(e) => setVariantQuery(e.target.value)}
+                placeholder={
+                  warehouseId
+                    ? "Search variant by SKU, name, product…"
+                    : "Pick a warehouse first"
+                }
+                disabled={!warehouseId}
+                className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
+              />
+              {warehouseId && variantQuery.trim().length >= 2 && (
+                <div className="absolute z-10 mt-1 w-full max-h-72 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                  {variantSearching && (
+                    <div className="px-3 py-2 text-xs text-slate-500">
+                      Searching…
                     </div>
-                    <div className="text-xs text-slate-500 flex justify-between">
-                      <span className="font-mono">{v.sku || "—"}</span>
-                      <span>{v.price}</span>
+                  )}
+                  {!variantSearching && variantHits.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-slate-500">
+                      {inStockOnly
+                        ? "No in-stock matches at this warehouse"
+                        : "No matches"}
                     </div>
-                  </button>
-                ))}
-              </div>
-            )}
+                  )}
+                  {variantHits.map((v) => {
+                    const stockHere = v.stock_items?.find(
+                      (i) => i.warehouse_id === warehouseId,
+                    );
+                    const available = stockHere?.available ?? 0;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => addVariant(v)}
+                        className="block w-full text-left px-3 py-2 hover:bg-indigo-50 text-sm"
+                      >
+                        <div className="font-medium text-slate-800">
+                          {v.product_title}
+                          {v.title ? ` · ${v.title}` : ""}
+                        </div>
+                        <div className="text-xs text-slate-500 flex justify-between">
+                          <span className="font-mono">{v.sku || "—"}</span>
+                          <span>
+                            <span
+                              className={
+                                available <= 0
+                                  ? "text-rose-600"
+                                  : available < 5
+                                    ? "text-amber-600"
+                                    : "text-emerald-600"
+                              }
+                            >
+                              {available} avail
+                            </span>
+                            <span className="ml-2">{v.price}</span>
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

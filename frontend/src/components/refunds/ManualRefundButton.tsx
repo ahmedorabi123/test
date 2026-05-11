@@ -3,6 +3,7 @@ import { refundsApi } from "../../api/refunds";
 import { warehousesApi, type Warehouse } from "../../api/inventory";
 import api from "../../api/client";
 import { Modal } from "../ui/Modal";
+import { REFUNDABLE_FINANCIAL_STATES } from "./refundability";
 
 interface OrderOption {
   id: string;
@@ -28,22 +29,6 @@ export interface ManualRefundOrderInput extends OrderOption {
 }
 
 type OrderDetail = ManualRefundOrderInput;
-
-export function isOrderRefundable(o: {
-  status?: string;
-  financial_status?: string;
-}): boolean {
-  if (!o) return false;
-  if (o.status === "cancelled") return false;
-  if (!o.financial_status) return false;
-  return REFUNDABLE_FINANCIAL_STATES.includes(o.financial_status);
-}
-
-const REFUNDABLE_FINANCIAL_STATES = [
-  "paid",
-  "partially_paid",
-  "partially_refunded",
-];
 
 function orderIneligibleReason(o: OrderDetail | null): string | null {
   if (!o) return null;

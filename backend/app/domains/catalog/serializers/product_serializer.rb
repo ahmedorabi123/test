@@ -38,8 +38,24 @@ class ProductSerializer
       variants_in_stock_count: variants_in_stock,
       options:  product.product_options.map { |o| ProductOptionSerializer.call(o) },
       images:   product.product_images.map  { |i| ProductImageSerializer.call(i) },
+      uploaded_images: uploaded_images_payload(product),
       variants: include_variants ? product.variants.map { |v| VariantSerializer.call(v) } : nil
     }.compact
+  end
+
+  def self.uploaded_images_payload(product)
+    return [] unless product.respond_to?(:uploaded_images) && product.uploaded_images.attached?
+    product.uploaded_images_attachments.map do |attachment|
+      {
+        id:           attachment.id,
+        filename:     attachment.filename.to_s,
+        content_type: attachment.content_type,
+        byte_size:    attachment.byte_size,
+        url:          Rails.application.routes.url_helpers.rails_blob_path(attachment, only_path: true)
+      }
+    end
+  rescue StandardError
+    []
   end
 end
 

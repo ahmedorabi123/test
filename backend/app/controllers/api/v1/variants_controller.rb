@@ -1,8 +1,12 @@
 module Api
   module V1
     class VariantsController < ApplicationController
-      # GET /api/v1/variants?search=&product_id=&page=&per_page=
-      # Lightweight lookup endpoint (used by inventory create form).
+      # GET /api/v1/variants?search=&product_id=&warehouse_id=&min_available=&in_stock=true&include=stock_items_summary&page=&per_page=
+      # Lightweight lookup endpoint (used by inventory + manual-order forms).
+      # When warehouse_id + (min_available > 0 OR in_stock=true) are given,
+      # results are filtered to variants with sufficient available stock at
+      # that warehouse and sorted by available DESC so the most in-stock
+      # variants appear first.
       def index
         authorize Product, :index?
         scope = Variant.includes(:product)
@@ -16,13 +20,26 @@ module Api
         end
         scope = scope.where(product_id: params[:product_id]) if params[:product_id].present?
 
+        warehouse_id  = params[:warehouse_id].presence
+        min_available = [params[:min_available].to_i, params[:in_stock].to_s == "true" ? 1 : 0].max
+
+        if warehouse_id && min_available > 0
+          # Inner-join to stock_items so we both filter and can sort by available.
+          available_expr = "(stock_items.quantity_on_hand - stock_items.quantity_reserved - stock_items.quantity_unavailable)"
+          scope = scope.joins(:stock_items)
+                       .where(stock_items: { warehouse_id: warehouse_id })
+                       .where("#{available_expr} >= ?", min_available)
+                       .order(Arel.sql("#{available_expr} DESC, products.title ASC, variants.position ASC"))
+        else
+          scope = scope.order("products.title ASC, variants.position ASC")
+        end
+
         page     = [params[:page].to_i, 1].max
         per_page = params[:per_page].to_i
         per_page = 25 if per_page <= 0
         per_page = 100 if per_page > 100
 
-        records = scope.order("products.title ASC, variants.position ASC")
-                       .offset((page - 1) * per_page).limit(per_page)
+        records = scope.offset((page - 1) * per_page).limit(per_page)
 
         stock_items_by_variant = stock_items_summary(records)
 

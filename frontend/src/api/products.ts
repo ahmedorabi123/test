@@ -174,4 +174,27 @@ export const productsApi = {
         data: { action: string; affected: number };
       }>("/products/bulk", { ids, action_type })
       .then((r) => r.data.data),
+
+  uploadImages: (productId: string, files: File[]) => {
+    const form = new FormData();
+    files.forEach((f) => form.append("files[]", f));
+    return api
+      .post<{ data: UploadedImage[] }>(`/products/${productId}/images`, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data.data);
+  },
+
+  deleteImage: (productId: string, attachmentId: number | string) =>
+    api
+      .delete(`/products/${productId}/images/${attachmentId}`)
+      .then(() => undefined),
 };
+
+export interface UploadedImage {
+  id: number;
+  filename: string;
+  content_type: string;
+  byte_size: number;
+  url: string;
+}

@@ -48,6 +48,7 @@ Rails.application.routes.draw do
           post "import/commit", action: :import_commit, as: :import_commit
           post :bulk
         end
+        resources :images, only: %i[create destroy], controller: "product_images"
       end
       resources :collections, only: %i[index show create update destroy] do
         member do
