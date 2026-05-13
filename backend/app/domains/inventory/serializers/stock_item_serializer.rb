@@ -17,6 +17,7 @@ class StockItemSerializer
       available:             stock_item.available,
       low_stock_threshold:   stock_item.low_stock_threshold,
       low_stock:             stock_item.low_stock?,
+      read_only_origin:      stock_item.shopify_origin?,
       updated_at:            stock_item.updated_at
     }
   end

@@ -29,6 +29,7 @@ class ProductSerializer
       shopify_product_id:      product.shopify_product_id,
       shopify_updated_at:      product.shopify_updated_at,
       source:                  product.source,
+      read_only_origin:        product.shopify_origin?,
       collections:             collections,
       primary_category:        collections.first&.fetch(:title, nil) || product.product_type,
       created_at:              product.created_at,
@@ -87,6 +88,7 @@ class VariantSerializer
       country_of_origin:  variant.country_of_origin,
       shopify_variant_id:         variant.shopify_variant_id,
       shopify_inventory_item_id:  variant.shopify_inventory_item_id,
+      read_only_origin:           variant.shopify_origin?,
       stock_items: variant.stock_items.map { |si|
         {
           id:               si.id,
@@ -97,7 +99,8 @@ class VariantSerializer
           quantity_reserved: si.quantity_reserved,
           quantity_unavailable: si.quantity_unavailable,
           available: si.available,
-          low_stock_threshold: si.low_stock_threshold
+          low_stock_threshold: si.low_stock_threshold,
+          read_only_origin: si.shopify_origin?
         }
       }
     }

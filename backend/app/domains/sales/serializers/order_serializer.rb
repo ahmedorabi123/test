@@ -23,6 +23,7 @@ class OrderSerializer
       placed_at:          order.placed_at,
       cancelled_at:       order.cancelled_at,
       shopify_order_id:   order.shopify_order_id,
+      read_only_origin:   order.shopify_origin?,
       customer_id:        order.customer_id,
       location_id:        order.location_id,
       tags:                     order.tags,

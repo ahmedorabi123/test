@@ -14,6 +14,7 @@ export interface Warehouse {
   currency?: string | null;
   notes?: string | null;
   shopify_location_id?: number | null;
+  read_only_origin?: boolean;
   address: string | null;
   active: boolean;
   created_at: string;
@@ -38,6 +39,7 @@ export interface StockItem {
   available: number;
   low_stock_threshold: number;
   low_stock: boolean;
+  read_only_origin?: boolean;
   updated_at: string;
 }
 

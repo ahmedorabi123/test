@@ -14,6 +14,7 @@ class CollectionSerializer
       rules:                 collection.rules || [],
       disjunctive:           collection.disjunctive,
       source:                collection.source,
+      read_only_origin:      collection.shopify_origin?,
       products_count:        collection.products.size,
       shopify_updated_at:    collection.shopify_updated_at,
       created_at:            collection.created_at,

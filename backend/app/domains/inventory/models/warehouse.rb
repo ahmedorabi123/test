@@ -1,6 +1,10 @@
 class Warehouse < ApplicationRecord
+  include Shopify::Origin
+
   CODES_FORMAT = /\A[A-Z0-9\-]+\z/
   KINDS        = %w[own consignment transit].freeze
+
+  shopify_origin_via :shopify_location_id
 
   has_many :stock_items, dependent: :destroy
 

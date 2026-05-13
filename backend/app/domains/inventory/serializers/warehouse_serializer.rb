@@ -14,6 +14,7 @@ class WarehouseSerializer
       address:         warehouse.address,
       active:          warehouse.active,
       shopify_location_id: warehouse.shopify_location_id,
+      read_only_origin: warehouse.shopify_origin?,
       created_at:      warehouse.created_at,
       updated_at:      warehouse.updated_at
     }

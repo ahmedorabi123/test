@@ -81,6 +81,18 @@ RSpec.describe Shopify::ProcessWebhookJob, type: :job do
         .to have_enqueued_job(Inventory::HandleShopifyInventoryJob)
     end
 
+    it "dispatches inventory_levels/connect to Inventory::HandleShopifyInventoryJob" do
+      ev = make_event("inventory_levels/connect", { "inventory_item_id" => 99, "location_id" => 1, "available" => 10 })
+      expect { described_class.new.perform(ev.id) }
+        .to have_enqueued_job(Inventory::HandleShopifyInventoryJob)
+    end
+
+    it "records inventory_items/update as a compliance no-op" do
+      ev = make_event("inventory_items/update", { "id" => 88, "updated_at" => "2026-04-21T10:00:00Z" })
+      expect { described_class.new.perform(ev.id) }
+        .to have_enqueued_job(Shopify::ComplianceEventJob).with("inventory_items/update", hash_including("id" => 88))
+    end
+
     it "dispatches orders/paid to Sales::HandleShopifyOrderJob" do
       ev = make_event("orders/paid", { "id" => 42, "updated_at" => "2026-04-21T10:00:00Z", "financial_status" => "paid" })
       expect { described_class.new.perform(ev.id) }
@@ -95,6 +107,12 @@ RSpec.describe Shopify::ProcessWebhookJob, type: :job do
 
     it "dispatches orders/fulfilled to Sales::HandleShopifyOrderJob" do
       ev = make_event("orders/fulfilled", { "id" => 44, "updated_at" => "2026-04-21T10:00:00Z", "fulfillment_status" => "fulfilled" })
+      expect { described_class.new.perform(ev.id) }
+        .to have_enqueued_job(Sales::HandleShopifyOrderJob)
+    end
+
+    it "dispatches orders/edited to Sales::HandleShopifyOrderJob" do
+      ev = make_event("orders/edited", { "id" => 45, "updated_at" => "2026-04-21T10:00:00Z" })
       expect { described_class.new.perform(ev.id) }
         .to have_enqueued_job(Sales::HandleShopifyOrderJob)
     end
@@ -117,6 +135,12 @@ RSpec.describe Shopify::ProcessWebhookJob, type: :job do
         .to have_enqueued_job(Shipping::HandleShopifyFulfillmentJob)
     end
 
+    it "dispatches fulfillments/cancelled to Shipping::HandleShopifyFulfillmentJob" do
+      ev = make_event("fulfillments/cancelled", { "id" => 55, "order_id" => 42, "updated_at" => "2026-04-21T10:00:00Z" })
+      expect { described_class.new.perform(ev.id) }
+        .to have_enqueued_job(Shipping::HandleShopifyFulfillmentJob)
+    end
+
     it "dispatches customers/create to Crm::HandleShopifyCustomerJob" do
       ev = make_event("customers/create", { "id" => 77, "email" => "a@b.c", "updated_at" => "2026-04-21T10:00:00Z" })
       expect { described_class.new.perform(ev.id) }
@@ -127,6 +151,12 @@ RSpec.describe Shopify::ProcessWebhookJob, type: :job do
       ev = make_event("customers/update", { "id" => 77, "email" => "a@b.c", "updated_at" => "2026-04-21T10:00:00Z" })
       expect { described_class.new.perform(ev.id) }
         .to have_enqueued_job(Crm::HandleShopifyCustomerJob)
+    end
+
+    it "records customers/redact as a compliance no-op" do
+      ev = make_event("customers/redact", { "shop_id" => 1, "customer" => { "id" => 77 } })
+      expect { described_class.new.perform(ev.id) }
+        .to have_enqueued_job(Shopify::ComplianceEventJob).with("customers/redact", hash_including("shop_id" => 1))
     end
 
     it "uses the inbound-only pipeline when SHOPIFY_PIPELINE_V2=true" do

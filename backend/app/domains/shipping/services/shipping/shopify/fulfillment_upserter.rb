@@ -22,40 +22,42 @@ module Shipping
       end
 
       def call
-        shopify_id = @payload[:id].to_i
-        order = find_order
-        return nil unless order
+        ::Shopify::Origin.without_read_only do
+          shopify_id = @payload[:id].to_i
+          order = find_order
+          return nil unless order
 
-        ActiveRecord::Base.transaction do
-          fulfillment = ::Fulfillment.find_or_initialize_by(shopify_fulfillment_id: shopify_id)
-          was_new        = fulfillment.new_record?
-          was_successful = !was_new && fulfillment.status == "success"
-          previous_status = fulfillment.status
+          ActiveRecord::Base.transaction do
+            fulfillment = ::Fulfillment.find_or_initialize_by(shopify_fulfillment_id: shopify_id)
+            was_new        = fulfillment.new_record?
+            was_successful = !was_new && fulfillment.status == "success"
+            previous_status = fulfillment.status
 
-          fulfillment.assign_attributes(
-            order:              order,
-            location_id:        @payload[:location_id].presence&.to_i,
-            status:             map_status,
-            tracking_company:   @payload[:tracking_company].presence,
-            tracking_number:    @payload[:tracking_number].presence,
-            tracking_url:       @payload[:tracking_url].presence,
-            delivery_status:    @payload[:shipment_status].presence || @payload[:delivery_status].presence,
-            service:            @payload[:service].presence || infer_service(@payload[:tracking_company]),
-            shipped_at:         parse_time(@payload[:created_at]),
-            delivered_at:       (@payload[:shipment_status].to_s == "delivered" ? parse_time(@payload[:updated_at]) : nil),
-            shopify_updated_at: parse_time(@payload[:updated_at])
-          )
-          fulfillment.save!
-          sync_line_items(fulfillment)
-          record_event(fulfillment, was_new: was_new, previous_status: previous_status)
+            fulfillment.assign_attributes(
+              order:              order,
+              location_id:        @payload[:location_id].presence&.to_i,
+              status:             map_status,
+              tracking_company:   @payload[:tracking_company].presence,
+              tracking_number:    @payload[:tracking_number].presence,
+              tracking_url:       @payload[:tracking_url].presence,
+              delivery_status:    @payload[:shipment_status].presence || @payload[:delivery_status].presence,
+              service:            @payload[:service].presence || infer_service(@payload[:tracking_company]),
+              shipped_at:         parse_time(@payload[:created_at]),
+              delivered_at:       (@payload[:shipment_status].to_s == "delivered" ? parse_time(@payload[:updated_at]) : nil),
+              shopify_updated_at: parse_time(@payload[:updated_at])
+            )
+            fulfillment.save!
+            sync_line_items(fulfillment)
+            record_event(fulfillment, was_new: was_new, previous_status: previous_status)
 
-          # Only consume inventory the first time this fulfillment becomes successful.
-          if fulfillment.status == "success" && (was_new || !was_successful)
-            consume_inventory(fulfillment)
-            post_cogs_journal(fulfillment)
+            # Only consume inventory the first time this fulfillment becomes successful.
+            if fulfillment.status == "success" && (was_new || !was_successful)
+              consume_inventory(fulfillment)
+              post_cogs_journal(fulfillment)
+            end
+
+            fulfillment
           end
-
-          fulfillment
         end
       end
 

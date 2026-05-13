@@ -14,26 +14,28 @@ module Sales
       end
 
       def call
-        ActiveRecord::Base.transaction do
-          order = ::Order.find_by(shopify_order_id: payload[:id].to_i)
-          # Fall back: claim a locally-seeded order that has the same number
-          # but no shopify_order_id yet (happens during first backfill).
-          order ||= ::Order.find_by(order_number: (payload[:name].presence || "SH-#{payload[:id]}"),
-                                    shopify_order_id: nil)
-          order ||= ::Order.new
-          # Don't overwrite newer local state with an older Shopify payload.
-          if order.persisted? && order.shopify_updated_at.present? && shopify_updated_at_time.present? &&
-             order.shopify_updated_at >= shopify_updated_at_time
-            return order
-          end
+        ::Shopify::Origin.without_read_only do
+          ActiveRecord::Base.transaction do
+            order = ::Order.find_by(shopify_order_id: payload[:id].to_i)
+            # Fall back: claim a locally-seeded order that has the same number
+            # but no shopify_order_id yet (happens during first backfill).
+            order ||= ::Order.find_by(order_number: (payload[:name].presence || "SH-#{payload[:id]}"),
+                                      shopify_order_id: nil)
+            order ||= ::Order.new
+            # Don't overwrite newer local state with an older Shopify payload.
+            if order.persisted? && order.shopify_updated_at.present? && shopify_updated_at_time.present? &&
+               order.shopify_updated_at >= shopify_updated_at_time
+              return order
+            end
 
-          order.assign_attributes(build_order_attrs)
-          order.save!
-          upsert_line_items(order)
-          trigger_accounting(order)
-          manage_reservations(order)
-          recompute_customer_stats(order)
-          order
+            order.assign_attributes(build_order_attrs)
+            order.save!
+            upsert_line_items(order)
+            trigger_accounting(order)
+            manage_reservations(order)
+            recompute_customer_stats(order)
+            order
+          end
         end
       end
 

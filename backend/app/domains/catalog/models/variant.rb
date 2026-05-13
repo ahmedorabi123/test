@@ -1,6 +1,10 @@
 class Variant < ApplicationRecord
+  include Shopify::Origin
+
   INVENTORY_POLICIES = %w[deny continue].freeze
   WEIGHT_UNITS       = %w[kg g lb oz].freeze
+
+  shopify_origin_via :shopify_variant_id, read_only_except: %i[cost cost_per_item updated_at]
 
   belongs_to :product, inverse_of: :variants
   has_many :stock_items, dependent: :destroy

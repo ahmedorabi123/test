@@ -1,6 +1,11 @@
 class Fulfillment < ApplicationRecord
+  include Shopify::Origin
+
   STATUSES = %w[pending open success cancelled error failure].freeze
   DELIVERY_STATUSES = %w[pending in_transit delivered failed].freeze
+
+  shopify_origin_via :shopify_fulfillment_id,
+    read_only_except: %i[delivery_status in_transit_at delivered_at notes updated_at]
 
   belongs_to :order, inverse_of: :fulfillments
   has_many   :fulfillment_line_items, dependent: :destroy, inverse_of: :fulfillment
@@ -17,10 +22,6 @@ class Fulfillment < ApplicationRecord
 
   scope :successful, -> { where(status: "success") }
   scope :via_bosta,  -> { where("LOWER(tracking_company) = 'bosta'") }
-
-  def shopify_linked?
-    shopify_fulfillment_id.present?
-  end
 
   def bosta?
     tracking_company.to_s.downcase == "bosta"

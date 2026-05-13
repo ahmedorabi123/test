@@ -2,6 +2,7 @@ module Api
   module V1
     class WarehousesController < ApplicationController
       before_action :set_warehouse, only: %i[show update destroy]
+      before_action :ensure_warehouse_mutable, only: %i[update destroy]
 
       # GET /api/v1/warehouses
       def index
@@ -41,6 +42,10 @@ module Api
 
       def set_warehouse
         @warehouse = Warehouse.find(params[:id])
+      end
+
+      def ensure_warehouse_mutable
+        ensure_not_shopify_origin!(@warehouse)
       end
 
       def warehouse_params

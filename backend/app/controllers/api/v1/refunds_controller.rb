@@ -55,6 +55,7 @@ module Api
       def transition
         refund = Refund.find(params[:id])
         authorize refund, :update?
+        return unless ensure_not_shopify_origin!(refund)
         updated = Sales::RefundStateMachine.call(refund, to: params[:to], actor: current_user)
         render json: { data: RefundSerializer.call(updated) }
       rescue Sales::RefundStateMachine::InvalidTransition => e
@@ -64,6 +65,7 @@ module Api
       def cancel
         refund = Refund.find(params[:id])
         authorize refund, :update?
+        return unless ensure_not_shopify_origin!(refund)
         updated = Sales::RefundStateMachine.call(refund, to: "cancelled", actor: current_user)
         render json: { data: RefundSerializer.call(updated) }
       rescue Sales::RefundStateMachine::InvalidTransition => e

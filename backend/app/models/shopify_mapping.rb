@@ -1,0 +1,2 @@
+class ShopifyMapping < ApplicationRecord
+end

@@ -1,8 +1,13 @@
 class Order < ApplicationRecord
+  include Shopify::Origin
+
   STATUSES            = %w[pending processing fulfilled cancelled refunded].freeze
   FINANCIAL_STATUSES  = %w[pending authorized paid partially_paid partially_refunded refunded voided].freeze
   FULFILLMENT_STATUSES = %w[partial fulfilled].freeze
   SOURCES             = %w[manual shopify showroom].freeze
+
+  shopify_origin_via :shopify_order_id,
+    read_only_except: %i[status financial_status fulfillment_status notes last_delivery_status cancelled_at updated_at]
 
   has_many :line_items, class_name: "OrderLineItem", dependent: :destroy, inverse_of: :order
   has_many :fulfillments, dependent: :destroy, inverse_of: :order
@@ -26,10 +31,6 @@ class Order < ApplicationRecord
   scope :with_status,   ->(s) { where(status: s) if s.present? }
 
   before_validation :assign_order_number, on: :create, if: -> { order_number.blank? }
-
-  def shopify_linked?
-    shopify_order_id.present?
-  end
 
   private
 

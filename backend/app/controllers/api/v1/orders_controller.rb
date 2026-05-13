@@ -11,7 +11,7 @@ module Api
                   "created_at", "updated_at", "items_count", "total_refunded",
                   default: { placed_at: :desc }
 
-      before_action :set_order, only: %i[show transition stock_allocation timeline]
+      before_action :set_order, only: %i[show update transition stock_allocation timeline]
 
       def importer_class
         params[:mode] == "showroom" ? Imports::ShowroomSalesImporter : Imports::OrdersImporter
@@ -48,6 +48,16 @@ module Api
       def show
         authorize @order
         render json: { data: OrderSerializer.call(@order) }
+      end
+
+      def update
+        authorize @order
+        return unless ensure_order_update_allowed!
+        attrs = order_update_params
+        return render_error(400, "bad_request", "No supported order attributes provided") if attrs.empty?
+
+        @order.update!(attrs)
+        render json: { data: OrderSerializer.call(@order.reload) }
       end
 
       # POST /api/v1/orders
@@ -119,6 +129,7 @@ module Api
         scope = Order.where(id: ids)
         count = 0
         skipped = []
+        return unless ensure_no_shopify_origin!(scope)
 
         case action_type
         when "cancel"
@@ -140,6 +151,7 @@ module Api
         authorize @order
         target = params[:to].to_s
         return render_error(400, "bad_request", "missing 'to'") if target.blank?
+        return unless ensure_order_transition_allowed!(target)
 
         order = Sales::OrderStateMachine.call(@order, to: target, actor: current_user)
         render json: { data: OrderSerializer.call(order) }
@@ -250,6 +262,32 @@ module Api
             :quantity, :price, :total_tax, :total_discount
           ]
         )
+      end
+
+      def order_update_params
+        attrs = params.require(:order).permit(:notes, :delivery_status).to_h.with_indifferent_access
+        attrs[:last_delivery_status] = attrs.delete(:delivery_status) if attrs.key?(:delivery_status)
+        attrs
+      end
+
+      def ensure_order_update_allowed!
+        disallowed_keys = requested_order_update_keys - %w[notes delivery_status]
+        return true if disallowed_keys.empty?
+
+        render_error(422, "read_only_shopify_resource", Shopify::Origin::READ_ONLY_MESSAGE)
+        false
+      end
+
+      def ensure_order_transition_allowed!(target)
+        return true unless @order.shopify_origin?
+        return true if %w[paid fulfilled cancelled].include?(target)
+
+        render_error(422, "read_only_shopify_resource", Shopify::Origin::READ_ONLY_MESSAGE)
+        false
+      end
+
+      def requested_order_update_keys
+        params.fetch(:order, {}).keys.map(&:to_s)
       end
 
       def preview_best_warehouse(variant_ids)

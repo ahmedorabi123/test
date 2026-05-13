@@ -18,8 +18,8 @@ class ApplicationPolicy
   def index?   = admin_or_can?(:read)
   def show?    = admin_or_can?(:read)
   def create?  = admin_or_can?(:write)
-  def update?  = admin_or_can?(:write)
-  def destroy? = admin_or_can?(:delete)
+  def update?  = admin_or_can?(:write) && !shopify_locked?
+  def destroy? = admin_or_can?(:delete) && !shopify_locked?
 
   # Bulk + import/export use the same gates as index/create.
   def export?         = admin_or_can?(:read)
@@ -45,5 +45,9 @@ class ApplicationPolicy
 
   def admin_or_can?(action)
     user.admin? || user.can?(resource_name, action)
+  end
+
+  def shopify_locked?
+    record.respond_to?(:shopify_origin?) && record.shopify_origin?
   end
 end

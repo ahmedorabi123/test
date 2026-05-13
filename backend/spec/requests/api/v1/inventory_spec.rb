@@ -48,6 +48,18 @@ RSpec.describe "Api::V1::Warehouses", type: :request do
       expect(response).to have_http_status(:ok)
       expect(wh.reload.name).to eq("New Name")
     end
+
+    it "rejects updates to Shopify-origin warehouses" do
+      wh = create(:warehouse, name: "Shopify Location", shopify_location_id: 123456)
+      patch "/api/v1/warehouses/#{wh.id}",
+            params: { warehouse: { name: "ERP Edit" } },
+            as: :json,
+            headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
+      expect(wh.reload.name).to eq("Shopify Location")
+    end
   end
 
   describe "DELETE /api/v1/warehouses/:id" do

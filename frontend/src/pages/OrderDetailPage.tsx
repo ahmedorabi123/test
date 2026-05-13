@@ -147,7 +147,7 @@ export default function OrderDetailPage() {
   const legalStatus: Record<string, string[]> = {
     pending: ["processing", "fulfilled", "cancelled"],
     processing: ["fulfilled", "cancelled"],
-    fulfilled: ["cancelled"],
+    fulfilled: [],
     cancelled: [],
     refunded: [],
   };
@@ -175,6 +175,22 @@ export default function OrderDetailPage() {
     return <div className="p-6 text-sm text-slate-500">Loading order…</div>;
   if (error) return <div className="p-6 text-sm text-rose-600">{error}</div>;
   if (!order) return null;
+  const isReadOnly = Boolean(
+    order.read_only_origin ||
+    order.source === "shopify" ||
+    order.shopify_order_id,
+  );
+  const allowedShopifyTransitionTargets = new Set([
+    "paid",
+    "fulfilled",
+    "cancelled",
+  ]);
+  const statusTargets = (legalStatus[order.status] ?? []).filter(
+    (next) => !isReadOnly || allowedShopifyTransitionTargets.has(next),
+  );
+  const financialTargets = (legalFinancial[order.financial_status] ?? []).filter(
+    (next) => !isReadOnly || allowedShopifyTransitionTargets.has(next),
+  );
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -223,7 +239,7 @@ export default function OrderDetailPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {(legalStatus[order.status] ?? []).map((next) => (
+          {statusTargets.map((next) => (
             <button
               key={`s-${next}`}
               onClick={() =>
@@ -244,7 +260,7 @@ export default function OrderDetailPage() {
               {STATUS_LABEL[next] ?? next}
             </button>
           ))}
-          {(legalFinancial[order.financial_status] ?? []).map((next) => (
+          {financialTargets.map((next) => (
             <button
               key={`f-${next}`}
               onClick={() => transition(next)}
@@ -260,37 +276,49 @@ export default function OrderDetailPage() {
           >
             New order
           </Link>
-          <ManualFulfillmentButton order={order} onCreated={reloadOrder} />
-          <ManualRefundButton
-            order={{
-              id: order.id,
-              order_number: order.order_number,
-              total_price: String(order.total_price ?? "0"),
-              currency: order.currency,
-              customer_name: order.customer_name ?? undefined,
-              status: order.status,
-              financial_status: order.financial_status,
-              line_items: (order.line_items ?? []).map((li) => ({
-                id: li.id,
-                title: li.title,
-                variant_title: li.variant_title ?? undefined,
-                sku: li.sku ?? undefined,
-                quantity: li.quantity,
-                price: String(li.price ?? "0"),
-              })),
-            }}
-            onCreated={reloadOrder}
-            triggerLabel="Issue refund"
-            triggerClassName="px-3 py-2 text-sm border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!isOrderRefundable(order)}
-            disabledReason={
-              isOrderRefundable(order)
-                ? undefined
-                : "Order is not in a refundable state"
-            }
-          />
+          {!isReadOnly && (
+            <>
+              <ManualFulfillmentButton order={order} onCreated={reloadOrder} />
+              <ManualRefundButton
+                order={{
+                  id: order.id,
+                  order_number: order.order_number,
+                  total_price: String(order.total_price ?? "0"),
+                  currency: order.currency,
+                  customer_name: order.customer_name ?? undefined,
+                  status: order.status,
+                  financial_status: order.financial_status,
+                  line_items: (order.line_items ?? []).map((li) => ({
+                    id: li.id,
+                    title: li.title,
+                    variant_title: li.variant_title ?? undefined,
+                    sku: li.sku ?? undefined,
+                    quantity: li.quantity,
+                    price: String(li.price ?? "0"),
+                  })),
+                }}
+                onCreated={reloadOrder}
+                triggerLabel="Issue refund"
+                triggerClassName="px-3 py-2 text-sm border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isReadOnly || !isOrderRefundable(order)}
+                disabledReason={
+                  isReadOnly
+                    ? "Order is managed by Shopify"
+                    : isOrderRefundable(order)
+                      ? undefined
+                      : "Order is not in a refundable state"
+                }
+              />
+            </>
+          )}
         </div>
       </div>
+
+      {isReadOnly && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          This order is managed by Shopify. Customer, item, fulfillment, and refund details are read-only in the ERP.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Totals card */}

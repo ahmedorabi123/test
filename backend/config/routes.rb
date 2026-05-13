@@ -72,7 +72,7 @@ Rails.application.routes.draw do
       end
 
       # Sales / Orders
-      resources :orders, only: %i[index show create] do
+      resources :orders, only: %i[index show create update] do
         collection do
           get  :stats
           get  :export

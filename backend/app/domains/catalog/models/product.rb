@@ -1,7 +1,11 @@
 class Product < ApplicationRecord
+  include Shopify::Origin
+
   STATUSES = %w[active draft archived].freeze
   PUBLISHED_SCOPES = %w[web global].freeze
   SOURCES = %w[manual shopify].freeze
+
+  shopify_origin_via :shopify_product_id
 
   has_many :variants, -> { order(:position) }, dependent: :destroy, inverse_of: :product
   has_many :product_options, -> { order(:position) }, dependent: :destroy, inverse_of: :product
@@ -26,10 +30,6 @@ class Product < ApplicationRecord
 
   before_validation :derive_handle_from_title, if: -> { handle.blank? && title.present? }
   before_save :coerce_tags
-
-  def shopify_linked?
-    shopify_product_id.present?
-  end
 
   private
 

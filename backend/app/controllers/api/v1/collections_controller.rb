@@ -16,6 +16,7 @@ module Api
       SQL
 
       before_action :set_collection, only: %i[show update destroy add_product remove_product]
+      before_action :ensure_collection_mutable, only: %i[update destroy add_product remove_product]
 
       # GET /api/v1/collections
       def index
@@ -117,6 +118,10 @@ module Api
 
       def set_collection
         @collection = Collection.find(params[:id])
+      end
+
+      def ensure_collection_mutable
+        ensure_not_shopify_origin!(@collection)
       end
 
       def filtered_scope(ignore_kind: false)

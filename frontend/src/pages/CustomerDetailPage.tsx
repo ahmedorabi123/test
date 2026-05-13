@@ -73,9 +73,14 @@ export default function CustomerDetailPage() {
     if (!customer || !draft) return false;
     return JSON.stringify(draft) !== JSON.stringify(toDraft(customer));
   }, [customer, draft]);
+  const isReadOnly = Boolean(
+    customer?.read_only_origin ||
+    customer?.source === "shopify" ||
+    customer?.shopify_customer_id,
+  );
 
   async function handleSave() {
-    if (!customer || !draft) return;
+    if (!customer || !draft || isReadOnly) return;
     setSaving(true);
     setError(null);
     try {
@@ -93,7 +98,7 @@ export default function CustomerDetailPage() {
   }
 
   async function handleDelete() {
-    if (!customer) return;
+    if (!customer || isReadOnly) return;
     if (!window.confirm("Delete this customer? This cannot be undone.")) return;
 
     setSaving(true);
@@ -123,10 +128,12 @@ export default function CustomerDetailPage() {
   }
 
   function patchDraft(p: Partial<CustomerInput>) {
+    if (isReadOnly) return;
     setDraft((d) => (d ? { ...d, ...p } : d));
   }
 
   function patchAddress(p: Partial<CustomerAddress>) {
+    if (isReadOnly) return;
     setDraft((d) =>
       d ? { ...d, default_address: { ...(d.default_address ?? {}), ...p } } : d,
     );
@@ -144,7 +151,7 @@ export default function CustomerDetailPage() {
   return (
     <div className="pb-16 max-w-6xl mx-auto">
       {/* Sticky save bar */}
-      {isDirty && (
+      {isDirty && !isReadOnly && (
         <div className="sticky top-0 z-30 bg-amber-50 border-b border-amber-200 shadow-sm">
           <div className="px-6 py-3 flex items-center justify-between">
             <div className="text-sm font-medium text-amber-900">
@@ -211,14 +218,22 @@ export default function CustomerDetailPage() {
               )}
             </div>
           </div>
-          <button
-            onClick={handleDelete}
-            disabled={saving}
-            className="self-start rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50"
-          >
-            Delete customer
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={handleDelete}
+              disabled={saving}
+              className="self-start rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+            >
+              Delete customer
+            </button>
+          )}
         </div>
+
+        {isReadOnly && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            This customer is managed by Shopify and cannot be edited in the ERP.
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -334,211 +349,213 @@ export default function CustomerDetailPage() {
           </div>
         )}
 
-        {/* Editable: Customer overview */}
-        <Section title="Customer">
-          <Field label="First name">
-            <input
-              type="text"
-              value={draft.first_name ?? ""}
-              onChange={(e) => patchDraft({ first_name: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-            />
-          </Field>
-          <Field label="Last name">
-            <input
-              type="text"
-              value={draft.last_name ?? ""}
-              onChange={(e) => patchDraft({ last_name: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-            />
-          </Field>
-          <Field label="Email">
-            <input
-              type="email"
-              value={draft.email ?? ""}
-              onChange={(e) => patchDraft({ email: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-            />
-          </Field>
-          <Field label="Phone">
-            <input
-              type="tel"
-              value={draft.phone ?? ""}
-              onChange={(e) => patchDraft({ phone: e.target.value })}
-              placeholder="+201234567890"
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-            />
-          </Field>
-          <Field label="Currency">
-            <select
-              value={draft.currency ?? "EGP"}
-              onChange={(e) => patchDraft({ currency: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-            >
-              <option value="EGP">EGP</option>
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="GBP">GBP</option>
-              <option value="AED">AED</option>
-              <option value="SAR">SAR</option>
-            </select>
-          </Field>
-          <div className="md:col-span-2 flex flex-wrap gap-6">
-            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+        <fieldset disabled={isReadOnly} className="contents">
+          {/* Editable: Customer overview */}
+          <Section title="Customer">
+            <Field label="First name">
               <input
-                type="checkbox"
-                checked={!!draft.accepts_marketing}
-                onChange={(e) =>
-                  patchDraft({ accepts_marketing: e.target.checked })
-                }
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                type="text"
+                value={draft.first_name ?? ""}
+                onChange={(e) => patchDraft({ first_name: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
-              Subscribed to marketing emails
-            </label>
-            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            </Field>
+            <Field label="Last name">
               <input
-                type="checkbox"
-                checked={!!draft.tax_exempt}
-                onChange={(e) => patchDraft({ tax_exempt: e.target.checked })}
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                type="text"
+                value={draft.last_name ?? ""}
+                onChange={(e) => patchDraft({ last_name: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
-              Tax exempt
-            </label>
-          </div>
-        </Section>
-
-        {/* Editable: Default address */}
-        <Section title="Default address">
-          <Field label="Address line 1" wide>
-            <input
-              type="text"
-              value={draft.default_address?.address1 ?? ""}
-              onChange={(e) => patchAddress({ address1: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-            />
-          </Field>
-          <Field label="Address line 2" wide>
-            <input
-              type="text"
-              value={draft.default_address?.address2 ?? ""}
-              onChange={(e) => patchAddress({ address2: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-            />
-          </Field>
-          <Field label="City">
-            <input
-              type="text"
-              value={draft.default_address?.city ?? ""}
-              onChange={(e) => patchAddress({ city: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-            />
-          </Field>
-          <Field label="Province / State">
-            <input
-              type="text"
-              value={draft.default_address?.province ?? ""}
-              onChange={(e) => patchAddress({ province: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-            />
-          </Field>
-          <Field label="Country">
-            <input
-              type="text"
-              value={draft.default_address?.country ?? ""}
-              onChange={(e) => patchAddress({ country: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-            />
-          </Field>
-          <Field label="Zip / Postal code">
-            <input
-              type="text"
-              value={draft.default_address?.zip ?? ""}
-              onChange={(e) => patchAddress({ zip: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-            />
-          </Field>
-          <Field label="Company">
-            <input
-              type="text"
-              value={draft.default_address?.company ?? ""}
-              onChange={(e) => patchAddress({ company: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-            />
-          </Field>
-          <Field label="Phone">
-            <input
-              type="tel"
-              value={draft.default_address?.phone ?? ""}
-              onChange={(e) => patchAddress({ phone: e.target.value })}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-            />
-          </Field>
-          {isAddressEmpty(draft.default_address) && (
-            <div className="md:col-span-2 text-xs text-slate-400 italic">
-              No address on file. Fill in the fields above to add one.
-            </div>
-          )}
-        </Section>
-
-        {/* Editable: Tags */}
-        <Section title="Tags" cols={1}>
-          <div className="md:col-span-2">
-            <div className="flex flex-wrap gap-1 mb-2">
-              {(draft.tags ?? []).map((t) => (
-                <span
-                  key={t}
-                  className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
-                >
-                  {t}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      patchDraft({
-                        tags: (draft.tags ?? []).filter((x) => x !== t),
-                      })
-                    }
-                    className="text-slate-500 hover:text-rose-600"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-              {(!draft.tags || draft.tags.length === 0) && (
-                <span className="text-xs text-slate-400">No tags yet</span>
-              )}
-            </div>
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === ",") {
-                  e.preventDefault();
-                  const t = tagInput.trim().replace(/,$/, "");
-                  if (t && !(draft.tags ?? []).includes(t)) {
-                    patchDraft({ tags: [...(draft.tags ?? []), t] });
+            </Field>
+            <Field label="Email">
+              <input
+                type="email"
+                value={draft.email ?? ""}
+                onChange={(e) => patchDraft({ email: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              />
+            </Field>
+            <Field label="Phone">
+              <input
+                type="tel"
+                value={draft.phone ?? ""}
+                onChange={(e) => patchDraft({ phone: e.target.value })}
+                placeholder="+201234567890"
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              />
+            </Field>
+            <Field label="Currency">
+              <select
+                value={draft.currency ?? "EGP"}
+                onChange={(e) => patchDraft({ currency: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              >
+                <option value="EGP">EGP</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="AED">AED</option>
+                <option value="SAR">SAR</option>
+              </select>
+            </Field>
+            <div className="md:col-span-2 flex flex-wrap gap-6">
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={!!draft.accepts_marketing}
+                  onChange={(e) =>
+                    patchDraft({ accepts_marketing: e.target.checked })
                   }
-                  setTagInput("");
-                }
-              }}
-              placeholder="Type a tag and press Enter"
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-            />
-          </div>
-        </Section>
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Subscribed to marketing emails
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={!!draft.tax_exempt}
+                  onChange={(e) => patchDraft({ tax_exempt: e.target.checked })}
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Tax exempt
+              </label>
+            </div>
+          </Section>
 
-        {/* Editable: Note */}
-        <Section title="Note" cols={1}>
-          <div className="md:col-span-2">
-            <textarea
-              rows={4}
-              value={draft.note ?? ""}
-              onChange={(e) => patchDraft({ note: e.target.value })}
-              placeholder="Internal note about this customer (not visible to customer)"
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm resize-y"
-            />
-          </div>
-        </Section>
+          {/* Editable: Default address */}
+          <Section title="Default address">
+            <Field label="Address line 1" wide>
+              <input
+                type="text"
+                value={draft.default_address?.address1 ?? ""}
+                onChange={(e) => patchAddress({ address1: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              />
+            </Field>
+            <Field label="Address line 2" wide>
+              <input
+                type="text"
+                value={draft.default_address?.address2 ?? ""}
+                onChange={(e) => patchAddress({ address2: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              />
+            </Field>
+            <Field label="City">
+              <input
+                type="text"
+                value={draft.default_address?.city ?? ""}
+                onChange={(e) => patchAddress({ city: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              />
+            </Field>
+            <Field label="Province / State">
+              <input
+                type="text"
+                value={draft.default_address?.province ?? ""}
+                onChange={(e) => patchAddress({ province: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              />
+            </Field>
+            <Field label="Country">
+              <input
+                type="text"
+                value={draft.default_address?.country ?? ""}
+                onChange={(e) => patchAddress({ country: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              />
+            </Field>
+            <Field label="Zip / Postal code">
+              <input
+                type="text"
+                value={draft.default_address?.zip ?? ""}
+                onChange={(e) => patchAddress({ zip: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              />
+            </Field>
+            <Field label="Company">
+              <input
+                type="text"
+                value={draft.default_address?.company ?? ""}
+                onChange={(e) => patchAddress({ company: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              />
+            </Field>
+            <Field label="Phone">
+              <input
+                type="tel"
+                value={draft.default_address?.phone ?? ""}
+                onChange={(e) => patchAddress({ phone: e.target.value })}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              />
+            </Field>
+            {isAddressEmpty(draft.default_address) && (
+              <div className="md:col-span-2 text-xs text-slate-400 italic">
+                No address on file. Fill in the fields above to add one.
+              </div>
+            )}
+          </Section>
+
+          {/* Editable: Tags */}
+          <Section title="Tags" cols={1}>
+            <div className="md:col-span-2">
+              <div className="flex flex-wrap gap-1 mb-2">
+                {(draft.tags ?? []).map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
+                  >
+                    {t}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        patchDraft({
+                          tags: (draft.tags ?? []).filter((x) => x !== t),
+                        })
+                      }
+                      className="text-slate-500 hover:text-rose-600"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {(!draft.tags || draft.tags.length === 0) && (
+                  <span className="text-xs text-slate-400">No tags yet</span>
+                )}
+              </div>
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    const t = tagInput.trim().replace(/,$/, "");
+                    if (t && !(draft.tags ?? []).includes(t)) {
+                      patchDraft({ tags: [...(draft.tags ?? []), t] });
+                    }
+                    setTagInput("");
+                  }
+                }}
+                placeholder="Type a tag and press Enter"
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              />
+            </div>
+          </Section>
+
+          {/* Editable: Note */}
+          <Section title="Note" cols={1}>
+            <div className="md:col-span-2">
+              <textarea
+                rows={4}
+                value={draft.note ?? ""}
+                onChange={(e) => patchDraft({ note: e.target.value })}
+                placeholder="Internal note about this customer (not visible to customer)"
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm resize-y"
+              />
+            </div>
+          </Section>
+        </fieldset>
 
         {/* All addresses (read-only listing of additional non-default addresses) */}
         {customer.addresses && customer.addresses.length > 1 && (

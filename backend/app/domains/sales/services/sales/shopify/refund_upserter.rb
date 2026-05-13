@@ -28,46 +28,48 @@ module Sales
       end
 
       def call
-        order = find_order
-        return nil unless order
+        ::Shopify::Origin.without_read_only do
+          order = find_order
+          return nil unless order
 
-        shopify_refund_id = @payload[:id].to_i
-        amount            = extract_amount
-        currency          = (@payload[:currency].presence || order.currency || "EGP").upcase
-        restock_requested = Array(@payload[:refund_line_items]).any? do |rli|
-          rt = (rli[:restock_type] || rli["restock_type"]).to_s
-          rt == "return"
+          shopify_refund_id = @payload[:id].to_i
+          amount            = extract_amount
+          currency          = (@payload[:currency].presence || order.currency || "EGP").upcase
+          restock_requested = Array(@payload[:refund_line_items]).any? do |rli|
+            rt = (rli[:restock_type] || rli["restock_type"]).to_s
+            rt == "return"
+          end
+
+          refund = ActiveRecord::Base.transaction do
+            refund = ::Refund.find_or_initialize_by(shopify_refund_id: shopify_refund_id)
+            was_new = refund.new_record?
+
+            refund.assign_attributes(
+              order:              order,
+              amount:             amount,
+              currency:           currency,
+              reason:             @payload[:reason].presence,
+              note:               @payload[:note].presence,
+              status:             "processed",
+              kind:               exchange_order?(order) ? "exchange" : "shopify",
+              restock:            restock_requested,
+              transactions:       Array(@payload[:transactions]).map { |t| t.is_a?(Hash) ? t.to_h : {} },
+              processed_at:       parse_time(@payload[:processed_at] || @payload[:created_at]) || Time.current,
+              shopify_updated_at: parse_time(@payload[:updated_at])
+            )
+            refund.save!
+            sync_line_items(refund)
+            [refund, was_new]
+          end.first
+
+          # Outside the refund transaction: inventory + accounting (each idempotent).
+          restock_inventory(refund)
+          release_cancelled_reservations(refund)
+          update_order_financial_state(refund)
+          post_accounting(refund)
+
+          refund
         end
-
-        refund = ActiveRecord::Base.transaction do
-          refund = ::Refund.find_or_initialize_by(shopify_refund_id: shopify_refund_id)
-          was_new = refund.new_record?
-
-          refund.assign_attributes(
-            order:              order,
-            amount:             amount,
-            currency:           currency,
-            reason:             @payload[:reason].presence,
-            note:               @payload[:note].presence,
-            status:             "processed",
-            kind:               exchange_order?(order) ? "exchange" : "shopify",
-            restock:            restock_requested,
-            transactions:       Array(@payload[:transactions]).map { |t| t.is_a?(Hash) ? t.to_h : {} },
-            processed_at:       parse_time(@payload[:processed_at] || @payload[:created_at]) || Time.current,
-            shopify_updated_at: parse_time(@payload[:updated_at])
-          )
-          refund.save!
-          sync_line_items(refund)
-          [refund, was_new]
-        end.first
-
-        # Outside the refund transaction: inventory + accounting (each idempotent).
-        restock_inventory(refund)
-        release_cancelled_reservations(refund)
-        update_order_financial_state(refund)
-        post_accounting(refund)
-
-        refund
       end
 
       private

@@ -10,6 +10,7 @@ module Api
                   default: { last_order_at: :desc }
 
       before_action :set_customer, only: %i[show update destroy]
+      before_action :ensure_customer_mutable, only: %i[update destroy]
 
       # GET /api/v1/customers?search=&page=&per_page=&sort=&dir=
       def index
@@ -91,6 +92,7 @@ module Api
         action_type = params[:action_type].to_s
         customers = Customer.where(id: ids)
         count = 0
+        return unless ensure_no_shopify_origin!(customers)
 
         case action_type
         when "delete"
@@ -142,6 +144,10 @@ module Api
 
       def set_customer
         @customer = Customer.find(params[:id])
+      end
+
+      def ensure_customer_mutable
+        ensure_not_shopify_origin!(@customer)
       end
 
       def customer_params

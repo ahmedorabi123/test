@@ -28,7 +28,13 @@ module Inventory
     end
 
     def target_warehouses
-      @warehouses || Warehouse.active.own
+      return eligible_warehouses.merge(@warehouses) if @warehouses
+
+      eligible_warehouses
+    end
+
+    def eligible_warehouses
+      Warehouse.active.own.where.not(kind: %w[consignment transit])
     end
 
     def provision_stock_item(variant, warehouse)

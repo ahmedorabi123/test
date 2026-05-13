@@ -63,6 +63,7 @@ export interface Customer {
   currency: string;
   source: "manual" | "shopify";
   shopify_customer_id: string | null;
+  read_only_origin?: boolean;
   created_at: string;
   updated_at: string;
   orders?: Array<{

@@ -159,6 +159,22 @@ RSpec.describe "Api::V1::StockItems", type: :request do
       body = JSON.parse(response.body)["data"]
       expect(body["available"]).to eq(6) # 10 - 2 - 2
     end
+
+    it "rejects adjustments to Shopify-origin stock items" do
+      variant = create(:variant, :from_shopify)
+      warehouse = create(:warehouse, shopify_location_id: 123456)
+      si = create(:stock_item, variant: variant, warehouse: warehouse, quantity_on_hand: 10)
+
+      expect {
+        patch "/api/v1/stock_items/#{si.id}",
+              params: { stock_item: { quantity_on_hand: 15 } },
+              headers: auth_headers(admin)
+      }.not_to change(StockMovement, :count)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
+      expect(si.reload.quantity_on_hand).to eq(10)
+    end
   end
 
   # ─── DESTROY ──────────────────────────────────────────────────────────────────
@@ -190,6 +206,19 @@ RSpec.describe "Api::V1::StockItems", type: :request do
            headers: auth_headers(admin)
       expect(response).to have_http_status(:ok)
       items.each { |si| expect(si.reload.low_stock_threshold).to eq(10) }
+    end
+
+    it "rejects bulk changes containing Shopify-origin stock items" do
+      variant = create(:variant, :from_shopify)
+      warehouse = create(:warehouse, shopify_location_id: 123456)
+      si = create(:stock_item, variant: variant, warehouse: warehouse, low_stock_threshold: 5)
+
+      post "/api/v1/stock_items/bulk",
+           params: { ids: [si.id], action_type: "set_threshold", payload: { threshold: 10 } },
+           headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(si.reload.low_stock_threshold).to eq(5)
     end
   end
 end

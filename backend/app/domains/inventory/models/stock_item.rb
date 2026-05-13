@@ -1,4 +1,8 @@
 class StockItem < ApplicationRecord
+  include Shopify::Origin
+
+  shopify_origin_via :shopify_inventory_level_id
+
   belongs_to :variant,   inverse_of: :stock_items
   belongs_to :warehouse, inverse_of: :stock_items
 
@@ -25,5 +29,9 @@ class StockItem < ApplicationRecord
 
   def low_stock?
     available <= low_stock_threshold
+  end
+
+  def shopify_origin?
+    super || (warehouse&.shopify_origin? && variant&.shopify_origin?)
   end
 end

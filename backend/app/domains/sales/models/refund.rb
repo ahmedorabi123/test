@@ -1,6 +1,10 @@
 class Refund < ApplicationRecord
+  include Shopify::Origin
+
   STATUSES = %w[draft approved processed cancelled].freeze
   KINDS = %w[shopify manual estebdal exchange].freeze
+
+  shopify_origin_via :shopify_refund_id
 
   belongs_to :order, inverse_of: :refunds
   has_many   :refund_line_items, dependent: :destroy, inverse_of: :refund
@@ -20,10 +24,6 @@ class Refund < ApplicationRecord
 
   def full?
     order && amount.to_d >= order.total_price.to_d
-  end
-
-  def shopify_linked?
-    shopify_refund_id.present?
   end
 
   def processed?

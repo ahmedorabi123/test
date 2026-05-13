@@ -34,6 +34,7 @@ export interface Fulfillment {
   in_transit_at?: string | null;
   location_id: number | null;
   shopify_fulfillment_id: number | null;
+  read_only_origin?: boolean;
   created_at: string;
   updated_at: string;
   line_items?: Array<{

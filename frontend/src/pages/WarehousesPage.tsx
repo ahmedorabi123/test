@@ -16,6 +16,10 @@ const KIND_BADGES: Record<string, string> = {
   transit: "bg-amber-100 text-amber-700",
 };
 
+function isWarehouseReadOnly(warehouse: Warehouse) {
+  return Boolean(warehouse.read_only_origin || warehouse.shopify_location_id);
+}
+
 export default function WarehousesPage() {
   const [items, setItems] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -153,12 +157,18 @@ function Section({
               },
             ]}
             actions={
-              <button
-                onClick={() => onEdit(w)}
-                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
-              >
-                Edit warehouse
-              </button>
+              isWarehouseReadOnly(w) ? (
+                <span className="inline-flex min-h-10 items-center rounded-md bg-emerald-50 px-3 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
+                  Shopify-managed
+                </span>
+              ) : (
+                <button
+                  onClick={() => onEdit(w)}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  Edit warehouse
+                </button>
+              )
             }
           />
         ))}
@@ -190,9 +200,9 @@ function Section({
                   >
                     {w.code}
                   </span>
-                  {w.shopify_location_id && (
+                  {isWarehouseReadOnly(w) && (
                     <span className="text-xs text-slate-400">
-                      Shopify #{w.shopify_location_id}
+                      Shopify-managed
                     </span>
                   )}
                 </td>
@@ -232,12 +242,16 @@ function Section({
                   </span>
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <button
-                    onClick={() => onEdit(w)}
-                    className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                  >
-                    Edit
-                  </button>
+                  {isWarehouseReadOnly(w) ? (
+                    <span className="text-xs text-slate-400">Read-only</span>
+                  ) : (
+                    <button
+                      onClick={() => onEdit(w)}
+                      className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

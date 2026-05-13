@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { productsApi, type ProductMetafield } from "../api/products";
 import { collectionsApi } from "../api/collections";
-import { warehousesApi, type Warehouse } from "../api/inventory";
 import AsyncCombobox, {
   type AsyncComboboxOption,
 } from "../components/AsyncCombobox";
@@ -19,20 +18,26 @@ const CATEGORY_METAFIELDS = [
   { key: "material", label: "Material" },
 ];
 
-type OptionDraft = { name: string; values: string };
+const ALLOWED_MEDIA_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/gif",
+];
+const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
+
 type VariantDraft = {
   key: string;
   title: string;
-  option1?: string;
-  option2?: string;
-  option3?: string;
+  option1: string;
+  option2: string;
+  option3: string;
   sku: string;
   price: string;
   compare_at_price: string;
   cost_per_item: string;
   barcode: string;
-  stock: Record<string, string>;
-  threshold: Record<string, string>;
 };
 
 type Draft = {
@@ -47,7 +52,6 @@ type Draft = {
   seo_description: string;
   metafields: ProductMetafield[];
   collection_ids: string[];
-  imageUrls: string[];
 };
 
 const initialDraft: Draft = {
@@ -62,7 +66,6 @@ const initialDraft: Draft = {
   seo_description: "",
   metafields: [],
   collection_ids: [],
-  imageUrls: [""],
 };
 
 function slugify(value: string) {
@@ -73,72 +76,70 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-function parseValues(value: string) {
-  return value
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
-function combinations(groups: string[][]) {
-  return groups.reduce<string[][]>(
-    (acc, group) =>
-      acc.flatMap((prefix) => group.map((value) => [...prefix, value])),
-    [[]],
-  );
-}
-
-function buildDefaultVariant(warehouses: Warehouse[]): VariantDraft {
+function newVariant(title = "Default"): VariantDraft {
   return {
-    key: "default",
-    title: "Default",
+    key: `variant-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    title,
+    option1: "",
+    option2: "",
+    option3: "",
     sku: "",
     price: "0.00",
     compare_at_price: "",
     cost_per_item: "",
     barcode: "",
-    stock: Object.fromEntries(
-      warehouses.map((warehouse) => [warehouse.id, "0"]),
-    ),
-    threshold: Object.fromEntries(
-      warehouses.map((warehouse) => [warehouse.id, "0"]),
-    ),
   };
+}
+
+function uniqueValues(values: string[]) {
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean)),
+  );
+}
+
+function buildProductOptions(variants: VariantDraft[]) {
+  const definitions = [
+    { name: "Option 1", values: uniqueValues(variants.map((v) => v.option1)) },
+    { name: "Option 2", values: uniqueValues(variants.map((v) => v.option2)) },
+    { name: "Option 3", values: uniqueValues(variants.map((v) => v.option3)) },
+  ].filter((definition) => definition.values.length > 0);
+
+  return definitions.map((definition, index) => ({
+    name: definition.name,
+    position: index + 1,
+    product_option_values_attributes: definition.values.map(
+      (value, valueIndex) => ({ value, position: valueIndex + 1 }),
+    ),
+  }));
+}
+
+function validateMedia(files: File[]) {
+  const invalid = files.find(
+    (file) =>
+      !ALLOWED_MEDIA_TYPES.includes(file.type) || file.size > MAX_MEDIA_BYTES,
+  );
+  if (!invalid) return null;
+
+  return invalid.size > MAX_MEDIA_BYTES
+    ? `${invalid.name} exceeds 5 MB`
+    : `${invalid.name}: unsupported type ${invalid.type || "unknown"}`;
 }
 
 export default function NewProductPage() {
   const navigate = useNavigate();
+  const mediaInputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState<Draft>(initialDraft);
   const [tagInput, setTagInput] = useState("");
-  const [options, setOptions] = useState<OptionDraft[]>([
-    { name: "Color", values: "" },
-    { name: "Size", values: "" },
+  const [variants, setVariants] = useState<VariantDraft[]>([
+    newVariant("Default"),
   ]);
-  const [variants, setVariants] = useState<VariantDraft[]>([]);
   const [selectedCollections, setSelectedCollections] = useState<
     AsyncComboboxOption[]
   >([]);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [dragOver, setDragOver] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    warehousesApi
-      .list()
-      .then((warehouseRows) => {
-        setWarehouses(warehouseRows.filter((warehouse) => warehouse.active));
-        setVariants((prev) =>
-          prev.length > 0
-            ? prev
-            : [
-                buildDefaultVariant(
-                  warehouseRows.filter((warehouse) => warehouse.active),
-                ),
-              ],
-        );
-      })
-      .catch(() => undefined);
-  }, []);
 
   const loadCollectionOptions = useCallback(async (query: string) => {
     const rows = await collectionsApi.list({
@@ -189,41 +190,6 @@ export default function NewProductPage() {
     setTagInput("");
   };
 
-  const generateVariants = () => {
-    const activeOptions = options
-      .map((option) => ({
-        name: option.name.trim(),
-        values: parseValues(option.values),
-      }))
-      .filter((option) => option.name && option.values.length > 0)
-      .slice(0, 3);
-    if (activeOptions.length === 0) {
-      setVariants([buildDefaultVariant(warehouses)]);
-      return;
-    }
-    const existingByTitle = new Map(
-      variants.map((variant) => [variant.title, variant]),
-    );
-    setVariants(
-      combinations(activeOptions.map((option) => option.values)).map(
-        (values, index) => {
-          const title = values.join(" / ");
-          const existing = existingByTitle.get(title);
-          return (
-            existing || {
-              ...buildDefaultVariant(warehouses),
-              key: `${title}-${index}`,
-              title,
-              option1: values[0],
-              option2: values[1],
-              option3: values[2],
-            }
-          );
-        },
-      ),
-    );
-  };
-
   const updateVariant = (index: number, patch: Partial<VariantDraft>) => {
     setVariants((prev) =>
       prev.map((variant, i) =>
@@ -232,18 +198,24 @@ export default function NewProductPage() {
     );
   };
 
-  const updateVariantStock = (
-    index: number,
-    warehouseId: string,
-    value: string,
-  ) => {
+  const addVariant = () => {
+    setVariants((prev) => [...prev, newVariant(`Variant ${prev.length + 1}`)]);
+  };
+
+  const removeVariant = (index: number) => {
     setVariants((prev) =>
-      prev.map((variant, i) =>
-        i === index
-          ? { ...variant, stock: { ...variant.stock, [warehouseId]: value } }
-          : variant,
-      ),
+      prev.length <= 1 ? prev : prev.filter((_, i) => i !== index),
     );
+  };
+
+  const appendMedia = (files: File[]) => {
+    const validationError = validateMedia(files);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setError(null);
+    setMediaFiles((prev) => [...prev, ...files]);
   };
 
   const save = async () => {
@@ -251,18 +223,10 @@ export default function NewProductPage() {
       setError("Product title is required");
       return;
     }
-    const validVariants =
-      variants.length > 0 ? variants : [buildDefaultVariant(warehouses)];
+    const validVariants = variants.length > 0 ? variants : [newVariant()];
     setSaving(true);
     setError(null);
     try {
-      const activeOptions = options
-        .map((option) => ({
-          name: option.name.trim(),
-          values: parseValues(option.values),
-        }))
-        .filter((option) => option.name && option.values.length > 0)
-        .slice(0, 3);
       const product = await productsApi.create({
         title: draft.title.trim(),
         handle: resolvedHandle,
@@ -277,18 +241,7 @@ export default function NewProductPage() {
         metafields: draft.metafields.filter(
           (row) => row.namespace && row.key && row.value.trim(),
         ),
-        product_options_attributes: activeOptions.map((option, index) => ({
-          name: option.name,
-          position: index + 1,
-          product_option_values_attributes: option.values.map(
-            (value, valueIndex) => ({ value, position: valueIndex + 1 }),
-          ),
-        })) as never,
-        product_images_attributes: draft.imageUrls
-          .map((url, index) =>
-            url.trim() ? { src: url.trim(), position: index + 1 } : null,
-          )
-          .filter(Boolean) as never,
+        product_options_attributes: buildProductOptions(validVariants) as never,
         variants_attributes: validVariants.map((variant, index) => ({
           title: variant.title.trim() || "Default",
           sku: variant.sku.trim() || null,
@@ -297,23 +250,21 @@ export default function NewProductPage() {
           cost: variant.cost_per_item.trim() || null,
           cost_per_item: variant.cost_per_item.trim() || null,
           barcode: variant.barcode.trim() || null,
-          option1: variant.option1 || null,
-          option2: variant.option2 || null,
-          option3: variant.option3 || null,
+          option1: variant.option1.trim() || null,
+          option2: variant.option2.trim() || null,
+          option3: variant.option3.trim() || null,
           position: index + 1,
           inventory_policy: "deny",
           inventory_management: "shopify",
           requires_shipping: true,
           taxable: true,
-          stock_items_attributes: warehouses.map((warehouse) => ({
-            warehouse_id: warehouse.id,
-            quantity_on_hand:
-              parseInt(variant.stock[warehouse.id] || "0", 10) || 0,
-            low_stock_threshold:
-              parseInt(variant.threshold[warehouse.id] || "0", 10) || 0,
-          })),
         })),
       });
+
+      if (mediaFiles.length > 0) {
+        await productsApi.uploadImages(product.id, mediaFiles);
+      }
+
       navigate(`/products/${product.id}`);
     } catch (e) {
       const err = e as {
@@ -396,92 +347,77 @@ export default function NewProductPage() {
           </section>
 
           <section className="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Options & variants
+                Variants
               </h2>
               <button
                 type="button"
-                onClick={generateVariants}
+                onClick={addVariant}
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
-                Generate variants
+                Add variant
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {options.map((option, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-1 gap-2 sm:grid-cols-3"
-                >
-                  <input
-                    value={option.name}
-                    onChange={(e) =>
-                      setOptions((prev) =>
-                        prev.map((row, i) =>
-                          i === index ? { ...row, name: e.target.value } : row,
-                        ),
-                      )
-                    }
-                    placeholder="Option"
-                    className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  />
-                  <input
-                    value={option.values}
-                    onChange={(e) =>
-                      setOptions((prev) =>
-                        prev.map((row, i) =>
-                          i === index
-                            ? { ...row, values: e.target.value }
-                            : row,
-                        ),
-                      )
-                    }
-                    placeholder="Comma separated values"
-                    className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2"
-                  />
-                </div>
-              ))}
-            </div>
+
             <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <table className="min-w-full text-sm">
+              <table className="min-w-[1080px] text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                   <tr>
                     <th className="px-3 py-2 text-left">Variant</th>
+                    <th className="px-3 py-2 text-left">Option 1</th>
+                    <th className="px-3 py-2 text-left">Option 2</th>
+                    <th className="px-3 py-2 text-left">Option 3</th>
                     <th className="px-3 py-2 text-left">SKU</th>
                     <th className="px-3 py-2 text-right">Price</th>
                     <th className="px-3 py-2 text-right">Compare</th>
                     <th className="px-3 py-2 text-right">Cost</th>
-                    {warehouses.map((warehouse) => (
-                      <th key={warehouse.id} className="px-3 py-2 text-right">
-                        {warehouse.code || warehouse.name}
-                      </th>
-                    ))}
+                    <th className="px-3 py-2 text-left">Barcode</th>
+                    <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {variants.map((variant, index) => (
                     <tr key={variant.key}>
-                      <td className="px-3 py-2 min-w-44">
+                      <td className="px-3 py-2">
                         <input
+                          aria-label={`Variant ${index + 1} title`}
                           value={variant.title}
                           onChange={(e) =>
                             updateVariant(index, { title: e.target.value })
                           }
-                          className="w-full rounded border border-slate-300 px-2 py-1"
+                          className="w-44 rounded border border-slate-300 px-2 py-1"
                         />
                       </td>
+                      {(["option1", "option2", "option3"] as const).map(
+                        (field, optionIndex) => (
+                          <td key={field} className="px-3 py-2">
+                            <input
+                              aria-label={`Variant ${index + 1} option ${optionIndex + 1}`}
+                              value={variant[field]}
+                              onChange={(e) =>
+                                updateVariant(index, {
+                                  [field]: e.target.value,
+                                })
+                              }
+                              className="w-32 rounded border border-slate-300 px-2 py-1"
+                            />
+                          </td>
+                        ),
+                      )}
                       <td className="px-3 py-2">
                         <input
+                          aria-label={`Variant ${index + 1} SKU`}
                           value={variant.sku}
                           onChange={(e) =>
                             updateVariant(index, { sku: e.target.value })
                           }
-                          className="w-32 rounded border border-slate-300 px-2 py-1 font-mono"
+                          className="w-36 rounded border border-slate-300 px-2 py-1 font-mono"
                         />
                       </td>
                       <td className="px-3 py-2">
                         <input
+                          aria-label={`Variant ${index + 1} price`}
                           type="number"
                           min={0}
                           step="0.01"
@@ -494,6 +430,7 @@ export default function NewProductPage() {
                       </td>
                       <td className="px-3 py-2">
                         <input
+                          aria-label={`Variant ${index + 1} compare at price`}
                           type="number"
                           min={0}
                           step="0.01"
@@ -508,6 +445,7 @@ export default function NewProductPage() {
                       </td>
                       <td className="px-3 py-2">
                         <input
+                          aria-label={`Variant ${index + 1} cost`}
                           type="number"
                           min={0}
                           step="0.01"
@@ -520,23 +458,26 @@ export default function NewProductPage() {
                           className="w-24 rounded border border-slate-300 px-2 py-1 text-right"
                         />
                       </td>
-                      {warehouses.map((warehouse) => (
-                        <td key={warehouse.id} className="px-3 py-2">
-                          <input
-                            type="number"
-                            min={0}
-                            value={variant.stock[warehouse.id] || "0"}
-                            onChange={(e) =>
-                              updateVariantStock(
-                                index,
-                                warehouse.id,
-                                e.target.value,
-                              )
-                            }
-                            className="w-20 rounded border border-slate-300 px-2 py-1 text-right"
-                          />
-                        </td>
-                      ))}
+                      <td className="px-3 py-2">
+                        <input
+                          aria-label={`Variant ${index + 1} barcode`}
+                          value={variant.barcode}
+                          onChange={(e) =>
+                            updateVariant(index, { barcode: e.target.value })
+                          }
+                          className="w-32 rounded border border-slate-300 px-2 py-1 font-mono"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => removeVariant(index)}
+                          disabled={variants.length <= 1}
+                          className="text-xs font-medium text-rose-600 hover:text-rose-700 disabled:text-slate-300"
+                        >
+                          Remove
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -546,44 +487,70 @@ export default function NewProductPage() {
 
           <section className="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
             <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Images
+              Media
             </h2>
-            {draft.imageUrls.map((url, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  value={url}
-                  onChange={(e) =>
-                    setField(
-                      "imageUrls",
-                      draft.imageUrls.map((row, i) =>
-                        i === index ? e.target.value : row,
-                      ),
-                    )
-                  }
-                  placeholder="https://..."
-                  className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setField(
-                      "imageUrls",
-                      draft.imageUrls.filter((_, i) => i !== index),
-                    )
-                  }
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => setField("imageUrls", [...draft.imageUrls, ""])}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+            <div
+              onClick={() => mediaInputRef.current?.click()}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragOver(false);
+                appendMedia(Array.from(event.dataTransfer.files));
+              }}
+              className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed px-4 py-6 text-sm transition ${
+                dragOver
+                  ? "border-indigo-400 bg-indigo-50"
+                  : "border-slate-300 bg-slate-50 hover:bg-slate-100"
+              }`}
             >
-              Add image URL
-            </button>
+              <span className="font-medium text-slate-700">
+                Drag files here or click to upload
+              </span>
+              <span className="text-xs text-slate-400">
+                PNG, JPEG, WEBP, GIF · up to 5 MB each
+              </span>
+              <input
+                ref={mediaInputRef}
+                aria-label="Upload product media"
+                type="file"
+                multiple
+                accept={ALLOWED_MEDIA_TYPES.join(",")}
+                className="sr-only"
+                onChange={(event) => {
+                  appendMedia(Array.from(event.target.files ?? []));
+                  event.target.value = "";
+                }}
+              />
+            </div>
+            {mediaFiles.length > 0 && (
+              <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                {mediaFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${file.size}-${index}`}
+                    className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                  >
+                    <span className="truncate text-slate-700">
+                      {file.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMediaFiles((prev) =>
+                          prev.filter((_, fileIndex) => fileIndex !== index),
+                        )
+                      }
+                      className="text-xs font-medium text-rose-600 hover:text-rose-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
 

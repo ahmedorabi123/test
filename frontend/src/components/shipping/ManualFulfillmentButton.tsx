@@ -88,7 +88,7 @@ export default function ManualFulfillmentButton({
     }
   };
 
-  if (order.status === "cancelled") return null;
+  if (order.status === "cancelled" || order.read_only_origin) return null;
 
   return (
     <>

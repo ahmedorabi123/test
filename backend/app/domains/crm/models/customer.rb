@@ -1,5 +1,9 @@
 class Customer < ApplicationRecord
+  include Shopify::Origin
+
   SOURCES = %w[manual shopify].freeze
+
+  shopify_origin_via :shopify_customer_id
 
   has_many :orders, inverse_of: :customer, dependent: :nullify
 

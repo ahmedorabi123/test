@@ -297,6 +297,12 @@ export default function OrdersPage() {
         label: "Cancel",
         destructive: true,
         run: async (sel) => {
+          if (sel.some((order) => order.read_only_origin)) {
+            window.alert(
+              "Shopify-managed orders cannot be cancelled in the ERP.",
+            );
+            return false;
+          }
           if (!window.confirm(`Cancel ${sel.length} order(s)?`)) return false;
           await ordersApi.bulk(
             sel.map((o) => o.id),

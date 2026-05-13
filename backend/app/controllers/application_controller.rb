@@ -34,6 +34,25 @@ class ApplicationController < ActionController::API
     render_error(403, "forbidden", "You are not authorized to perform this action")
   end
 
+  def ensure_not_shopify_origin!(record)
+    return true unless record.respond_to?(:shopify_origin?) && record.shopify_origin?
+
+    render_read_only_shopify_resource
+    false
+  end
+
+  def ensure_no_shopify_origin!(records)
+    locked = records.detect { |record| record.respond_to?(:shopify_origin?) && record.shopify_origin? }
+    return true unless locked
+
+    render_read_only_shopify_resource
+    false
+  end
+
+  def render_read_only_shopify_resource
+    render_error(403, "read_only_shopify_resource", Shopify::Origin::READ_ONLY_MESSAGE)
+  end
+
   def render_error(status, type, detail, code: nil)
     body = { status: status, type: type, detail: detail }
     body[:code] = code if code

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./smoke.spec";
+import { loginAsAdmin } from "./helpers";
 
 /**
  * Manual order flow E2E:

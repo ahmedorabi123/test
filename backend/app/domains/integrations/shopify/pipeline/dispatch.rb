@@ -20,7 +20,9 @@ module Shopify
         when :collection
           Catalog::HandleShopifyCollectionJob.perform_later(@payload, kind: collection_kind)
         when :collection_deleted
-          Collection.where(shopify_collection_id: @payload["id"].to_i).destroy_all
+          ::Shopify::Origin.without_read_only do
+            Collection.where(shopify_collection_id: @payload["id"].to_i).destroy_all
+          end
         when :inventory
           Inventory::HandleShopifyInventoryJob.perform_later(@payload)
         when :order
@@ -31,13 +33,17 @@ module Shopify
           Shipping::HandleShopifyFulfillmentJob.perform_later(@payload)
         when :customer
           Crm::HandleShopifyCustomerJob.perform_later(@payload)
+        when :noop
+          ::Shopify::ComplianceEventJob.perform_later(@normalized[:topic], @payload)
         end
       end
 
       private
 
       def archive_product!
-        Product.find_by(shopify_product_id: @payload["id"].to_i)&.update(status: "archived")
+        ::Shopify::Origin.without_read_only do
+          Product.find_by(shopify_product_id: @payload["id"].to_i)&.update(status: "archived")
+        end
       end
 
       def collection_kind

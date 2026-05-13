@@ -26,6 +26,7 @@ export interface Collection {
   published_scope?: string;
   kind: "custom" | "smart";
   source: "manual" | "shopify";
+  read_only_origin?: boolean;
   rules?: CollectionRule[];
   disjunctive?: boolean;
   products_count: number;

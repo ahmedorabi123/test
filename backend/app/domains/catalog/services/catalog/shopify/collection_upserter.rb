@@ -14,13 +14,15 @@ module Catalog
       end
 
       def call
-        attrs = build_attrs
-        collection = Collection.find_by(shopify_collection_id: attrs[:shopify_collection_id])
-        collection ||= Collection.find_by(handle: attrs[:handle])
-        collection ||= Collection.new
-        collection.assign_attributes(attrs)
-        collection.save!
-        collection
+        ::Shopify::Origin.without_read_only do
+          attrs = build_attrs
+          collection = Collection.find_by(shopify_collection_id: attrs[:shopify_collection_id])
+          collection ||= Collection.find_by(handle: attrs[:handle])
+          collection ||= Collection.new
+          collection.assign_attributes(attrs)
+          collection.save!
+          collection
+        end
       end
 
       private

@@ -7,6 +7,7 @@ module Api
       MAX_SIZE_BYTES = 5.megabytes
 
       before_action :set_product
+      before_action :ensure_product_mutable
 
       # POST /api/v1/products/:product_id/images
       # Accepts one or more files under params[:files] or params[:file].
@@ -25,12 +26,12 @@ module Api
             return render_error(422, "file_too_large", "File #{file.original_filename} exceeds #{MAX_SIZE_BYTES / 1.megabyte} MB")
           end
 
-          blob = ActiveStorage::Blob.create_and_upload!(
+          @product.uploaded_images.attach(
             io: file.to_io,
             filename: file.original_filename,
             content_type: file.content_type
           )
-          @product.uploaded_images_attachments.create!(blob: blob)
+          @product.uploaded_images_attachments.last
         end
 
         render json: { data: attached.map { |i| attachment_payload(i) } }, status: :created
@@ -51,6 +52,10 @@ module Api
 
       def set_product
         @product = Product.find(params[:product_id])
+      end
+
+      def ensure_product_mutable
+        ensure_not_shopify_origin!(@product)
       end
 
       def attachment_payload(attachment)

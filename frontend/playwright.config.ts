@@ -34,6 +34,10 @@ export default defineConfig({
     ? undefined
     : {
         command: "npm run dev -- --host 127.0.0.1",
+        env: {
+          ...process.env,
+          VITE_API_URL: process.env.VITE_API_URL || "http://localhost:3010",
+        },
         port: 5173,
         reuseExistingServer: true,
         timeout: 60_000,

@@ -20,6 +20,7 @@ module Api
       SQL
 
       before_action :set_product, only: %i[show update destroy]
+      before_action :ensure_product_mutable, only: %i[update destroy]
 
       # GET /api/v1/products?search=&status=&page=&per_page=&sort=&dir=
       def index
@@ -68,7 +69,7 @@ module Api
           product = Product.new(attrs)
           product.save!
           Catalog::AssignCollectionsToProduct.call(product, collection_ids) if collection_ids
-          Inventory::ProvisionStockItems.call(product: product) unless nested_stock_items?(attrs)
+          Inventory::ProvisionStockItems.call(product: product) if provision_stock_items?(attrs)
         end
 
         render json: { data: ProductSerializer.call(product) }, status: :created
@@ -115,10 +116,13 @@ module Api
 
         case action_type
         when "archive"
+          return unless ensure_no_shopify_origin!(scope)
           scope.find_each { |p| p.update!(status: "archived"); count += 1 }
         when "activate"
+          return unless ensure_no_shopify_origin!(scope)
           scope.find_each { |p| p.update!(status: "active"); count += 1 }
         when "delete"
+          return unless ensure_no_shopify_origin!(scope)
           scope.find_each { |p| p.destroy!; count += 1 }
         else
           return render_error(400, "bad_request", "Unsupported action: #{action_type}")
@@ -159,6 +163,10 @@ module Api
           .find(params[:id])
       end
 
+      def ensure_product_mutable
+        ensure_not_shopify_origin!(@product)
+      end
+
       def product_params
         params.require(:product).permit(
           :title, :handle, :status, :vendor, :product_type, :description,
@@ -189,6 +197,12 @@ module Api
 
       def nested_stock_items?(attrs)
         Array(attrs[:variants_attributes]).any? { |variant_attrs| Array(variant_attrs[:stock_items_attributes]).any? }
+      end
+
+      def provision_stock_items?(attrs)
+        return false if nested_stock_items?(attrs)
+
+        ActiveModel::Type::Boolean.new.cast(params.fetch(:provision_stock, true))
       end
 
       def export_scope

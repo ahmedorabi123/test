@@ -9,6 +9,7 @@ import DataTable, {
 import ImportExportBar from "../components/table/ImportExportBar";
 import { MobileRowCard } from "../components/table/MobileRowCard";
 import { PageContainer } from "../components/ui/PageContainer";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
@@ -34,6 +35,17 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(search);
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+
+  useEffect(() => {
+    if (debouncedSearch === search) return;
+    const sp = new URLSearchParams(searchParams);
+    if (debouncedSearch) sp.set("search", debouncedSearch);
+    else sp.delete("search");
+    sp.set("page", "1");
+    setSearchParams(sp, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const setParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams);
@@ -210,12 +222,6 @@ export default function ProductsPage() {
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                setParam("page", "1");
-                setParam("search", searchInput);
-              }
-            }}
             placeholder="Search title / handle…"
             className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 lg:w-64"
           />

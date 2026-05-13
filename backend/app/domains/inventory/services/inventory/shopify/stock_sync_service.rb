@@ -20,36 +20,38 @@ class Inventory::Shopify::StockSyncService
   end
 
   def call
-    inventory_item_id = Integer(@payload["inventory_item_id"])
-    location_id       = Integer(@payload["location_id"])
-    available         = Integer(@payload["available"].to_i)
+    ::Shopify::Origin.without_read_only do
+      inventory_item_id = Integer(@payload["inventory_item_id"])
+      location_id       = Integer(@payload["location_id"])
+      available         = Integer(@payload["available"].to_i)
 
-    variant   = Variant.find_by(shopify_inventory_item_id: inventory_item_id)
-    return nil unless variant
+      variant = Variant.find_by(shopify_inventory_item_id: inventory_item_id)
+      return nil unless variant
 
-    warehouse = ::Inventory::WarehouseResolver.for_shopify_location(location_id, auto_create: true)
+      warehouse = ::Inventory::WarehouseResolver.for_shopify_location(location_id, auto_create: true)
 
-    ActiveRecord::Base.transaction do
-      stock_item = StockItem.find_or_initialize_by(
-        variant_id:   variant.id,
-        warehouse_id: warehouse.id
-      )
-      before = stock_item.persisted? ? stock_item.quantity_on_hand : 0
-      delta  = available - before
+      ActiveRecord::Base.transaction do
+        stock_item = StockItem.find_or_initialize_by(
+          variant_id:   variant.id,
+          warehouse_id: warehouse.id
+        )
+        before = stock_item.persisted? ? stock_item.quantity_on_hand : 0
+        delta  = available - before
 
-      stock_item.quantity_on_hand = before
-      stock_item.save!
+        stock_item.quantity_on_hand = before
+        stock_item.save!
 
-      ::Inventory::WriteMovement.call(
-        stock_item: stock_item,
-        delta: delta,
-        reason: REASON,
-        reference: @reference
-      )
+        ::Inventory::WriteMovement.call(
+          stock_item: stock_item,
+          delta: delta,
+          reason: REASON,
+          reference: @reference
+        )
 
-      ::Inventory::Reservations::RecountStockItem.call(stock_item.reload)
+        ::Inventory::Reservations::RecountStockItem.call(stock_item.reload)
 
-      stock_item
+        stock_item
+      end
     end
   end
 end

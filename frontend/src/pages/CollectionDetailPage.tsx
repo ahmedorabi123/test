@@ -166,7 +166,14 @@ export default function CollectionDetailPage() {
     );
   }
 
-  const isReadOnly = !isNew && collection?.kind === "smart";
+  const isReadOnly =
+    !isNew &&
+    (collection?.kind === "smart" ||
+      Boolean(
+        collection?.read_only_origin ||
+        collection?.source === "shopify" ||
+        collection?.shopify_collection_id,
+      ));
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-24 sm:px-0">
@@ -225,10 +232,10 @@ export default function CollectionDetailPage() {
         </div>
       )}
 
-      {/* Smart collection read-only notice */}
+      {/* Read-only notice */}
       {isReadOnly && (
         <div className="mb-4 rounded-lg bg-purple-50 border border-purple-200 px-4 py-3 text-sm text-purple-800">
-          Smart collections are managed by Shopify. Rules and membership are
+          This collection is managed by Shopify. Details and membership are
           synced from Shopify and cannot be edited here.
         </div>
       )}

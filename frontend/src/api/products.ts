@@ -32,6 +32,7 @@ export interface StockItemLocation {
   quantity_unavailable?: number;
   available?: number;
   low_stock_threshold?: number;
+  read_only_origin?: boolean;
 }
 
 export interface StockItemAttribute {
@@ -79,6 +80,7 @@ export interface Variant {
   cost?: string | null;
   last_purchase_cost?: string | null;
   cost_per_item?: string | null;
+  read_only_origin?: boolean;
   stock_items?: StockItemLocation[];
 }
 
@@ -94,6 +96,7 @@ export interface Product {
   category_metafields?: Record<string, string | null | undefined>;
   source: "manual" | "shopify";
   shopify_product_id: number | null;
+  read_only_origin?: boolean;
   created_at: string;
   updated_at: string;
   variants_count?: number;

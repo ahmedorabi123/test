@@ -21,6 +21,7 @@ class FulfillmentSerializer
       in_transit_at:           (fulfillment.respond_to?(:in_transit_at) ? fulfillment.in_transit_at : nil),
       location_id:             fulfillment.location_id,
       shopify_fulfillment_id:  fulfillment.shopify_fulfillment_id,
+      read_only_origin:        fulfillment.shopify_origin?,
       created_at:              fulfillment.created_at,
       updated_at:              fulfillment.updated_at,
       line_items: include_line_items ? fulfillment.fulfillment_line_items.map { |li| FulfillmentLineItemSerializer.call(li) } : nil

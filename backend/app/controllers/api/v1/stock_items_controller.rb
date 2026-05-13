@@ -10,6 +10,7 @@ module Api
                   default: { updated_at: :desc }
 
       before_action :set_stock_item, only: %i[show update destroy]
+      before_action :ensure_stock_item_mutable, only: %i[update destroy]
 
       # GET /api/v1/stock_items?warehouse_id=&variant_id=&low_stock=true&sort=&dir=&page=&per_page=
       def index
@@ -64,6 +65,7 @@ module Api
         threshold = Integer(params[:low_stock_threshold].presence || 0)
 
         si = StockItem.find_or_initialize_by(variant: variant, warehouse: warehouse)
+        return unless ensure_not_shopify_origin!(si)
         new_record = si.new_record?
         si.quantity_on_hand ||= 0
         si.low_stock_threshold = threshold
@@ -165,6 +167,7 @@ module Api
         action_type = params[:action_type].to_s
         scope = StockItem.where(id: ids)
         count = 0
+        return unless ensure_no_shopify_origin!(scope)
 
         case action_type
         when "set_threshold"
@@ -197,6 +200,10 @@ module Api
 
       def set_stock_item
         @stock_item = StockItem.find(params[:id])
+      end
+
+      def ensure_stock_item_mutable
+        ensure_not_shopify_origin!(@stock_item)
       end
 
       def stock_item_params

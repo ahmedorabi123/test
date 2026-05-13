@@ -78,6 +78,7 @@ export interface Order {
   placed_at: string;
   cancelled_at: string | null;
   shopify_order_id: number | null;
+  read_only_origin?: boolean;
   tags?: string[];
   delivery_method?: string | null;
   delivery_status?: string | null;

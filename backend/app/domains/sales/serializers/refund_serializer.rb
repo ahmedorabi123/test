@@ -15,6 +15,7 @@ class RefundSerializer
       content_hash:       refund.respond_to?(:content_hash) ? refund.content_hash : nil,
       processed_at:       refund.processed_at,
       shopify_refund_id:  refund.shopify_refund_id,
+      read_only_origin:   refund.shopify_origin?,
       partial:            refund.partial?,
       full:               refund.full?,
       restock:            refund.restock,

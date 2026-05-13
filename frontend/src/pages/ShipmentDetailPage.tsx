@@ -59,6 +59,9 @@ export default function ShipmentDetailPage() {
     string,
     unknown
   >;
+  const isReadOnly = Boolean(
+    shipment.read_only_origin || shipment.shopify_fulfillment_id,
+  );
 
   return (
     <div className="max-w-6xl mx-auto space-y-5">
@@ -98,6 +101,12 @@ export default function ShipmentDetailPage() {
           />
         </div>
       </div>
+
+      {isReadOnly && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          This shipment is managed by Shopify. Notes and tags are read-only in the ERP.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <section className="bg-white rounded-xl border border-slate-200 p-4 lg:col-span-2">
@@ -229,19 +238,22 @@ export default function ShipmentDetailPage() {
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
+            disabled={isReadOnly}
             rows={5}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
           />
           <div className="flex flex-wrap gap-1">
             {(shipment.tags || []).map((tag) => (
               <button
                 key={tag}
                 onClick={() =>
+                  !isReadOnly &&
                   setShipment({
                     ...shipment,
                     tags: (shipment.tags || []).filter((t) => t !== tag),
                   })
                 }
+                disabled={isReadOnly}
                 className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700"
               >
                 {tag} x
@@ -251,8 +263,9 @@ export default function ShipmentDetailPage() {
           <input
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
+            disabled={isReadOnly}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && tagInput.trim()) {
+              if (!isReadOnly && e.key === "Enter" && tagInput.trim()) {
                 setShipment({
                   ...shipment,
                   tags: [...(shipment.tags || []), tagInput.trim()],
@@ -261,15 +274,17 @@ export default function ShipmentDetailPage() {
               }
             }}
             placeholder="Add tag and press Enter"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
           />
-          <button
-            disabled={saving}
-            onClick={saveAnnotation}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save notes"}
-          </button>
+          {!isReadOnly && (
+            <button
+              disabled={saving}
+              onClick={saveAnnotation}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save notes"}
+            </button>
+          )}
         </section>
       </div>
     </div>

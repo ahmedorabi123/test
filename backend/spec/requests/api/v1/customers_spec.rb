@@ -157,6 +157,18 @@ RSpec.describe "Api::V1::Customers", type: :request do
       expect(c.tags).to match_array(%w[vip wholesale])
       expect(c.default_address["address1"]).to eq("1 Main")
     end
+
+    it "rejects updates to Shopify-origin customers" do
+      customer = create(:customer, source: "shopify", shopify_customer_id: 123456, first_name: "Shopify")
+
+      patch "/api/v1/customers/#{customer.id}",
+            params: { customer: { first_name: "ERP" } },
+            headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
+      expect(customer.reload.first_name).to eq("Shopify")
+    end
   end
 
   describe "bulk actions" do
@@ -189,6 +201,17 @@ RSpec.describe "Api::V1::Customers", type: :request do
       expect(response).to have_http_status(:ok)
       expect(Customer.exists?(keep.id)).to be true
       expect(Customer.exists?(drop.id)).to be false
+    end
+
+    it "rejects bulk mutations containing Shopify-origin customers" do
+      customer = create(:customer, source: "shopify", shopify_customer_id: 123456)
+
+      post "/api/v1/customers/bulk",
+           params: { ids: [customer.id], action_type: "add_tag", payload: { tag: "vip" } },
+           headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(customer.reload.tags).to be_empty
     end
   end
 end

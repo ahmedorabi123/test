@@ -14,18 +14,20 @@ module Catalog
       end
 
       def call
-        attrs = build_product_attrs
-        product = Product.find_by(shopify_product_id: attrs[:shopify_product_id])
-        # Fall back to matching by handle so we can claim products that were
-        # seeded or imported without a shopify_product_id.
-        product ||= Product.find_by(handle: attrs[:handle])
-        product ||= Product.new
-        product.assign_attributes(attrs)
-        product.save!
-        upsert_options(product)
-        upsert_variants(product)
-        upsert_images(product)
-        product
+        ::Shopify::Origin.without_read_only do
+          attrs = build_product_attrs
+          product = Product.find_by(shopify_product_id: attrs[:shopify_product_id])
+          # Fall back to matching by handle so we can claim products that were
+          # seeded or imported without a shopify_product_id.
+          product ||= Product.find_by(handle: attrs[:handle])
+          product ||= Product.new
+          product.assign_attributes(attrs)
+          product.save!
+          upsert_options(product)
+          upsert_variants(product)
+          upsert_images(product)
+          product
+        end
       end
 
       private

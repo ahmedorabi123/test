@@ -26,6 +26,7 @@ class CustomerSerializer
       currency:             customer.currency,
       source:               customer.source,
       shopify_customer_id:  customer.shopify_customer_id,
+      read_only_origin:     customer.shopify_origin?,
       created_at:           customer.created_at,
       updated_at:           customer.updated_at,
       orders: include_orders ? customer.orders.recent.limit(50).map { |o| OrderSerializer.call(o, include_line_items: false) } : nil

@@ -60,25 +60,35 @@ module Shopify
         # Archive the product locally (mirror Shopify behaviour: soft-delete)
         shopify_id = normalized[:data]["id"].to_i
         product = Product.find_by(shopify_product_id: shopify_id)
-        product&.update(status: "archived")
+        ::Shopify::Origin.without_read_only { product&.update(status: "archived") }
       when :shopify_collection_created, :shopify_collection_updated
         # Determine kind from payload: smart collections have a `rules` key
         kind = normalized[:data]["rules"].present? ? "smart" : "custom"
         Catalog::HandleShopifyCollectionJob.perform_later(normalized[:data], kind: kind)
       when :shopify_collection_deleted
         shopify_id = normalized[:data]["id"].to_i
-        Collection.where(shopify_collection_id: shopify_id).destroy_all
-      when :shopify_inventory_updated
+        ::Shopify::Origin.without_read_only do
+          Collection.where(shopify_collection_id: shopify_id).destroy_all
+        end
+      when :shopify_inventory_updated, :shopify_inventory_level_connected,
+           :shopify_inventory_level_disconnected
         Inventory::HandleShopifyInventoryJob.perform_later(normalized[:data])
       when :shopify_order_created, :shopify_order_updated, :shopify_order_paid,
-           :shopify_order_cancelled, :shopify_order_fulfilled
+           :shopify_order_cancelled, :shopify_order_edited,
+           :shopify_order_fulfilled, :shopify_order_partially_fulfilled
         Sales::HandleShopifyOrderJob.perform_later(normalized[:data])
       when :shopify_refund_created
         Sales::HandleShopifyRefundJob.perform_later(normalized[:data])
-      when :shopify_fulfillment_created, :shopify_fulfillment_updated
+      when :shopify_fulfillment_created, :shopify_fulfillment_updated,
+           :shopify_fulfillment_cancelled
         Shipping::HandleShopifyFulfillmentJob.perform_later(normalized[:data])
       when :shopify_customer_created, :shopify_customer_updated
         Crm::HandleShopifyCustomerJob.perform_later(normalized[:data])
+      when :shopify_inventory_item_created, :shopify_inventory_item_updated,
+           :shopify_inventory_item_deleted, :shopify_customer_data_requested,
+           :shopify_customer_redacted, :shopify_shop_redacted,
+           :shopify_app_uninstalled
+        ::Shopify::ComplianceEventJob.perform_later(normalized[:topic], normalized[:data])
       end
     end
   end

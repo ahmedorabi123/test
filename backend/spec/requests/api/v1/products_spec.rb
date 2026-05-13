@@ -42,6 +42,7 @@ RSpec.describe "Api::V1::Products", type: :request do
       body = JSON.parse(response.body)
       expect(body["data"]["id"]).to eq(product.id)
       expect(body["data"]["variants"].size).to eq(1)
+      expect(body["data"]).to have_key("read_only_origin")
     end
 
     it "404 for unknown id" do
@@ -93,6 +94,28 @@ RSpec.describe "Api::V1::Products", type: :request do
 
       expect(response).to have_http_status(:created)
     end
+
+    it "can skip automatic stock provisioning" do
+      warehouse = create(:warehouse, kind: "own")
+      payload = {
+        product: {
+          title: "No Stock Tee",
+          status: "active",
+          variants_attributes: [
+            { title: "Default", sku: "NST-1", price: "12.50" }
+          ]
+        }
+      }
+
+      post "/api/v1/products",
+           params: payload.merge(provision_stock: false),
+           as: :json,
+           headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:created), response.body
+      variant_id = JSON.parse(response.body).dig("data", "variants", 0, "id")
+      expect(StockItem.where(variant_id: variant_id, warehouse: warehouse)).not_to exist
+    end
   end
 
   describe "POST /api/v1/products/:id/images" do
@@ -130,6 +153,19 @@ RSpec.describe "Api::V1::Products", type: :request do
       expect(response).to have_http_status(:ok)
       expect(product.reload.title).to eq("New")
     end
+
+    it "rejects updates to Shopify-origin products" do
+      product = create(:product, :from_shopify, title: "Shopify")
+
+      patch "/api/v1/products/#{product.id}",
+            params: { product: { title: "ERP Edit" } },
+            as: :json,
+            headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
+      expect(product.reload.title).to eq("Shopify")
+    end
   end
 
   describe "DELETE /api/v1/products/:id" do
@@ -138,6 +174,15 @@ RSpec.describe "Api::V1::Products", type: :request do
       delete "/api/v1/products/#{product.id}", headers: auth_headers(admin)
       expect(response).to have_http_status(:no_content)
       expect(Product.where(id: product.id)).to be_empty
+    end
+
+    it "rejects deletion of Shopify-origin products" do
+      product = create(:product, :from_shopify)
+
+      delete "/api/v1/products/#{product.id}", headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(Product.exists?(product.id)).to be(true)
     end
   end
 

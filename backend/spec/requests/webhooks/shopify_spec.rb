@@ -89,9 +89,12 @@ RSpec.describe "Webhooks::Shopify", type: :request do
 
   describe "supported topics" do
     %w[
-      orders/create orders/updated orders/paid orders/cancelled orders/fulfilled
+      orders/create orders/updated orders/paid orders/cancelled orders/edited orders/fulfilled orders/partially_fulfilled
       products/create products/update
-      inventory_levels/update
+      inventory_items/create inventory_items/update inventory_items/delete
+      inventory_levels/connect inventory_levels/disconnect inventory_levels/update
+      fulfillments/cancelled
+      customers/data_request customers/redact shop/redact app/uninstalled
       refunds/create
     ].each do |topic|
       it "accepts #{topic} and enqueues the job" do

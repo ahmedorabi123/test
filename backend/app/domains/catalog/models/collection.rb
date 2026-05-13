@@ -1,6 +1,10 @@
 class Collection < ApplicationRecord
+  include Shopify::Origin
+
   KINDS = %w[custom smart].freeze
   SOURCES = %w[manual shopify].freeze
+
+  shopify_origin_via :shopify_collection_id
 
   has_many :collection_products, dependent: :destroy
   has_many :products, through: :collection_products

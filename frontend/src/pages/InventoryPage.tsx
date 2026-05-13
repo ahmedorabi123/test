@@ -38,6 +38,10 @@ interface VariantOption {
   }>;
 }
 
+function isStockItemReadOnly(stockItem: StockItem) {
+  return Boolean(stockItem.read_only_origin);
+}
+
 function NewStockItemModal({
   warehouses,
   defaultWarehouseId,
@@ -533,6 +537,7 @@ export default function InventoryPage() {
   }, [load]);
 
   const openAdjust = (si: StockItem) => {
+    if (isStockItemReadOnly(si)) return;
     setAdjustState({
       stockItem: si,
       onHand: String(si.quantity_on_hand),
@@ -590,13 +595,18 @@ export default function InventoryPage() {
         header: "Product",
         sortKey: "product_title",
         render: (si) => (
-          <div className="flex flex-col min-w-0">
+          <div className="flex flex-col min-w-0 gap-1">
             <span className="font-medium text-slate-900 truncate">
               {si.product_title ?? "—"}
             </span>
             <span className="text-xs text-slate-500 truncate">
               {si.variant_title ?? "Default"}
             </span>
+            {isStockItemReadOnly(si) && (
+              <span className="w-fit rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200">
+                Shopify-managed
+              </span>
+            )}
           </div>
         ),
       },
@@ -696,17 +706,20 @@ export default function InventoryPage() {
       {
         id: "actions",
         header: "",
-        render: (si) => (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openAdjust(si);
-            }}
-            className="text-xs text-indigo-600 hover:underline whitespace-nowrap"
-          >
-            Adjust
-          </button>
-        ),
+        render: (si) =>
+          isStockItemReadOnly(si) ? (
+            <span className="text-xs text-slate-400">Read-only</span>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openAdjust(si);
+              }}
+              className="text-xs text-indigo-600 hover:underline whitespace-nowrap"
+            >
+              Adjust
+            </button>
+          ),
       },
     ],
     [],
@@ -718,6 +731,12 @@ export default function InventoryPage() {
         id: "set_threshold",
         label: "Set low-stock threshold",
         run: async (sel) => {
+          if (sel.some(isStockItemReadOnly)) {
+            window.alert(
+              "Shopify-managed inventory rows cannot be modified in the ERP.",
+            );
+            return false;
+          }
           const t = window.prompt("New low-stock threshold:");
           if (t == null) return false;
           const threshold = parseInt(t, 10);
@@ -735,6 +754,12 @@ export default function InventoryPage() {
         label: "Delete",
         destructive: true,
         run: async (sel) => {
+          if (sel.some(isStockItemReadOnly)) {
+            window.alert(
+              "Shopify-managed inventory rows cannot be deleted in the ERP.",
+            );
+            return false;
+          }
           if (!window.confirm(`Delete ${sel.length} stock item(s)?`))
             return false;
           await stockItemsApi.bulk(
@@ -934,12 +959,18 @@ export default function InventoryPage() {
               { label: "Stock", value: stockItem.low_stock ? "Low" : "OK" },
             ]}
             actions={
-              <button
-                onClick={() => openAdjust(stockItem)}
-                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
-              >
-                Adjust stock
-              </button>
+              isStockItemReadOnly(stockItem) ? (
+                <span className="inline-flex min-h-10 items-center rounded-md bg-emerald-50 px-3 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
+                  Shopify-managed
+                </span>
+              ) : (
+                <button
+                  onClick={() => openAdjust(stockItem)}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  Adjust stock
+                </button>
+              )
             }
           />
         )}

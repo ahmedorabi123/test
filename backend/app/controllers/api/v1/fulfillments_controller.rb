@@ -43,6 +43,7 @@ module Api
       def annotation
         fulfillment = Fulfillment.find(params[:id])
         authorize fulfillment, :update?
+        return unless ensure_not_shopify_origin!(fulfillment)
         fulfillment.update!(annotation_params)
         Shipping::RecordShipmentEvent.call(fulfillment, kind: "annotation_updated", payload: annotation_params.to_h, actor: current_user)
         render json: { data: FulfillmentSerializer.call(fulfillment.reload) }
@@ -75,6 +76,7 @@ module Api
         authorize Fulfillment
         attrs = create_params
         order = Order.find(attrs.fetch(:order_id))
+        return unless ensure_not_shopify_origin!(order)
 
         fulfillment = Shipping::CreateManualFulfillment.call(
           order:            order,
@@ -104,7 +106,10 @@ module Api
         return render_error(400, "bad_request", "Only add_tag is supported") unless params[:action_type].to_s == "add_tag" && tag.present?
 
         count = 0
-        Fulfillment.where(id: ids).find_each do |fulfillment|
+        scope = Fulfillment.where(id: ids)
+        return unless ensure_no_shopify_origin!(scope)
+
+        scope.find_each do |fulfillment|
           fulfillment.update!(tags: (Array(fulfillment.tags) + [tag]).uniq)
           count += 1
         end

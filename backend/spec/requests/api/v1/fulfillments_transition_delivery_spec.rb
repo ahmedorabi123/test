@@ -31,4 +31,17 @@ RSpec.describe "Api::V1::Fulfillments transition_delivery", type: :request do
          params: { to: "delivered" }, headers: auth_headers(admin)
     expect(response).to have_http_status(:ok)
   end
+
+  it "allows delivery transitions for Shopify-origin fulfillments" do
+    Shopify::Origin.without_read_only do
+      fulfillment.update!(shopify_fulfillment_id: 123456)
+    end
+
+    post "/api/v1/fulfillments/#{fulfillment.id}/transition_delivery",
+         params: { to: "in_transit" }, headers: auth_headers(admin)
+
+    expect(response).to have_http_status(:ok)
+    expect(fulfillment.reload.delivery_status).to eq("in_transit")
+    expect(fulfillment.in_transit_at).to be_present
+  end
 end

@@ -123,6 +123,17 @@ RSpec.describe "Api::V1::Collections", type: :request do
       expect(response).to have_http_status(:ok)
       expect(smart.reload.title).to eq("Renamed Smart")
     end
+
+    it "rejects updates to Shopify-origin collections" do
+      collection = create(:collection, :from_shopify, title: "Shopify Collection")
+      patch "/api/v1/collections/#{collection.id}",
+            params: { collection: { title: "ERP Edit" } },
+            headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
+      expect(collection.reload.title).to eq("Shopify Collection")
+    end
   end
 
   # ─── DESTROY ──────────────────────────────────────────────────────────────────
@@ -186,6 +197,18 @@ RSpec.describe "Api::V1::Collections", type: :request do
       delete "/api/v1/collections/#{collection.id}/products/#{product.id}",
              headers: auth_headers(admin)
       expect(response).to have_http_status(:ok)
+    end
+
+    it "rejects membership edits on Shopify-origin collections" do
+      collection = create(:collection, :from_shopify)
+      product = create(:product)
+
+      post "/api/v1/collections/#{collection.id}/products",
+           params: { product_id: product.id },
+           headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(collection.products.reload).to be_empty
     end
   end
 end

@@ -11,54 +11,61 @@ module Crm
       end
 
       def call
-        shopify_id = @payload[:id].to_i
-        return nil if shopify_id.zero?
+        shopify_id = nil
+        attrs = nil
 
-        updated_at = parse_time(@payload[:updated_at])
+        ::Shopify::Origin.without_read_only do
+          shopify_id = @payload[:id].to_i
+          return nil if shopify_id.zero?
 
-        customer = ::Customer.find_or_initialize_by(shopify_customer_id: shopify_id)
-        # Don't overwrite newer local state with stale Shopify payload.
-        if customer.persisted? && customer.shopify_updated_at.present? && updated_at.present? &&
-           customer.shopify_updated_at >= updated_at
-          return customer
+          updated_at = parse_time(@payload[:updated_at])
+
+          customer = ::Customer.find_or_initialize_by(shopify_customer_id: shopify_id)
+          # Don't overwrite newer local state with stale Shopify payload.
+          if customer.persisted? && customer.shopify_updated_at.present? && updated_at.present? &&
+             customer.shopify_updated_at >= updated_at
+            return customer
+          end
+
+          attrs = {
+            email:              @payload[:email].presence,
+            phone:              @payload[:phone].presence,
+            first_name:         @payload[:first_name].presence,
+            last_name:          @payload[:last_name].presence,
+            tags:               normalize_tags(@payload[:tags]),
+            default_address:    (@payload[:default_address].is_a?(Hash) ? @payload[:default_address].to_h : {}),
+            addresses:          Array(@payload[:addresses]).map { |a| a.is_a?(Hash) ? a.to_h : {} },
+            accepts_marketing:  accepts_email_marketing?,
+            verified_email:     !!@payload[:verified_email],
+            tax_exempt:         !!@payload[:tax_exempt],
+            state:              @payload[:state].presence,
+            note:               @payload[:note].presence,
+            last_order_id:      @payload[:last_order_id].presence&.to_i,
+            last_order_name:    @payload[:last_order_name].presence,
+            orders_count:       @payload[:orders_count].to_i,
+            total_spent:        (@payload[:total_spent] || 0).to_s.to_d,
+            currency:           (@payload[:currency].presence || "EGP").upcase,
+            source:             "shopify",
+            shopify_updated_at: updated_at
+          }
+          customer.assign_attributes(attrs)
+          customer.save!
+          link_orders(customer, shopify_id)
+          recompute_stats_if_needed(customer)
+          customer
         end
-
-        attrs = {
-          email:              @payload[:email].presence,
-          phone:              @payload[:phone].presence,
-          first_name:         @payload[:first_name].presence,
-          last_name:          @payload[:last_name].presence,
-          tags:               normalize_tags(@payload[:tags]),
-          default_address:    (@payload[:default_address].is_a?(Hash) ? @payload[:default_address].to_h : {}),
-          addresses:          Array(@payload[:addresses]).map { |a| a.is_a?(Hash) ? a.to_h : {} },
-          accepts_marketing:  accepts_email_marketing?,
-          verified_email:     !!@payload[:verified_email],
-          tax_exempt:         !!@payload[:tax_exempt],
-          state:              @payload[:state].presence,
-          note:               @payload[:note].presence,
-          last_order_id:      @payload[:last_order_id].presence&.to_i,
-          last_order_name:    @payload[:last_order_name].presence,
-          orders_count:       @payload[:orders_count].to_i,
-          total_spent:        (@payload[:total_spent] || 0).to_s.to_d,
-          currency:           (@payload[:currency].presence || "EGP").upcase,
-          source:             "shopify",
-          shopify_updated_at: updated_at
-        }
-        customer.assign_attributes(attrs)
-        customer.save!
-        link_orders(customer, shopify_id)
-        recompute_stats_if_needed(customer)
-        customer
       rescue ActiveRecord::RecordNotUnique
         # Another concurrent process inserted the same shopify_customer_id between our
         # find_or_initialize_by and save!. Find the existing record and update it instead.
-        customer = ::Customer.find_by!(shopify_customer_id: shopify_id)
-        customer.update!(attrs)
+        ::Shopify::Origin.without_read_only do
+          customer = ::Customer.find_by!(shopify_customer_id: shopify_id)
+          customer.update!(attrs)
 
-        link_orders(customer, shopify_id)
-        recompute_stats_if_needed(customer)
+          link_orders(customer, shopify_id)
+          recompute_stats_if_needed(customer)
 
-        customer
+          customer
+        end
       end
 
       private
