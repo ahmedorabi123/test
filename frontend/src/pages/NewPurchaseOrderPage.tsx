@@ -211,95 +211,101 @@ export default function NewPurchaseOrderPage() {
         </div>
 
         <div className="overflow-x-auto">
-        <table className="min-w-[680px] text-sm">
-          <thead className="bg-gray-50 text-left">
-            <tr>
-              <th className="px-2 py-1">Item</th>
-              <th className="px-2 py-1 text-right">Qty</th>
-              <th className="px-2 py-1 text-right">Unit cost</th>
-              <th className="px-2 py-1 text-right">Subtotal</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((l, i) => (
-              <tr key={i} className="border-t">
-                <td className="px-2 py-1">{l.title}</td>
-                <td className="px-2 py-1 text-right">
-                  <input
-                    type="number"
-                    min={1}
-                    value={l.quantity_ordered}
-                    onChange={(e) =>
-                      setLines((ls) =>
-                        ls.map((x, j) =>
-                          j === i
-                            ? { ...x, quantity_ordered: Number(e.target.value) }
-                            : x,
-                        ),
-                      )
-                    }
-                    className="w-20 border rounded px-1 py-0.5 text-right"
-                  />
-                </td>
-                <td className="px-2 py-1 text-right">
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={l.unit_cost}
-                    onChange={(e) =>
-                      setLines((ls) =>
-                        ls.map((x, j) =>
-                          j === i
-                            ? {
-                                ...x,
-                                unit_cost: Number(e.target.value),
-                                cost_source: "manual",
-                              }
-                            : x,
-                        ),
-                      )
-                    }
-                    className="w-24 border rounded px-1 py-0.5 text-right"
-                  />
-                  <div className="mt-1 text-[11px] text-slate-500">
-                    {l.cost_source}
-                  </div>
-                </td>
-                <td className="px-2 py-1 text-right">
-                  {(l.quantity_ordered * l.unit_cost).toFixed(2)}
-                </td>
-                <td className="px-2 py-1 text-right">
-                  <button
-                    onClick={() =>
-                      setLines((ls) => ls.filter((_, j) => j !== i))
-                    }
-                    className="text-red-600 hover:underline text-xs"
-                  >
-                    remove
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {lines.length === 0 && (
+          <table className="min-w-[680px] text-sm">
+            <thead className="bg-gray-50 text-left">
               <tr>
-                <td colSpan={5} className="px-2 py-4 text-center text-gray-500">
-                  No line items
-                </td>
+                <th className="px-2 py-1">Item</th>
+                <th className="px-2 py-1 text-right">Qty</th>
+                <th className="px-2 py-1 text-right">Unit cost</th>
+                <th className="px-2 py-1 text-right">Subtotal</th>
+                <th></th>
               </tr>
-            )}
-          </tbody>
-          <tfoot>
-            <tr className="border-t font-semibold bg-gray-50">
-              <td colSpan={3} className="px-2 py-2 text-right">
-                Total
-              </td>
-              <td className="px-2 py-2 text-right">{total.toFixed(2)}</td>
-              <td />
-            </tr>
-          </tfoot>
-        </table>
+            </thead>
+            <tbody>
+              {lines.map((l, i) => (
+                <tr key={i} className="border-t">
+                  <td className="px-2 py-1">{l.title}</td>
+                  <td className="px-2 py-1 text-right">
+                    <input
+                      type="number"
+                      min={1}
+                      value={l.quantity_ordered}
+                      onChange={(e) =>
+                        setLines((ls) =>
+                          ls.map((x, j) =>
+                            j === i
+                              ? {
+                                  ...x,
+                                  quantity_ordered: Number(e.target.value),
+                                }
+                              : x,
+                          ),
+                        )
+                      }
+                      className="w-20 border rounded px-1 py-0.5 text-right"
+                    />
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={l.unit_cost}
+                      onChange={(e) =>
+                        setLines((ls) =>
+                          ls.map((x, j) =>
+                            j === i
+                              ? {
+                                  ...x,
+                                  unit_cost: Number(e.target.value),
+                                  cost_source: "manual",
+                                }
+                              : x,
+                          ),
+                        )
+                      }
+                      className="w-24 border rounded px-1 py-0.5 text-right"
+                    />
+                    <div className="mt-1 text-[11px] text-slate-500">
+                      {l.cost_source}
+                    </div>
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    {(l.quantity_ordered * l.unit_cost).toFixed(2)}
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    <button
+                      onClick={() =>
+                        setLines((ls) => ls.filter((_, j) => j !== i))
+                      }
+                      className="text-red-600 hover:underline text-xs"
+                    >
+                      remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {lines.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-2 py-4 text-center text-gray-500"
+                  >
+                    No line items
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="border-t font-semibold bg-gray-50">
+                <td colSpan={3} className="px-2 py-2 text-right">
+                  Total
+                </td>
+                <td className="px-2 py-2 text-right">{total.toFixed(2)}</td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
 

@@ -171,6 +171,7 @@ Things you may want to cover:
 ## Never lose your dev data (and debug login 401s fast)
 
 ### Why data persists across restarts
+
 Postgres and Redis both live on **named Docker volumes** (`postgres_data`, `redis_data`). These survive:
 
 - `docker compose stop`
@@ -181,23 +182,27 @@ Postgres and Redis both live on **named Docker volumes** (`postgres_data`, `redi
 They are **destroyed only** by `docker compose down -v` or `docker volume rm`.
 
 ### If login suddenly returns 401
+
 The API now returns a `code` field so you can see exactly what's wrong:
 
-| `error.code`      | Meaning                                        | Fix                                                |
-|-------------------|------------------------------------------------|----------------------------------------------------|
-| `no_user`         | Email doesn't exist in DB                      | Run `bin/rails db:seed`                            |
-| `wrong_password`  | User exists but password hash mismatches       | Check `ADMIN_PASSWORD` env, re-seed                |
-| `inactive`        | User record has `active = false`               | `User.find_by(...).update!(active: true)`          |
+| `error.code`     | Meaning                                  | Fix                                       |
+| ---------------- | ---------------------------------------- | ----------------------------------------- |
+| `no_user`        | Email doesn't exist in DB                | Run `bin/rails db:seed`                   |
+| `wrong_password` | User exists but password hash mismatches | Check `ADMIN_PASSWORD` env, re-seed       |
+| `inactive`       | User record has `active = false`         | `User.find_by(...).update!(active: true)` |
 
 Every failure is also written to `audit_logs` (action `auth.login.failed`, diff `{email, reason}`).
 
 ### Run the doctor
+
 ```bash
 docker compose -f backend/docker-compose.yml exec backend bin/rails erp:doctor
 ```
+
 Checks DB reachability, user count, admin password match, roles/permissions seeded, Redis, Sidekiq, Shopify env.
 
 ### Recovery runbook
+
 ```bash
 # 1. My DB got wiped (I ran with -v by mistake)
 docker compose -f backend/docker-compose.yml up -d          # re-creates schema + re-seeds on boot
@@ -212,4 +217,3 @@ docker compose -f backend/docker-compose.yml exec backend bin/rails erp:doctor
 ```
 
 > Note: `bin/rails db:test:prepare` touches only `erp_test`. It cannot delete dev users.
-

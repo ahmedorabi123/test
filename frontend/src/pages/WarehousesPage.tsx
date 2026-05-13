@@ -123,7 +123,12 @@ function Section({
           <MobileRowCard
             key={w.id}
             title={w.name}
-            subtitle={w.partner_name || w.partner_email || w.partner_phone || "No partner contact"}
+            subtitle={
+              w.partner_name ||
+              w.partner_email ||
+              w.partner_phone ||
+              "No partner contact"
+            }
             meta={w.currency || "-"}
             fields={[
               {
@@ -138,7 +143,9 @@ function Section({
               },
               {
                 label: "Commission",
-                value: w.commission_rate ? `${(Number(w.commission_rate) * 100).toFixed(2)}%` : "-",
+                value: w.commission_rate
+                  ? `${(Number(w.commission_rate) * 100).toFixed(2)}%`
+                  : "-",
               },
               {
                 label: "Status",
@@ -157,81 +164,85 @@ function Section({
         ))}
       </div>
       <div className="hidden overflow-x-auto md:block">
-      <table className="min-w-full divide-y divide-slate-200">
-        <thead className="bg-white text-xs text-slate-500 uppercase">
-          <tr>
-            <th className="px-4 py-2 text-left">Name</th>
-            <th className="px-4 py-2 text-left">Code</th>
-            <th className="px-4 py-2 text-left">Partner / Contact</th>
-            <th className="px-4 py-2 text-right">Commission</th>
-            <th className="px-4 py-2 text-left">Currency</th>
-            <th className="px-4 py-2 text-left">Status</th>
-            <th className="px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-sm">
-          {warehouses.map((w) => (
-            <tr key={w.id} className="hover:bg-slate-50">
-              <td className="px-4 py-2 font-medium text-slate-800">{w.name}</td>
-              <td className="px-4 py-2 text-slate-600">
-                <span
-                  className={`inline-block text-xs px-2 py-0.5 rounded ${
-                    KIND_BADGES[w.kind || "own"]
-                  } mr-2`}
-                >
-                  {w.code}
-                </span>
-                {w.shopify_location_id && (
-                  <span className="text-xs text-slate-400">
-                    Shopify #{w.shopify_location_id}
-                  </span>
-                )}
-              </td>
-              <td className="px-4 py-2 text-slate-600">
-                {w.partner_name && <div>{w.partner_name}</div>}
-                {w.partner_email && (
-                  <div className="text-xs text-slate-500">
-                    {w.partner_email}
-                  </div>
-                )}
-                {w.partner_phone && (
-                  <div className="text-xs text-slate-500">
-                    {w.partner_phone}
-                  </div>
-                )}
-                {!w.partner_name && !w.partner_email && !w.partner_phone && (
-                  <span className="text-slate-300">—</span>
-                )}
-              </td>
-              <td className="px-4 py-2 text-right text-slate-600">
-                {w.commission_rate
-                  ? `${(Number(w.commission_rate) * 100).toFixed(2)}%`
-                  : "—"}
-              </td>
-              <td className="px-4 py-2 text-slate-600">{w.currency || "—"}</td>
-              <td className="px-4 py-2">
-                <span
-                  className={
-                    w.active
-                      ? "text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded"
-                      : "text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded"
-                  }
-                >
-                  {w.active ? "Active" : "Inactive"}
-                </span>
-              </td>
-              <td className="px-4 py-2 text-right">
-                <button
-                  onClick={() => onEdit(w)}
-                  className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                >
-                  Edit
-                </button>
-              </td>
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="bg-white text-xs text-slate-500 uppercase">
+            <tr>
+              <th className="px-4 py-2 text-left">Name</th>
+              <th className="px-4 py-2 text-left">Code</th>
+              <th className="px-4 py-2 text-left">Partner / Contact</th>
+              <th className="px-4 py-2 text-right">Commission</th>
+              <th className="px-4 py-2 text-left">Currency</th>
+              <th className="px-4 py-2 text-left">Status</th>
+              <th className="px-4 py-2"></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-sm">
+            {warehouses.map((w) => (
+              <tr key={w.id} className="hover:bg-slate-50">
+                <td className="px-4 py-2 font-medium text-slate-800">
+                  {w.name}
+                </td>
+                <td className="px-4 py-2 text-slate-600">
+                  <span
+                    className={`inline-block text-xs px-2 py-0.5 rounded ${
+                      KIND_BADGES[w.kind || "own"]
+                    } mr-2`}
+                  >
+                    {w.code}
+                  </span>
+                  {w.shopify_location_id && (
+                    <span className="text-xs text-slate-400">
+                      Shopify #{w.shopify_location_id}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-2 text-slate-600">
+                  {w.partner_name && <div>{w.partner_name}</div>}
+                  {w.partner_email && (
+                    <div className="text-xs text-slate-500">
+                      {w.partner_email}
+                    </div>
+                  )}
+                  {w.partner_phone && (
+                    <div className="text-xs text-slate-500">
+                      {w.partner_phone}
+                    </div>
+                  )}
+                  {!w.partner_name && !w.partner_email && !w.partner_phone && (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-2 text-right text-slate-600">
+                  {w.commission_rate
+                    ? `${(Number(w.commission_rate) * 100).toFixed(2)}%`
+                    : "—"}
+                </td>
+                <td className="px-4 py-2 text-slate-600">
+                  {w.currency || "—"}
+                </td>
+                <td className="px-4 py-2">
+                  <span
+                    className={
+                      w.active
+                        ? "text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded"
+                        : "text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded"
+                    }
+                  >
+                    {w.active ? "Active" : "Inactive"}
+                  </span>
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <button
+                    onClick={() => onEdit(w)}
+                    className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -313,177 +324,169 @@ function WarehouseModal({
       size="lg"
       title={initial ? "Edit warehouse" : "New warehouse"}
     >
-        <form onSubmit={submit} className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="text-sm">
-              <span className="block text-slate-600 mb-1">Name *</span>
-              <input
-                required
-                value={form.name}
-                onChange={(e) => update("name", e.target.value)}
-                placeholder="e.g. Cairo Showroom"
-                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="block text-slate-600 mb-1">Code *</span>
-              <input
-                required
-                value={form.code}
-                onChange={(e) => update("code", e.target.value.toUpperCase())}
-                placeholder="CAIRO-SR"
-                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
-              />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="text-sm">
-              <span className="block text-slate-600 mb-1">Kind *</span>
-              <select
-                value={form.kind}
-                onChange={(e) =>
-                  update(
-                    "kind",
-                    e.target.value as "own" | "consignment" | "transit",
-                  )
-                }
-                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-              >
-                <option value="own">Own warehouse</option>
-                <option value="consignment">Showroom (consignment)</option>
-                <option value="transit">Transit</option>
-              </select>
-            </label>
-            <label className="text-sm">
-              <span className="block text-slate-600 mb-1">Currency</span>
-              <input
-                value={form.currency}
-                onChange={(e) =>
-                  update("currency", e.target.value.toUpperCase())
-                }
-                maxLength={3}
-                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
-              />
-            </label>
-          </div>
-
-          <label className="block text-sm">
-            <span className="block text-slate-600 mb-1">Address</span>
+      <form onSubmit={submit} className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label className="text-sm">
+            <span className="block text-slate-600 mb-1">Name *</span>
             <input
-              value={form.address}
-              onChange={(e) => update("address", e.target.value)}
+              required
+              value={form.name}
+              onChange={(e) => update("name", e.target.value)}
+              placeholder="e.g. Cairo Showroom"
               className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
             />
           </label>
-
-          {isShowroom && (
-            <fieldset className="border border-emerald-200 bg-emerald-50/40 rounded p-3 space-y-3">
-              <legend className="text-xs font-semibold text-emerald-700 px-1">
-                Showroom partner details
-              </legend>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <label className="text-sm">
-                  <span className="block text-slate-600 mb-1">
-                    Partner / Owner name
-                  </span>
-                  <input
-                    value={form.partner_name}
-                    onChange={(e) => update("partner_name", e.target.value)}
-                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-                  />
-                </label>
-                <label className="text-sm">
-                  <span className="block text-slate-600 mb-1">
-                    Commission rate
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      step="0.0001"
-                      min={0}
-                      max={1}
-                      value={form.commission_rate}
-                      onChange={(e) =>
-                        update("commission_rate", e.target.value)
-                      }
-                      placeholder="0.15"
-                      className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-                    />
-                    <span className="text-xs text-slate-500 whitespace-nowrap">
-                      = {(Number(form.commission_rate || 0) * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                </label>
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <label className="text-sm">
-                  <span className="block text-slate-600 mb-1">
-                    Partner email
-                  </span>
-                  <input
-                    type="email"
-                    value={form.partner_email}
-                    onChange={(e) => update("partner_email", e.target.value)}
-                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-                  />
-                </label>
-                <label className="text-sm">
-                  <span className="block text-slate-600 mb-1">
-                    Partner phone
-                  </span>
-                  <input
-                    value={form.partner_phone}
-                    onChange={(e) => update("partner_phone", e.target.value)}
-                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-                  />
-                </label>
-              </div>
-            </fieldset>
-          )}
-
-          <label className="block text-sm">
-            <span className="block text-slate-600 mb-1">Notes</span>
-            <textarea
-              value={form.notes}
-              onChange={(e) => update("notes", e.target.value)}
-              rows={2}
-              className="w-full rounded border border-slate-300 px-3 py-2"
-            />
-          </label>
-
-          <label className="flex items-center gap-2 text-sm text-slate-700">
+          <label className="text-sm">
+            <span className="block text-slate-600 mb-1">Code *</span>
             <input
-              type="checkbox"
-              checked={form.active}
-              onChange={(e) => update("active", e.target.checked)}
+              required
+              value={form.code}
+              onChange={(e) => update("code", e.target.value.toUpperCase())}
+              placeholder="CAIRO-SR"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
             />
-            Active
           </label>
+        </div>
 
-          {error && (
-            <div className="bg-red-50 text-red-700 text-sm p-2 rounded">
-              {error}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label className="text-sm">
+            <span className="block text-slate-600 mb-1">Kind *</span>
+            <select
+              value={form.kind}
+              onChange={(e) =>
+                update(
+                  "kind",
+                  e.target.value as "own" | "consignment" | "transit",
+                )
+              }
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+            >
+              <option value="own">Own warehouse</option>
+              <option value="consignment">Showroom (consignment)</option>
+              <option value="transit">Transit</option>
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="block text-slate-600 mb-1">Currency</span>
+            <input
+              value={form.currency}
+              onChange={(e) => update("currency", e.target.value.toUpperCase())}
+              maxLength={3}
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
+            />
+          </label>
+        </div>
+
+        <label className="block text-sm">
+          <span className="block text-slate-600 mb-1">Address</span>
+          <input
+            value={form.address}
+            onChange={(e) => update("address", e.target.value)}
+            className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+          />
+        </label>
+
+        {isShowroom && (
+          <fieldset className="border border-emerald-200 bg-emerald-50/40 rounded p-3 space-y-3">
+            <legend className="text-xs font-semibold text-emerald-700 px-1">
+              Showroom partner details
+            </legend>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label className="text-sm">
+                <span className="block text-slate-600 mb-1">
+                  Partner / Owner name
+                </span>
+                <input
+                  value={form.partner_name}
+                  onChange={(e) => update("partner_name", e.target.value)}
+                  className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="block text-slate-600 mb-1">
+                  Commission rate
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.0001"
+                    min={0}
+                    max={1}
+                    value={form.commission_rate}
+                    onChange={(e) => update("commission_rate", e.target.value)}
+                    placeholder="0.15"
+                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+                  />
+                  <span className="text-xs text-slate-500 whitespace-nowrap">
+                    = {(Number(form.commission_rate || 0) * 100).toFixed(2)}%
+                  </span>
+                </div>
+              </label>
             </div>
-          )}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label className="text-sm">
+                <span className="block text-slate-600 mb-1">Partner email</span>
+                <input
+                  type="email"
+                  value={form.partner_email}
+                  onChange={(e) => update("partner_email", e.target.value)}
+                  className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="block text-slate-600 mb-1">Partner phone</span>
+                <input
+                  value={form.partner_phone}
+                  onChange={(e) => update("partner_phone", e.target.value)}
+                  className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+                />
+              </label>
+            </div>
+          </fieldset>
+        )}
 
-          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-11 rounded border border-slate-300 px-3 text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="min-h-11 rounded bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-slate-400"
-            >
-              {saving ? "Saving…" : initial ? "Save changes" : "Create"}
-            </button>
+        <label className="block text-sm">
+          <span className="block text-slate-600 mb-1">Notes</span>
+          <textarea
+            value={form.notes}
+            onChange={(e) => update("notes", e.target.value)}
+            rows={2}
+            className="w-full rounded border border-slate-300 px-3 py-2"
+          />
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={form.active}
+            onChange={(e) => update("active", e.target.checked)}
+          />
+          Active
+        </label>
+
+        {error && (
+          <div className="bg-red-50 text-red-700 text-sm p-2 rounded">
+            {error}
           </div>
-        </form>
+        )}
+
+        <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-11 rounded border border-slate-300 px-3 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="min-h-11 rounded bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-slate-400"
+          >
+            {saving ? "Saving…" : initial ? "Save changes" : "Create"}
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 }

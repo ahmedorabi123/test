@@ -211,7 +211,9 @@ function UsersTab() {
               },
               {
                 label: "Last login",
-                value: u.last_login_at ? new Date(u.last_login_at).toLocaleString() : "-",
+                value: u.last_login_at
+                  ? new Date(u.last_login_at).toLocaleString()
+                  : "-",
               },
             ]}
             actions={
@@ -559,102 +561,99 @@ function RoleEditor({
       title={isEdit ? `Edit role: ${role?.name}` : "New role"}
       description={isSystem ? "System role — name is locked" : undefined}
     >
-        <form onSubmit={submit} className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="text-sm">
-              <span className="block text-slate-600 mb-1">Name *</span>
-              <input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={isSystem}
-                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 disabled:bg-slate-100"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="block text-slate-600 mb-1">Description</span>
-              <input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-              />
-            </label>
-          </div>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label className="text-sm">
+            <span className="block text-slate-600 mb-1">Name *</span>
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isSystem}
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 disabled:bg-slate-100"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="block text-slate-600 mb-1">Description</span>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+            />
+          </label>
+        </div>
 
-          <div>
-            <div className="text-sm font-medium text-slate-700 mb-2">
-              Permissions ({selected.size})
-            </div>
-            <div className="space-y-3">
-              {Object.entries(grouped).map(([resource, perms]) => {
-                const keys = perms.map((p) => p.key);
-                const allOn = keys.every((k) => selected.has(k));
-                const anyOn = keys.some((k) => selected.has(k));
-                return (
-                  <div
-                    key={resource}
-                    className="border border-slate-200 rounded"
-                  >
-                    <div className="flex items-center justify-between bg-slate-50 px-3 py-2">
-                      <span className="text-sm font-medium capitalize">
-                        {resource.replace(/_/g, " ")}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => toggleResource(resource)}
-                        className="text-xs text-indigo-600 hover:text-indigo-800"
-                      >
-                        {allOn
-                          ? "Clear all"
-                          : anyOn
-                            ? "Select all"
-                            : "Select all"}
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {perms.map((p) => (
-                        <label
-                          key={p.key}
-                          className="flex items-center gap-2 text-sm text-slate-700"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selected.has(p.key)}
-                            onChange={() => togglePerm(p.key)}
-                          />
-                          <span className="font-mono text-xs">{p.action}</span>
-                        </label>
-                      ))}
-                    </div>
+        <div>
+          <div className="text-sm font-medium text-slate-700 mb-2">
+            Permissions ({selected.size})
+          </div>
+          <div className="space-y-3">
+            {Object.entries(grouped).map(([resource, perms]) => {
+              const keys = perms.map((p) => p.key);
+              const allOn = keys.every((k) => selected.has(k));
+              const anyOn = keys.some((k) => selected.has(k));
+              return (
+                <div key={resource} className="border border-slate-200 rounded">
+                  <div className="flex items-center justify-between bg-slate-50 px-3 py-2">
+                    <span className="text-sm font-medium capitalize">
+                      {resource.replace(/_/g, " ")}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleResource(resource)}
+                      className="text-xs text-indigo-600 hover:text-indigo-800"
+                    >
+                      {allOn
+                        ? "Clear all"
+                        : anyOn
+                          ? "Select all"
+                          : "Select all"}
+                    </button>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {perms.map((p) => (
+                      <label
+                        key={p.key}
+                        className="flex items-center gap-2 text-sm text-slate-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected.has(p.key)}
+                          onChange={() => togglePerm(p.key)}
+                        />
+                        <span className="font-mono text-xs">{p.action}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
+        </div>
 
-          {error && (
-            <div className="bg-red-50 text-red-700 text-sm p-2 rounded">
-              {error}
-            </div>
-          )}
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-11 rounded border border-slate-300 px-3 text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="min-h-11 rounded bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400"
-            >
-              {saving ? "Saving…" : isEdit ? "Save changes" : "Create role"}
-            </button>
+        {error && (
+          <div className="bg-red-50 text-red-700 text-sm p-2 rounded">
+            {error}
           </div>
-        </form>
+        )}
+
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-11 rounded border border-slate-300 px-3 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="min-h-11 rounded bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400"
+          >
+            {saving ? "Saving…" : isEdit ? "Save changes" : "Create role"}
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 }

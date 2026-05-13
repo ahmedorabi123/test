@@ -16,7 +16,10 @@ export const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 
 Card.displayName = "Card";
 
-export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function CardHeader({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn("border-b border-slate-200 px-4 py-4 sm:px-5", className)}
@@ -25,11 +28,17 @@ export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElemen
   );
 }
 
-export function CardBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function CardBody({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("px-4 py-4 sm:px-5", className)} {...props} />;
 }
 
-export function CardFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function CardFooter({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn("border-t border-slate-200 px-4 py-3 sm:px-5", className)}

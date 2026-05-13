@@ -39,7 +39,9 @@ function SortHeader({
     >
       <span className="inline-flex items-center gap-1">
         {label}
-        <span className={`text-xs ${active ? "text-indigo-600" : "text-slate-300"}`}>
+        <span
+          className={`text-xs ${active ? "text-indigo-600" : "text-slate-300"}`}
+        >
           {active ? (dir === "asc" ? "▲" : "▼") : "↕"}
         </span>
       </span>
@@ -143,11 +145,16 @@ function AccountsTab() {
                 <MobileRowCard
                   key={a.id}
                   title={
-                    <span className="font-mono text-sm text-slate-900">{a.code}</span>
+                    <span className="font-mono text-sm text-slate-900">
+                      {a.code}
+                    </span>
                   }
                   subtitle={a.name}
                   fields={[
-                    { label: "Normal side", value: <Badge v={a.normal_side} /> },
+                    {
+                      label: "Normal side",
+                      value: <Badge v={a.normal_side} />,
+                    },
                     { label: "Currency", value: a.currency },
                     {
                       label: "Status",
@@ -235,7 +242,14 @@ function JournalTab() {
   const load = useCallback(() => {
     setLoading(true);
     accountingApi
-      .journalEntries({ from, to, page, per_page: perPage, sort: sortKey, dir: sortDir })
+      .journalEntries({
+        from,
+        to,
+        page,
+        per_page: perPage,
+        sort: sortKey,
+        dir: sortDir,
+      })
       .then((r) => {
         setEntries(r.data);
         setMeta(r.meta);
@@ -316,20 +330,41 @@ function JournalTab() {
 
       {/* Mobile cards */}
       <div className="space-y-2 md:hidden">
-        {loading && <p className="text-slate-400 text-sm py-6 text-center">Loading…</p>}
+        {loading && (
+          <p className="text-slate-400 text-sm py-6 text-center">Loading…</p>
+        )}
         {!loading && entries.length === 0 && (
-          <p className="text-slate-400 text-sm py-6 text-center">No entries in this date range</p>
+          <p className="text-slate-400 text-sm py-6 text-center">
+            No entries in this date range
+          </p>
         )}
         {entries.map((e) => (
           <div key={e.id} className="space-y-2">
             <MobileRowCard
-              title={<span className="font-mono text-xs text-slate-800">{e.entry_date}</span>}
+              title={
+                <span className="font-mono text-xs text-slate-800">
+                  {e.entry_date}
+                </span>
+              }
               subtitle={e.description}
               meta={<Badge v={e.status} />}
               fields={[
-                { label: "Type", value: e.entry_type ? <Badge v={e.entry_type} /> : "—" },
-                { label: "Debits", value: <span className="font-mono">{fmt(e.total_debits)}</span> },
-                { label: "Credits", value: <span className="font-mono">{fmt(e.total_credits)}</span> },
+                {
+                  label: "Type",
+                  value: e.entry_type ? <Badge v={e.entry_type} /> : "—",
+                },
+                {
+                  label: "Debits",
+                  value: (
+                    <span className="font-mono">{fmt(e.total_debits)}</span>
+                  ),
+                },
+                {
+                  label: "Credits",
+                  value: (
+                    <span className="font-mono">{fmt(e.total_credits)}</span>
+                  ),
+                },
               ]}
               actions={
                 <button
@@ -357,8 +392,12 @@ function JournalTab() {
                         <td className="py-1 font-mono text-slate-600">
                           {l.account_code} — {l.account_name}
                         </td>
-                        <td className="py-1"><Badge v={l.side} /></td>
-                        <td className="py-1 text-right font-mono">{fmt(l.amount)}</td>
+                        <td className="py-1">
+                          <Badge v={l.side} />
+                        </td>
+                        <td className="py-1 text-right font-mono">
+                          {fmt(l.amount)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -374,10 +413,30 @@ function JournalTab() {
         <table className="min-w-[760px] text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
-              <SortHeader label="Date" active={sortKey === "entry_date"} dir={sortDir} onClick={() => toggleSort("entry_date")} />
-              <SortHeader label="Description" active={sortKey === "description"} dir={sortDir} onClick={() => toggleSort("description")} />
-              <SortHeader label="Type" active={sortKey === "entry_type"} dir={sortDir} onClick={() => toggleSort("entry_type")} />
-              <SortHeader label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
+              <SortHeader
+                label="Date"
+                active={sortKey === "entry_date"}
+                dir={sortDir}
+                onClick={() => toggleSort("entry_date")}
+              />
+              <SortHeader
+                label="Description"
+                active={sortKey === "description"}
+                dir={sortDir}
+                onClick={() => toggleSort("description")}
+              />
+              <SortHeader
+                label="Type"
+                active={sortKey === "entry_type"}
+                dir={sortDir}
+                onClick={() => toggleSort("entry_type")}
+              />
+              <SortHeader
+                label="Status"
+                active={sortKey === "status"}
+                dir={sortDir}
+                onClick={() => toggleSort("status")}
+              />
               <th className="px-4 py-2 text-right">Debits</th>
               <th className="px-4 py-2 text-right">Credits</th>
               <th className="px-4 py-2"></th>
@@ -436,34 +495,34 @@ function JournalTab() {
                     <tr key={`${e.id}-lines`} className="bg-slate-50">
                       <td colSpan={7} className="px-8 py-3">
                         <div className="overflow-x-auto">
-                        <table className="min-w-full text-xs">
-                          <thead>
-                            <tr className="text-slate-400 uppercase tracking-wide">
-                              <th className="text-left pb-1">Account</th>
-                              <th className="text-left pb-1">Side</th>
-                              <th className="text-right pb-1">Amount</th>
-                              <th className="text-left pb-1 pl-4">Note</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-200">
-                            {(expandedEntry.lines ?? []).map((l) => (
-                              <tr key={l.id}>
-                                <td className="py-1 font-mono text-slate-600">
-                                  {l.account_code} — {l.account_name}
-                                </td>
-                                <td className="py-1">
-                                  <Badge v={l.side} />
-                                </td>
-                                <td className="py-1 text-right font-mono font-medium">
-                                  {fmt(l.amount)}
-                                </td>
-                                <td className="py-1 pl-4 text-slate-500">
-                                  {l.description ?? ""}
-                                </td>
+                          <table className="min-w-full text-xs">
+                            <thead>
+                              <tr className="text-slate-400 uppercase tracking-wide">
+                                <th className="text-left pb-1">Account</th>
+                                <th className="text-left pb-1">Side</th>
+                                <th className="text-right pb-1">Amount</th>
+                                <th className="text-left pb-1 pl-4">Note</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {(expandedEntry.lines ?? []).map((l) => (
+                                <tr key={l.id}>
+                                  <td className="py-1 font-mono text-slate-600">
+                                    {l.account_code} — {l.account_name}
+                                  </td>
+                                  <td className="py-1">
+                                    <Badge v={l.side} />
+                                  </td>
+                                  <td className="py-1 text-right font-mono font-medium">
+                                    {fmt(l.amount)}
+                                  </td>
+                                  <td className="py-1 pl-4 text-slate-500">
+                                    {l.description ?? ""}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </td>
                     </tr>
@@ -477,7 +536,9 @@ function JournalTab() {
 
       {/* Pagination + per-page */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-slate-600">
-        <span>Page {meta.page} of {totalPages}</span>
+        <span>
+          Page {meta.page} of {totalPages}
+        </span>
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-2">
             <span className="text-xs text-slate-500">Per page</span>
@@ -590,92 +651,118 @@ function TrialBalanceTab() {
 
       {data && !loading && (
         <>
-        {/* Mobile cards */}
-        <div className="space-y-2 md:hidden">
-          {sortedRows.map((r) => (
-            <MobileRowCard
-              key={r.code}
-              title={<span className="font-mono text-sm">{r.code}</span>}
-              subtitle={r.name}
-              meta={<Badge v={r.account_type} />}
-              fields={[
-                { label: "Debits", value: <span className="font-mono">{fmt(r.debits)}</span> },
-                { label: "Credits", value: <span className="font-mono">{fmt(r.credits)}</span> },
-                {
-                  label: "Balance",
-                  value: (
-                    <span className={`font-mono font-semibold ${r.balance >= 0 ? "text-slate-800" : "text-red-500"}`}>
-                      {fmt(r.balance)}
-                    </span>
-                  ),
-                },
-              ]}
-            />
-          ))}
-          <div className="mt-2 rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold flex justify-between">
-            <span>Totals</span>
-            <span className="font-mono">Dr {fmt(data.totals.debits)} · Cr {fmt(data.totals.credits)}</span>
+          {/* Mobile cards */}
+          <div className="space-y-2 md:hidden">
+            {sortedRows.map((r) => (
+              <MobileRowCard
+                key={r.code}
+                title={<span className="font-mono text-sm">{r.code}</span>}
+                subtitle={r.name}
+                meta={<Badge v={r.account_type} />}
+                fields={[
+                  {
+                    label: "Debits",
+                    value: <span className="font-mono">{fmt(r.debits)}</span>,
+                  },
+                  {
+                    label: "Credits",
+                    value: <span className="font-mono">{fmt(r.credits)}</span>,
+                  },
+                  {
+                    label: "Balance",
+                    value: (
+                      <span
+                        className={`font-mono font-semibold ${r.balance >= 0 ? "text-slate-800" : "text-red-500"}`}
+                      >
+                        {fmt(r.balance)}
+                      </span>
+                    ),
+                  },
+                ]}
+              />
+            ))}
+            <div className="mt-2 rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold flex justify-between">
+              <span>Totals</span>
+              <span className="font-mono">
+                Dr {fmt(data.totals.debits)} · Cr {fmt(data.totals.credits)}
+              </span>
+            </div>
           </div>
-        </div>
 
-        {/* Desktop table */}
-        <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-[720px] text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-              <tr>
-                <SortHeader label="Code" active={sortKey === "code"} dir={sortDir} onClick={() => toggleSort("code")} />
-                <SortHeader label="Account" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
-                <th className="px-4 py-2 text-left">Type</th>
-                <th className="px-4 py-2 text-right">Debits</th>
-                <th className="px-4 py-2 text-right">Credits</th>
-                <SortHeader label="Balance" active={sortKey === "balance"} dir={sortDir} onClick={() => toggleSort("balance")} align="right" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {sortedRows.map((r) => (
-                <tr key={r.code} className="hover:bg-slate-50">
-                  <td className="px-4 py-2 font-mono text-slate-500">
-                    {r.code}
-                  </td>
-                  <td className="px-4 py-2 font-medium text-slate-800">
-                    {r.name}
-                  </td>
-                  <td className="px-4 py-2">
-                    <Badge v={r.account_type} />
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {fmt(r.debits)}
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {fmt(r.credits)}
-                  </td>
-                  <td
-                    className={`px-4 py-2 text-right font-mono font-semibold ${r.balance >= 0 ? "text-slate-800" : "text-red-500"}`}
-                  >
-                    {fmt(r.balance)}
-                  </td>
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+            <table className="min-w-[720px] text-sm">
+              <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                <tr>
+                  <SortHeader
+                    label="Code"
+                    active={sortKey === "code"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("code")}
+                  />
+                  <SortHeader
+                    label="Account"
+                    active={sortKey === "name"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("name")}
+                  />
+                  <th className="px-4 py-2 text-left">Type</th>
+                  <th className="px-4 py-2 text-right">Debits</th>
+                  <th className="px-4 py-2 text-right">Credits</th>
+                  <SortHeader
+                    label="Balance"
+                    active={sortKey === "balance"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("balance")}
+                    align="right"
+                  />
                 </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-slate-100 text-xs font-semibold">
-              <tr>
-                <td
-                  colSpan={3}
-                  className="px-4 py-2 text-slate-600 uppercase tracking-wide"
-                >
-                  Totals
-                </td>
-                <td className="px-4 py-2 text-right font-mono">
-                  {fmt(data.totals.debits)}
-                </td>
-                <td className="px-4 py-2 text-right font-mono">
-                  {fmt(data.totals.credits)}
-                </td>
-                <td className="px-4 py-2"></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sortedRows.map((r) => (
+                  <tr key={r.code} className="hover:bg-slate-50">
+                    <td className="px-4 py-2 font-mono text-slate-500">
+                      {r.code}
+                    </td>
+                    <td className="px-4 py-2 font-medium text-slate-800">
+                      {r.name}
+                    </td>
+                    <td className="px-4 py-2">
+                      <Badge v={r.account_type} />
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono">
+                      {fmt(r.debits)}
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono">
+                      {fmt(r.credits)}
+                    </td>
+                    <td
+                      className={`px-4 py-2 text-right font-mono font-semibold ${r.balance >= 0 ? "text-slate-800" : "text-red-500"}`}
+                    >
+                      {fmt(r.balance)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-100 text-xs font-semibold">
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="px-4 py-2 text-slate-600 uppercase tracking-wide"
+                  >
+                    Totals
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono">
+                    {fmt(data.totals.debits)}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono">
+                    {fmt(data.totals.credits)}
+                  </td>
+                  <td className="px-4 py-2"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </>
       )}
     </div>
@@ -749,38 +836,38 @@ function PnlTab() {
               </h3>
             </div>
             <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <tbody className="divide-y divide-slate-100">
-                {data.revenue.length === 0 && (
+              <table className="min-w-full text-sm">
+                <tbody className="divide-y divide-slate-100">
+                  {data.revenue.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-3 text-slate-400 text-center">
+                        No revenue
+                      </td>
+                    </tr>
+                  )}
+                  {data.revenue.map((r) => (
+                    <tr key={r.code} className="hover:bg-slate-50">
+                      <td className="px-4 py-2 font-mono text-slate-500">
+                        {r.code}
+                      </td>
+                      <td className="px-4 py-2 text-slate-700">{r.name}</td>
+                      <td className="px-4 py-2 text-right font-mono font-medium text-emerald-700">
+                        {fmt(r.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-emerald-50 text-sm font-semibold">
                   <tr>
-                    <td className="px-4 py-3 text-slate-400 text-center">
-                      No revenue
+                    <td colSpan={2} className="px-4 py-2 text-emerald-700">
+                      Total Revenue
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-emerald-700">
+                      {fmt(data.total_revenue)}
                     </td>
                   </tr>
-                )}
-                {data.revenue.map((r) => (
-                  <tr key={r.code} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 font-mono text-slate-500">
-                      {r.code}
-                    </td>
-                    <td className="px-4 py-2 text-slate-700">{r.name}</td>
-                    <td className="px-4 py-2 text-right font-mono font-medium text-emerald-700">
-                      {fmt(r.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-emerald-50 text-sm font-semibold">
-                <tr>
-                  <td colSpan={2} className="px-4 py-2 text-emerald-700">
-                    Total Revenue
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono text-emerald-700">
-                    {fmt(data.total_revenue)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+                </tfoot>
+              </table>
             </div>
           </div>
 
@@ -790,38 +877,38 @@ function PnlTab() {
               <h3 className="font-semibold text-red-700 text-sm">Expenses</h3>
             </div>
             <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <tbody className="divide-y divide-slate-100">
-                {data.expenses.length === 0 && (
+              <table className="min-w-full text-sm">
+                <tbody className="divide-y divide-slate-100">
+                  {data.expenses.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-3 text-slate-400 text-center">
+                        No expenses
+                      </td>
+                    </tr>
+                  )}
+                  {data.expenses.map((r) => (
+                    <tr key={r.code} className="hover:bg-slate-50">
+                      <td className="px-4 py-2 font-mono text-slate-500">
+                        {r.code}
+                      </td>
+                      <td className="px-4 py-2 text-slate-700">{r.name}</td>
+                      <td className="px-4 py-2 text-right font-mono font-medium text-red-700">
+                        {fmt(r.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-red-50 text-sm font-semibold">
                   <tr>
-                    <td className="px-4 py-3 text-slate-400 text-center">
-                      No expenses
+                    <td colSpan={2} className="px-4 py-2 text-red-700">
+                      Total Expenses
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-red-700">
+                      {fmt(data.total_expenses)}
                     </td>
                   </tr>
-                )}
-                {data.expenses.map((r) => (
-                  <tr key={r.code} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 font-mono text-slate-500">
-                      {r.code}
-                    </td>
-                    <td className="px-4 py-2 text-slate-700">{r.name}</td>
-                    <td className="px-4 py-2 text-right font-mono font-medium text-red-700">
-                      {fmt(r.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-red-50 text-sm font-semibold">
-                <tr>
-                  <td colSpan={2} className="px-4 py-2 text-red-700">
-                    Total Expenses
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono text-red-700">
-                    {fmt(data.total_expenses)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+                </tfoot>
+              </table>
             </div>
           </div>
 
@@ -897,25 +984,25 @@ function BalanceSheetTab() {
               Assets
             </header>
             <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <tbody>
-                {data.assets.rows.map((r) => (
-                  <tr key={r.code} className="border-t">
-                    <td className="px-3 py-1 font-mono text-xs">{r.code}</td>
-                    <td className="px-3 py-1">{r.name}</td>
-                    <td className="px-3 py-1 text-right">{fmt(r.balance)}</td>
+              <table className="min-w-full text-sm">
+                <tbody>
+                  {data.assets.rows.map((r) => (
+                    <tr key={r.code} className="border-t">
+                      <td className="px-3 py-1 font-mono text-xs">{r.code}</td>
+                      <td className="px-3 py-1">{r.name}</td>
+                      <td className="px-3 py-1 text-right">{fmt(r.balance)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t bg-emerald-50 font-semibold">
+                    <td colSpan={2} className="px-3 py-1 text-right">
+                      Total assets
+                    </td>
+                    <td className="px-3 py-1 text-right">
+                      {fmt(data.assets.total)}
+                    </td>
                   </tr>
-                ))}
-                <tr className="border-t bg-emerald-50 font-semibold">
-                  <td colSpan={2} className="px-3 py-1 text-right">
-                    Total assets
-                  </td>
-                  <td className="px-3 py-1 text-right">
-                    {fmt(data.assets.total)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
             </div>
           </section>
 
@@ -924,47 +1011,47 @@ function BalanceSheetTab() {
               Liabilities + Equity
             </header>
             <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <tbody>
-                {data.liabilities.rows.map((r) => (
-                  <tr key={r.code} className="border-t">
-                    <td className="px-3 py-1 font-mono text-xs">{r.code}</td>
-                    <td className="px-3 py-1">{r.name}</td>
-                    <td className="px-3 py-1 text-right">{fmt(r.balance)}</td>
+              <table className="min-w-full text-sm">
+                <tbody>
+                  {data.liabilities.rows.map((r) => (
+                    <tr key={r.code} className="border-t">
+                      <td className="px-3 py-1 font-mono text-xs">{r.code}</td>
+                      <td className="px-3 py-1">{r.name}</td>
+                      <td className="px-3 py-1 text-right">{fmt(r.balance)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t bg-amber-50 font-medium">
+                    <td colSpan={2} className="px-3 py-1 text-right">
+                      Total liabilities
+                    </td>
+                    <td className="px-3 py-1 text-right">
+                      {fmt(data.liabilities.total)}
+                    </td>
                   </tr>
-                ))}
-                <tr className="border-t bg-amber-50 font-medium">
-                  <td colSpan={2} className="px-3 py-1 text-right">
-                    Total liabilities
-                  </td>
-                  <td className="px-3 py-1 text-right">
-                    {fmt(data.liabilities.total)}
-                  </td>
-                </tr>
-                {data.equity.rows.map((r) => (
-                  <tr key={r.code} className="border-t">
-                    <td className="px-3 py-1 font-mono text-xs">{r.code}</td>
-                    <td className="px-3 py-1">{r.name}</td>
-                    <td className="px-3 py-1 text-right">{fmt(r.balance)}</td>
+                  {data.equity.rows.map((r) => (
+                    <tr key={r.code} className="border-t">
+                      <td className="px-3 py-1 font-mono text-xs">{r.code}</td>
+                      <td className="px-3 py-1">{r.name}</td>
+                      <td className="px-3 py-1 text-right">{fmt(r.balance)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t">
+                    <td className="px-3 py-1 font-mono text-xs">—</td>
+                    <td className="px-3 py-1 italic">Retained earnings</td>
+                    <td className="px-3 py-1 text-right">
+                      {fmt(data.equity.retained_earnings)}
+                    </td>
                   </tr>
-                ))}
-                <tr className="border-t">
-                  <td className="px-3 py-1 font-mono text-xs">—</td>
-                  <td className="px-3 py-1 italic">Retained earnings</td>
-                  <td className="px-3 py-1 text-right">
-                    {fmt(data.equity.retained_earnings)}
-                  </td>
-                </tr>
-                <tr className="border-t bg-amber-50 font-semibold">
-                  <td colSpan={2} className="px-3 py-1 text-right">
-                    Total liab + equity
-                  </td>
-                  <td className="px-3 py-1 text-right">
-                    {fmt(data.total_liab_equity)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  <tr className="border-t bg-amber-50 font-semibold">
+                    <td colSpan={2} className="px-3 py-1 text-right">
+                      Total liab + equity
+                    </td>
+                    <td className="px-3 py-1 text-right">
+                      {fmt(data.total_liab_equity)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </section>
         </div>
@@ -1264,139 +1351,139 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
 
         <div className="rounded border border-slate-200">
           <div className="overflow-x-auto">
-          <table className="min-w-[760px] text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
-              <tr>
-                <th className="px-2 py-2 text-left">Account</th>
-                <th className="px-2 py-2 text-left w-24">Side</th>
-                <th className="px-2 py-2 text-right w-32">Amount</th>
-                <th className="px-2 py-2 text-left">Memo</th>
-                <th className="w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((l, idx) => (
-                <tr key={idx} className="border-t border-slate-100">
-                  <td className="px-2 py-1">
-                    <select
-                      value={l.account_code}
-                      onChange={(e) =>
-                        setLines((arr) =>
-                          arr.map((x, i) =>
-                            i === idx
-                              ? { ...x, account_code: e.target.value }
-                              : x,
-                          ),
-                        )
-                      }
-                      className="w-full border border-slate-200 rounded px-2 py-1"
-                    >
-                      <option value="">—</option>
-                      {accounts.map((a) => (
-                        <option key={a.code} value={a.code}>
-                          {a.code} — {a.name}
-                        </option>
-                      ))}
-                    </select>
+            <table className="min-w-[760px] text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
+                <tr>
+                  <th className="px-2 py-2 text-left">Account</th>
+                  <th className="px-2 py-2 text-left w-24">Side</th>
+                  <th className="px-2 py-2 text-right w-32">Amount</th>
+                  <th className="px-2 py-2 text-left">Memo</th>
+                  <th className="w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((l, idx) => (
+                  <tr key={idx} className="border-t border-slate-100">
+                    <td className="px-2 py-1">
+                      <select
+                        value={l.account_code}
+                        onChange={(e) =>
+                          setLines((arr) =>
+                            arr.map((x, i) =>
+                              i === idx
+                                ? { ...x, account_code: e.target.value }
+                                : x,
+                            ),
+                          )
+                        }
+                        className="w-full border border-slate-200 rounded px-2 py-1"
+                      >
+                        <option value="">—</option>
+                        {accounts.map((a) => (
+                          <option key={a.code} value={a.code}>
+                            {a.code} — {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2 py-1">
+                      <select
+                        value={l.side}
+                        onChange={(e) =>
+                          setLines((arr) =>
+                            arr.map((x, i) =>
+                              i === idx
+                                ? {
+                                    ...x,
+                                    side: e.target.value as "debit" | "credit",
+                                  }
+                                : x,
+                            ),
+                          )
+                        }
+                        className="w-full border border-slate-200 rounded px-2 py-1"
+                      >
+                        <option value="debit">Debit</option>
+                        <option value="credit">Credit</option>
+                      </select>
+                    </td>
+                    <td className="px-2 py-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={l.amount}
+                        onChange={(e) =>
+                          setLines((arr) =>
+                            arr.map((x, i) =>
+                              i === idx ? { ...x, amount: e.target.value } : x,
+                            ),
+                          )
+                        }
+                        className="w-full border border-slate-200 rounded px-2 py-1 text-right"
+                      />
+                    </td>
+                    <td className="px-2 py-1">
+                      <input
+                        value={l.description}
+                        onChange={(e) =>
+                          setLines((arr) =>
+                            arr.map((x, i) =>
+                              i === idx
+                                ? { ...x, description: e.target.value }
+                                : x,
+                            ),
+                          )
+                        }
+                        className="w-full border border-slate-200 rounded px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-2 py-1 text-center">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLines((arr) => arr.filter((_, i) => i !== idx))
+                        }
+                        disabled={lines.length <= 2}
+                        className="text-red-500 hover:text-red-700 text-sm disabled:text-slate-300"
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-50 text-xs">
+                <tr className="border-t border-slate-200">
+                  <td
+                    colSpan={2}
+                    className="px-2 py-2 text-right font-medium text-slate-600"
+                  >
+                    Totals
                   </td>
-                  <td className="px-2 py-1">
-                    <select
-                      value={l.side}
-                      onChange={(e) =>
-                        setLines((arr) =>
-                          arr.map((x, i) =>
-                            i === idx
-                              ? {
-                                  ...x,
-                                  side: e.target.value as "debit" | "credit",
-                                }
-                              : x,
-                          ),
-                        )
-                      }
-                      className="w-full border border-slate-200 rounded px-2 py-1"
-                    >
-                      <option value="debit">Debit</option>
-                      <option value="credit">Credit</option>
-                    </select>
+                  <td className="px-2 py-2 text-right">
+                    <span className="text-slate-700">
+                      Dr {debitTotal.toFixed(2)}
+                    </span>
+                    <br />
+                    <span className="text-slate-700">
+                      Cr {creditTotal.toFixed(2)}
+                    </span>
                   </td>
-                  <td className="px-2 py-1">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min={0}
-                      value={l.amount}
-                      onChange={(e) =>
-                        setLines((arr) =>
-                          arr.map((x, i) =>
-                            i === idx ? { ...x, amount: e.target.value } : x,
-                          ),
-                        )
-                      }
-                      className="w-full border border-slate-200 rounded px-2 py-1 text-right"
-                    />
-                  </td>
-                  <td className="px-2 py-1">
-                    <input
-                      value={l.description}
-                      onChange={(e) =>
-                        setLines((arr) =>
-                          arr.map((x, i) =>
-                            i === idx
-                              ? { ...x, description: e.target.value }
-                              : x,
-                          ),
-                        )
-                      }
-                      className="w-full border border-slate-200 rounded px-2 py-1"
-                    />
-                  </td>
-                  <td className="px-2 py-1 text-center">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setLines((arr) => arr.filter((_, i) => i !== idx))
-                      }
-                      disabled={lines.length <= 2}
-                      className="text-red-500 hover:text-red-700 text-sm disabled:text-slate-300"
-                    >
-                      ×
-                    </button>
+                  <td colSpan={2} className="px-2 py-2">
+                    {balanced ? (
+                      <span className="text-emerald-600 font-medium">
+                        Balanced ✔
+                      </span>
+                    ) : (
+                      <span className="text-amber-600">
+                        Diff {(debitTotal - creditTotal).toFixed(2)}
+                      </span>
+                    )}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-slate-50 text-xs">
-              <tr className="border-t border-slate-200">
-                <td
-                  colSpan={2}
-                  className="px-2 py-2 text-right font-medium text-slate-600"
-                >
-                  Totals
-                </td>
-                <td className="px-2 py-2 text-right">
-                  <span className="text-slate-700">
-                    Dr {debitTotal.toFixed(2)}
-                  </span>
-                  <br />
-                  <span className="text-slate-700">
-                    Cr {creditTotal.toFixed(2)}
-                  </span>
-                </td>
-                <td colSpan={2} className="px-2 py-2">
-                  {balanced ? (
-                    <span className="text-emerald-600 font-medium">
-                      Balanced ✔
-                    </span>
-                  ) : (
-                    <span className="text-amber-600">
-                      Diff {(debitTotal - creditTotal).toFixed(2)}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+              </tfoot>
+            </table>
           </div>
           <button
             type="button"

@@ -8,16 +8,21 @@ describe("Modal", () => {
     render(
       <Modal open={false} onClose={() => undefined} title="x">
         <p>hidden</p>
-      </Modal>
+      </Modal>,
     );
     expect(screen.queryByText("hidden")).not.toBeInTheDocument();
   });
 
   it("renders title, description, and content when open", () => {
     render(
-      <Modal open onClose={() => undefined} title="My title" description="my desc">
+      <Modal
+        open
+        onClose={() => undefined}
+        title="My title"
+        description="my desc"
+      >
         <p>visible</p>
-      </Modal>
+      </Modal>,
     );
     expect(screen.getByText("My title")).toBeInTheDocument();
     expect(screen.getByText("my desc")).toBeInTheDocument();
@@ -30,7 +35,7 @@ describe("Modal", () => {
     render(
       <Modal open onClose={onClose} title="x">
         <p>content</p>
-      </Modal>
+      </Modal>,
     );
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalled();
@@ -41,7 +46,7 @@ describe("Modal", () => {
     render(
       <Modal open onClose={onClose} title="x">
         <p>content</p>
-      </Modal>
+      </Modal>,
     );
     await userEvent.click(screen.getByRole("button", { name: /Close modal/i }));
     expect(onClose).toHaveBeenCalled();
@@ -52,7 +57,7 @@ describe("Modal", () => {
     render(
       <Modal open onClose={onClose} title="x" closeOnBackdrop={false}>
         <p>content</p>
-      </Modal>
+      </Modal>,
     );
     await userEvent.click(screen.getByRole("button", { name: /Close modal/i }));
     expect(onClose).not.toHaveBeenCalled();

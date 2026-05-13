@@ -7,7 +7,13 @@ interface Props {
   onChange?: (images: UploadedImage[]) => void;
 }
 
-const ALLOWED = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
+const ALLOWED = [
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/gif",
+];
 const MAX_BYTES = 5 * 1024 * 1024;
 
 export default function ProductImageUploader({

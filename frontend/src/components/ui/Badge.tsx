@@ -15,7 +15,11 @@ const variants: Record<BadgeVariant, string> = {
   neutral: "bg-slate-100 text-slate-700 ring-slate-600/20",
 };
 
-export function Badge({ className, variant = "neutral", ...props }: BadgeProps) {
+export function Badge({
+  className,
+  variant = "neutral",
+  ...props
+}: BadgeProps) {
   return (
     <span
       className={cn(

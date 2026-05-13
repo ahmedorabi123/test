@@ -29,7 +29,9 @@ describe("ProductImageUploader", () => {
 
     const { container } = render(<ProductImageUploader productId="p1" />);
     const file = new File(["img"], "tee.png", { type: "image/png" });
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const input = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() => {

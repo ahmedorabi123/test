@@ -133,37 +133,37 @@ function BomEditor({ parent }: { parent: Variant }) {
       {error && <div className="text-sm text-rose-600">{error}</div>}
 
       <div className="overflow-x-auto">
-      <table className="min-w-[640px] text-sm">
-        <thead className="text-left text-xs text-slate-500 uppercase">
-          <tr>
-            <th className="py-2">Component</th>
-            <th className="py-2">SKU</th>
-            <th className="py-2 text-right">Quantity</th>
-            <th className="py-2 text-right">Waste</th>
-            <th className="py-2"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {items.map((bi) => (
-            <BomRow
-              key={bi.id}
-              item={bi}
-              parentId={parent.id}
-              onChanged={load}
-            />
-          ))}
-          {items.length === 0 && !loading && (
+        <table className="min-w-[640px] text-sm">
+          <thead className="text-left text-xs text-slate-500 uppercase">
             <tr>
-              <td
-                colSpan={5}
-                className="py-4 text-sm text-slate-500 text-center"
-              >
-                No components yet
-              </td>
+              <th className="py-2">Component</th>
+              <th className="py-2">SKU</th>
+              <th className="py-2 text-right">Quantity</th>
+              <th className="py-2 text-right">Waste</th>
+              <th className="py-2"></th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.map((bi) => (
+              <BomRow
+                key={bi.id}
+                item={bi}
+                parentId={parent.id}
+                onChanged={load}
+              />
+            ))}
+            {items.length === 0 && !loading && (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="py-4 text-sm text-slate-500 text-center"
+                >
+                  No components yet
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <AddBomRow parentId={parent.id} onAdded={load} />

@@ -103,93 +103,98 @@ export function TransferStockButton({
       >
         Transfer
       </button>
-      <Modal open={open} onClose={() => setOpen(false)} size="md" title="Transfer stock">
-            <form onSubmit={submit} className="space-y-3">
-              <label className="block text-sm">
-                <span className="block text-slate-600 mb-1">Variant</span>
-                <select
-                  required
-                  value={variantId}
-                  onChange={(e) => setVariantId(e.target.value)}
-                  className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-                >
-                  <option value="">Select variant…</option>
-                  {variants.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {variantLabel(v)}
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        size="md"
+        title="Transfer stock"
+      >
+        <form onSubmit={submit} className="space-y-3">
+          <label className="block text-sm">
+            <span className="block text-slate-600 mb-1">Variant</span>
+            <select
+              required
+              value={variantId}
+              onChange={(e) => setVariantId(e.target.value)}
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+            >
+              <option value="">Select variant…</option>
+              {variants.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {variantLabel(v)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="text-sm">
+              <span className="block text-slate-600 mb-1">From</span>
+              <select
+                required
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+              >
+                <option value="">—</option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} ({w.code})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="block text-slate-600 mb-1">To</span>
+              <select
+                required
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+              >
+                <option value="">—</option>
+                {warehouses
+                  .filter((w) => w.id !== from)
+                  .map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} ({w.code})
+                      {w.kind === "consignment" ? " · showroom" : ""}
                     </option>
                   ))}
-                </select>
-              </label>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="text-sm">
-                  <span className="block text-slate-600 mb-1">From</span>
-                  <select
-                    required
-                    value={from}
-                    onChange={(e) => setFrom(e.target.value)}
-                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-                  >
-                    <option value="">—</option>
-                    {warehouses.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.name} ({w.code})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm">
-                  <span className="block text-slate-600 mb-1">To</span>
-                  <select
-                    required
-                    value={to}
-                    onChange={(e) => setTo(e.target.value)}
-                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-                  >
-                    <option value="">—</option>
-                    {warehouses
-                      .filter((w) => w.id !== from)
-                      .map((w) => (
-                        <option key={w.id} value={w.id}>
-                          {w.name} ({w.code})
-                          {w.kind === "consignment" ? " · showroom" : ""}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              </div>
-              <label className="block text-sm">
-                <span className="block text-slate-600 mb-1">Quantity</span>
-                <input
-                  type="number"
-                  min={1}
-                  required
-                  value={qty}
-                  onChange={(e) => setQty(e.target.value)}
-                  className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-                />
-              </label>
-              {error && (
-                <div className="bg-red-50 text-red-700 text-sm p-2 rounded">
-                  {error}
-                </div>
-              )}
-              <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="min-h-11 rounded border border-slate-300 px-3 text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="min-h-11 rounded bg-amber-600 px-4 text-sm font-medium text-white hover:bg-amber-700"
-                >
-                  Transfer
-                </button>
-              </div>
-            </form>
+              </select>
+            </label>
+          </div>
+          <label className="block text-sm">
+            <span className="block text-slate-600 mb-1">Quantity</span>
+            <input
+              type="number"
+              min={1}
+              required
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+            />
+          </label>
+          {error && (
+            <div className="bg-red-50 text-red-700 text-sm p-2 rounded">
+              {error}
+            </div>
+          )}
+          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="min-h-11 rounded border border-slate-300 px-3 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="min-h-11 rounded bg-amber-600 px-4 text-sm font-medium text-white hover:bg-amber-700"
+            >
+              Transfer
+            </button>
+          </div>
+        </form>
       </Modal>
     </>
   );
@@ -315,190 +320,189 @@ export function ShowroomReportButton({
         onClose={() => setOpen(false)}
         size="xl"
         title="Post showroom sales report"
-          description="Records sales sold by a consignment showroom. Posts a sales journal entry, COGS, and deducts inventory at the showroom."
+        description="Records sales sold by a consignment showroom. Posts a sales journal entry, COGS, and deducts inventory at the showroom."
       >
-            <form onSubmit={submit} className="space-y-3">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <label className="text-sm">
-                  <span className="block text-slate-600 mb-1">Showroom *</span>
-                  <select
-                    required
-                    value={warehouseId}
-                    onChange={(e) => setWarehouseId(e.target.value)}
-                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-                  >
-                    <option value="">Select showroom…</option>
-                    {showrooms.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.name} ({w.code})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm">
-                  <span className="block text-slate-600 mb-1">Period *</span>
-                  <input
-                    type="month"
-                    required
-                    value={period}
-                    onChange={(e) => setPeriod(e.target.value)}
-                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-                  />
-                </label>
-                <label className="text-sm">
-                  <span className="block text-slate-600 mb-1">Currency</span>
-                  <input
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                    maxLength={3}
-                    className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
-                  />
-                </label>
-              </div>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <label className="text-sm">
+              <span className="block text-slate-600 mb-1">Showroom *</span>
+              <select
+                required
+                value={warehouseId}
+                onChange={(e) => setWarehouseId(e.target.value)}
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+              >
+                <option value="">Select showroom…</option>
+                {showrooms.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} ({w.code})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="block text-slate-600 mb-1">Period *</span>
+              <input
+                type="month"
+                required
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block text-slate-600 mb-1">Currency</span>
+              <input
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                maxLength={3}
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
+              />
+            </label>
+          </div>
 
-              {showrooms.length === 0 && (
-                <div className="bg-amber-50 text-amber-800 text-sm p-2 rounded">
-                  Create a consignment warehouse to post a showroom report. Go
-                  to Warehouses and add a warehouse with kind "consignment"
-                  first.
-                </div>
-              )}
+          {showrooms.length === 0 && (
+            <div className="bg-amber-50 text-amber-800 text-sm p-2 rounded">
+              Create a consignment warehouse to post a showroom report. Go to
+              Warehouses and add a warehouse with kind "consignment" first.
+            </div>
+          )}
 
-              <div className="rounded border border-slate-200">
-                <div className="overflow-x-auto">
-                <table className="min-w-[620px] text-sm">
-                  <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
-                    <tr>
-                      <th className="px-2 py-2 text-left">Variant</th>
-                      <th className="px-2 py-2 text-right w-24">Qty</th>
-                      <th className="px-2 py-2 text-right w-28">Unit price</th>
-                      <th className="w-8"></th>
+          <div className="rounded border border-slate-200">
+            <div className="overflow-x-auto">
+              <table className="min-w-[620px] text-sm">
+                <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
+                  <tr>
+                    <th className="px-2 py-2 text-left">Variant</th>
+                    <th className="px-2 py-2 text-right w-24">Qty</th>
+                    <th className="px-2 py-2 text-right w-28">Unit price</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((l, idx) => (
+                    <tr key={idx} className="border-t border-slate-100">
+                      <td className="px-2 py-1">
+                        <select
+                          value={l.variant_id}
+                          onChange={(e) =>
+                            setLines((arr) =>
+                              arr.map((x, i) =>
+                                i === idx
+                                  ? { ...x, variant_id: e.target.value }
+                                  : x,
+                              ),
+                            )
+                          }
+                          className="w-full border border-slate-200 rounded px-2 py-1"
+                        >
+                          <option value="">—</option>
+                          {variants.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {variantLabel(v)}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-2 py-1">
+                        <input
+                          type="number"
+                          min={0}
+                          value={l.quantity}
+                          onChange={(e) =>
+                            setLines((arr) =>
+                              arr.map((x, i) =>
+                                i === idx
+                                  ? { ...x, quantity: e.target.value }
+                                  : x,
+                              ),
+                            )
+                          }
+                          className="w-full border border-slate-200 rounded px-2 py-1 text-right"
+                        />
+                      </td>
+                      <td className="px-2 py-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={l.unit_price}
+                          onChange={(e) =>
+                            setLines((arr) =>
+                              arr.map((x, i) =>
+                                i === idx
+                                  ? { ...x, unit_price: e.target.value }
+                                  : x,
+                              ),
+                            )
+                          }
+                          className="w-full border border-slate-200 rounded px-2 py-1 text-right"
+                        />
+                      </td>
+                      <td className="px-2 py-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setLines((arr) => arr.filter((_, i) => i !== idx))
+                          }
+                          className="text-red-500 hover:text-red-700 text-sm"
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {lines.map((l, idx) => (
-                      <tr key={idx} className="border-t border-slate-100">
-                        <td className="px-2 py-1">
-                          <select
-                            value={l.variant_id}
-                            onChange={(e) =>
-                              setLines((arr) =>
-                                arr.map((x, i) =>
-                                  i === idx
-                                    ? { ...x, variant_id: e.target.value }
-                                    : x,
-                                ),
-                              )
-                            }
-                            className="w-full border border-slate-200 rounded px-2 py-1"
-                          >
-                            <option value="">—</option>
-                            {variants.map((v) => (
-                              <option key={v.id} value={v.id}>
-                                {variantLabel(v)}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-2 py-1">
-                          <input
-                            type="number"
-                            min={0}
-                            value={l.quantity}
-                            onChange={(e) =>
-                              setLines((arr) =>
-                                arr.map((x, i) =>
-                                  i === idx
-                                    ? { ...x, quantity: e.target.value }
-                                    : x,
-                                ),
-                              )
-                            }
-                            className="w-full border border-slate-200 rounded px-2 py-1 text-right"
-                          />
-                        </td>
-                        <td className="px-2 py-1">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            value={l.unit_price}
-                            onChange={(e) =>
-                              setLines((arr) =>
-                                arr.map((x, i) =>
-                                  i === idx
-                                    ? { ...x, unit_price: e.target.value }
-                                    : x,
-                                ),
-                              )
-                            }
-                            className="w-full border border-slate-200 rounded px-2 py-1 text-right"
-                          />
-                        </td>
-                        <td className="px-2 py-1 text-center">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setLines((arr) => arr.filter((_, i) => i !== idx))
-                            }
-                            className="text-red-500 hover:text-red-700 text-sm"
-                            title="Remove"
-                          >
-                            ×
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLines((arr) => [
-                      ...arr,
-                      { variant_id: "", quantity: "", unit_price: "" },
-                    ])
-                  }
-                  className="min-h-10 w-full border-t border-slate-200 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50"
-                >
-                  + Add line
-                </button>
-              </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setLines((arr) => [
+                  ...arr,
+                  { variant_id: "", quantity: "", unit_price: "" },
+                ])
+              }
+              className="min-h-10 w-full border-t border-slate-200 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50"
+            >
+              + Add line
+            </button>
+          </div>
 
-              <label className="block text-sm">
-                <span className="block text-slate-600 mb-1">Notes</span>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  className="w-full rounded border border-slate-300 px-3 py-2"
-                />
-              </label>
+          <label className="block text-sm">
+            <span className="block text-slate-600 mb-1">Notes</span>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="w-full rounded border border-slate-300 px-3 py-2"
+            />
+          </label>
 
-              {error && (
-                <div className="bg-red-50 text-red-700 text-sm p-2 rounded">
-                  {error}
-                </div>
-              )}
+          {error && (
+            <div className="bg-red-50 text-red-700 text-sm p-2 rounded">
+              {error}
+            </div>
+          )}
 
-              <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="min-h-11 rounded border border-slate-300 px-3 text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting || noShowrooms}
-                  className="min-h-11 rounded bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400"
-                >
-                  {submitting ? "Posting…" : "Post report"}
-                </button>
-              </div>
-            </form>
+          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="min-h-11 rounded border border-slate-300 px-3 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || noShowrooms}
+              className="min-h-11 rounded bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400"
+            >
+              {submitting ? "Posting…" : "Post report"}
+            </button>
+          </div>
+        </form>
       </Modal>
     </>
   );

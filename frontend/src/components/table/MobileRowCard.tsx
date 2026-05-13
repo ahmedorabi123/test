@@ -41,10 +41,18 @@ export function MobileRowCard({
         <div className="flex items-start gap-3">
           {selectedControl && <div className="pt-0.5">{selectedControl}</div>}
           <div className="min-w-0 flex-1">
-            <div className="break-words text-sm font-semibold text-slate-900">{title}</div>
-            {subtitle && <div className="mt-1 text-sm text-slate-500">{subtitle}</div>}
+            <div className="break-words text-sm font-semibold text-slate-900">
+              {title}
+            </div>
+            {subtitle && (
+              <div className="mt-1 text-sm text-slate-500">{subtitle}</div>
+            )}
           </div>
-          {meta && <div className="shrink-0 text-right text-xs text-slate-500">{meta}</div>}
+          {meta && (
+            <div className="shrink-0 text-right text-xs text-slate-500">
+              {meta}
+            </div>
+          )}
         </div>
         {fields.length > 0 && (
           <dl className="grid grid-cols-1 gap-3 xs:grid-cols-2">
@@ -53,7 +61,9 @@ export function MobileRowCard({
                 <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                   {field.label}
                 </dt>
-                <dd className="mt-0.5 break-words text-sm text-slate-700">{field.value}</dd>
+                <dd className="mt-0.5 break-words text-sm text-slate-700">
+                  {field.value}
+                </dd>
               </div>
             ))}
           </dl>

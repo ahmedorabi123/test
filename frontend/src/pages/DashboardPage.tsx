@@ -175,7 +175,10 @@ function Donut({ data, total, centerLabel, centerValue }: DonutProps) {
   let offset = 0;
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-      <svg viewBox="0 0 160 160" className="h-32 w-32 -rotate-90 sm:h-40 sm:w-40">
+      <svg
+        viewBox="0 0 160 160"
+        className="h-32 w-32 -rotate-90 sm:h-40 sm:w-40"
+      >
         <circle
           cx="80"
           cy="80"

@@ -34,14 +34,19 @@ describe("PurchasesPage", () => {
   it("renders heading + new PO link", async () => {
     server.use(
       http.get("*/api/v1/purchase_orders", () =>
-        HttpResponse.json({ data: [], meta: { page: 1, per_page: 25, total: 0 } })
-      )
+        HttpResponse.json({
+          data: [],
+          meta: { page: 1, per_page: 25, total: 0 },
+        }),
+      ),
     );
     renderWithProviders(<PurchasesPage />, { route: "/purchases" });
-    expect(screen.getByRole("heading", { name: /Purchase Orders/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Purchase Orders/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /\+ New PO/i })).toHaveAttribute(
       "href",
-      "/purchases/new"
+      "/purchases/new",
     );
   });
 
@@ -51,8 +56,8 @@ describe("PurchasesPage", () => {
         HttpResponse.json({
           data: [SAMPLE_PO],
           meta: { page: 1, per_page: 25, total: 1 },
-        })
-      )
+        }),
+      ),
     );
     renderWithProviders(<PurchasesPage />, { route: "/purchases" });
     await waitFor(() => {
@@ -70,10 +75,12 @@ describe("PurchasesPage", () => {
           data: [SAMPLE_PO],
           meta: { page: 1, per_page: 25, total: 1 },
         });
-      })
+      }),
     );
     renderWithProviders(<PurchasesPage />, { route: "/purchases" });
-    await waitFor(() => expect(screen.getByText("PO-1001")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("PO-1001")).toBeInTheDocument(),
+    );
 
     const header = screen.getByRole("columnheader", { name: /PO #/i });
     await userEvent.click(header);
@@ -93,10 +100,12 @@ describe("PurchasesPage", () => {
           data: [SAMPLE_PO],
           meta: { page: 1, per_page: 25, total: 1 },
         });
-      })
+      }),
     );
     renderWithProviders(<PurchasesPage />, { route: "/purchases" });
-    await waitFor(() => expect(screen.getByText("PO-1001")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("PO-1001")).toBeInTheDocument(),
+    );
 
     const perPageSelect = screen.getByLabelText(/Per page/i);
     await userEvent.selectOptions(perPageSelect, "50");
@@ -115,7 +124,7 @@ describe("PurchasesPage", () => {
           data: [],
           meta: { page: 1, per_page: 25, total: 0 },
         });
-      })
+      }),
     );
     renderWithProviders(<PurchasesPage />, { route: "/purchases" });
 

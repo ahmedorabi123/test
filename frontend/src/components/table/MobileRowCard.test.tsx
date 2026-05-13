@@ -13,7 +13,7 @@ describe("MobileRowCard", () => {
           { label: "Status", value: "paid" },
           { label: "Items", value: 3 },
         ]}
-      />
+      />,
     );
     expect(screen.getByText("SO-0001")).toBeInTheDocument();
     expect(screen.getByText("jane@example.com")).toBeInTheDocument();
@@ -25,9 +25,7 @@ describe("MobileRowCard", () => {
   });
 
   it("renders custom actions", () => {
-    render(
-      <MobileRowCard title="x" actions={<button>open</button>} />
-    );
+    render(<MobileRowCard title="x" actions={<button>open</button>} />);
     expect(screen.getByRole("button", { name: "open" })).toBeInTheDocument();
   });
 });

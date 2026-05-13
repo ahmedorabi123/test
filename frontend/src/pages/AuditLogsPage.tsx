@@ -100,21 +100,34 @@ export default function AuditLogsPage() {
 
       <div className="rounded-xl border border-slate-200 bg-white">
         <div className="space-y-3 p-3 md:hidden">
-          {loading && <div className="py-8 text-center text-sm text-slate-400">Loading…</div>}
+          {loading && (
+            <div className="py-8 text-center text-sm text-slate-400">
+              Loading…
+            </div>
+          )}
           {!loading && rows.length === 0 && (
-            <div className="py-8 text-center text-sm text-slate-400">No audit entries</div>
+            <div className="py-8 text-center text-sm text-slate-400">
+              No audit entries
+            </div>
           )}
           {rows.map((row) => {
             const open = expandedId === row.id;
             return (
               <div key={row.id} className="space-y-2">
                 <MobileRowCard
-                  title={<span className="font-mono text-xs">{row.action}</span>}
+                  title={
+                    <span className="font-mono text-xs">{row.action}</span>
+                  }
                   subtitle={row.user?.email || "system"}
                   meta={new Date(row.occurred_at).toLocaleDateString()}
                   fields={[
                     { label: "Subject", value: row.subject_type || "-" },
-                    { label: "Subject ID", value: row.subject_id ? `${row.subject_id.slice(0, 8)}...` : "-" },
+                    {
+                      label: "Subject ID",
+                      value: row.subject_id
+                        ? `${row.subject_id.slice(0, 8)}...`
+                        : "-",
+                    },
                     { label: "IP", value: row.ip_address || "-" },
                   ]}
                   actions={
@@ -137,87 +150,87 @@ export default function AuditLogsPage() {
           })}
         </div>
         <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium">When</th>
-              <th className="px-4 py-3 text-left font-medium">Actor</th>
-              <th className="px-4 py-3 text-left font-medium">Action</th>
-              <th className="px-4 py-3 text-left font-medium">Subject</th>
-              <th className="px-4 py-3 text-left font-medium">IP</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading && (
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-10 text-center text-slate-400"
-                >
-                  Loading…
-                </td>
+                <th className="px-4 py-3 text-left font-medium">When</th>
+                <th className="px-4 py-3 text-left font-medium">Actor</th>
+                <th className="px-4 py-3 text-left font-medium">Action</th>
+                <th className="px-4 py-3 text-left font-medium">Subject</th>
+                <th className="px-4 py-3 text-left font-medium">IP</th>
+                <th className="px-4 py-3" />
               </tr>
-            )}
-            {!loading && rows.length === 0 && (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-10 text-center text-slate-400"
-                >
-                  No audit entries
-                </td>
-              </tr>
-            )}
-            {rows.map((row) => {
-              const open = expandedId === row.id;
-              return (
-                <>
-                  <tr
-                    key={row.id}
-                    className="hover:bg-slate-50 cursor-pointer"
-                    onClick={() => setExpandedId(open ? null : row.id)}
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-10 text-center text-slate-400"
                   >
-                    <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
-                      {new Date(row.occurred_at).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      {row.user?.email || (
-                        <span className="text-slate-400">system</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs">
-                      {row.action}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-600">
-                      {row.subject_type}
-                      {row.subject_id ? (
-                        <span className="text-slate-400 ml-1">
-                          #{row.subject_id.slice(0, 8)}…
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500">
-                      {row.ip_address || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-indigo-600">
-                      {open ? "hide" : "details"}
-                    </td>
-                  </tr>
-                  {open && (
-                    <tr key={`${row.id}-detail`} className="bg-slate-50">
-                      <td colSpan={6} className="px-4 py-3">
-                        <pre className="text-xs bg-white border border-slate-200 rounded-md p-3 overflow-x-auto">
-                          {JSON.stringify(row.diff ?? {}, null, 2)}
-                        </pre>
+                    Loading…
+                  </td>
+                </tr>
+              )}
+              {!loading && rows.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-10 text-center text-slate-400"
+                  >
+                    No audit entries
+                  </td>
+                </tr>
+              )}
+              {rows.map((row) => {
+                const open = expandedId === row.id;
+                return (
+                  <>
+                    <tr
+                      key={row.id}
+                      className="hover:bg-slate-50 cursor-pointer"
+                      onClick={() => setExpandedId(open ? null : row.id)}
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
+                        {new Date(row.occurred_at).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        {row.user?.email || (
+                          <span className="text-slate-400">system</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        {row.action}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-600">
+                        {row.subject_type}
+                        {row.subject_id ? (
+                          <span className="text-slate-400 ml-1">
+                            #{row.subject_id.slice(0, 8)}…
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {row.ip_address || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-indigo-600">
+                        {open ? "hide" : "details"}
                       </td>
                     </tr>
-                  )}
-                </>
-              );
-            })}
-          </tbody>
-        </table>
+                    {open && (
+                      <tr key={`${row.id}-detail`} className="bg-slate-50">
+                        <td colSpan={6} className="px-4 py-3">
+                          <pre className="text-xs bg-white border border-slate-200 rounded-md p-3 overflow-x-auto">
+                            {JSON.stringify(row.diff ?? {}, null, 2)}
+                          </pre>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 

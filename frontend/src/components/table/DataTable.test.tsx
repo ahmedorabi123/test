@@ -29,9 +29,7 @@ describe("DataTable", () => {
   beforeEach(() => setBreakpoint("desktop"));
 
   it("renders rows", () => {
-    render(
-      wrap(<DataTable rows={ROWS} columns={COLUMNS} syncToUrl={false} />)
-    );
+    render(wrap(<DataTable rows={ROWS} columns={COLUMNS} syncToUrl={false} />));
     expect(screen.getByText("Alpha")).toBeInTheDocument();
     expect(screen.getByText("Bravo")).toBeInTheDocument();
   });
@@ -44,8 +42,8 @@ describe("DataTable", () => {
           columns={COLUMNS}
           emptyMessage="Nothing here"
           syncToUrl={false}
-        />
-      )
+        />,
+      ),
     );
     expect(screen.getByText("Nothing here")).toBeInTheDocument();
   });
@@ -60,8 +58,8 @@ describe("DataTable", () => {
           sort={null}
           onSortChange={onSortChange}
           syncToUrl={false}
-        />
-      )
+        />,
+      ),
     );
     await userEvent.click(screen.getByText("Name"));
     expect(onSortChange).toHaveBeenLastCalledWith({ key: "name", dir: "asc" });
@@ -77,8 +75,8 @@ describe("DataTable", () => {
           sort={{ key: "name", dir: "asc" }}
           onSortChange={onSortChange}
           syncToUrl={false}
-        />
-      )
+        />,
+      ),
     );
     await userEvent.click(screen.getByText("Name"));
     expect(onSortChange).toHaveBeenLastCalledWith({ key: "name", dir: "desc" });
@@ -96,8 +94,8 @@ describe("DataTable", () => {
           onPageChange={() => undefined}
           onPerPageChange={() => undefined}
           syncToUrl={false}
-        />
-      )
+        />,
+      ),
     );
     // Page indicator renders as fragmented text; find the span with the page number
     const pageNumbers = screen.getAllByText("2");
@@ -116,8 +114,8 @@ describe("DataTable", () => {
           selectable
           bulkActions={[{ id: "do", label: "Do thing", run: runFn }]}
           syncToUrl={false}
-        />
-      )
+        />,
+      ),
     );
     // Pick first row checkbox (skip the "select all" header)
     const checkboxes = screen.getAllByRole("checkbox");
@@ -139,8 +137,8 @@ describe("DataTable", () => {
           columns={COLUMNS}
           onRowClick={onRowClick}
           syncToUrl={false}
-        />
-      )
+        />,
+      ),
     );
     const alphaCell = screen.getByText("Alpha");
     const row = alphaCell.closest("tr");

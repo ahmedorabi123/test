@@ -9,7 +9,10 @@ describe("ManualOrderPage", () => {
   it("keeps variant search disabled until a warehouse is available", async () => {
     server.use(
       http.get("*/api/v1/customers", () =>
-        HttpResponse.json({ data: [], meta: { page: 1, per_page: 100, total: 0 } }),
+        HttpResponse.json({
+          data: [],
+          meta: { page: 1, per_page: 100, total: 0 },
+        }),
       ),
       http.get("*/api/v1/warehouses", () => HttpResponse.json({ data: [] })),
     );
@@ -23,7 +26,10 @@ describe("ManualOrderPage", () => {
   it("shows the in-stock filter by default", async () => {
     server.use(
       http.get("*/api/v1/customers", () =>
-        HttpResponse.json({ data: [], meta: { page: 1, per_page: 100, total: 0 } }),
+        HttpResponse.json({
+          data: [],
+          meta: { page: 1, per_page: 100, total: 0 },
+        }),
       ),
       http.get("*/api/v1/warehouses", () =>
         HttpResponse.json({

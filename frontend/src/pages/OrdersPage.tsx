@@ -77,7 +77,9 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(search);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const [importMode, setImportMode] = useState<"shopify" | "showroom">("shopify");
+  const [importMode, setImportMode] = useState<"shopify" | "showroom">(
+    "shopify",
+  );
 
   const setParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams);
@@ -486,7 +488,9 @@ export default function OrdersPage() {
                   {order.order_number}
                 </Link>
               }
-              subtitle={order.customer_name || order.customer_email || "No customer"}
+              subtitle={
+                order.customer_name || order.customer_email || "No customer"
+              }
               meta={formatMoney(order.total_price, order.currency)}
               selectedControl={
                 <input
@@ -538,7 +542,8 @@ export default function OrdersPage() {
                 { label: "Items", value: order.items_count ?? 0 },
                 {
                   label: "Channel",
-                  value: order.source === "shopify" ? "Online Store" : order.source,
+                  value:
+                    order.source === "shopify" ? "Online Store" : order.source,
                 },
               ]}
               actions={

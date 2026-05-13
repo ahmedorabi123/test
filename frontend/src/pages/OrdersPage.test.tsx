@@ -24,12 +24,21 @@ describe("OrdersPage", () => {
               total_price: "199.99",
               source: "manual",
               created_at: "2026-04-01T10:00:00Z",
-              customer: { id: "c-1", display_name: "Jane Doe", email: "jane@example.com" },
+              customer: {
+                id: "c-1",
+                display_name: "Jane Doe",
+                email: "jane@example.com",
+              },
             },
           ],
-          meta: { total: 1, page: 1, per_page: 25, summary: { total_value: "199.99" } },
-        })
-      )
+          meta: {
+            total: 1,
+            page: 1,
+            per_page: 25,
+            summary: { total_value: "199.99" },
+          },
+        }),
+      ),
     );
 
     renderWithProviders(<OrdersPage />, { route: "/orders" });
@@ -45,9 +54,9 @@ describe("OrdersPage", () => {
       http.get("*/api/v1/orders", () =>
         HttpResponse.json(
           { error: { detail: "service unavailable" } },
-          { status: 503 }
-        )
-      )
+          { status: 503 },
+        ),
+      ),
     );
 
     renderWithProviders(<OrdersPage />, { route: "/orders" });
@@ -55,7 +64,7 @@ describe("OrdersPage", () => {
     await waitFor(() => {
       // OrdersPage surfaces an error banner / message somewhere in the DOM.
       expect(
-        screen.getByText(/service unavailable|failed|error/i)
+        screen.getByText(/service unavailable|failed|error/i),
       ).toBeInTheDocument();
     });
   });
@@ -65,17 +74,26 @@ describe("OrdersPage", () => {
       http.get("*/api/v1/orders", () =>
         HttpResponse.json({
           data: [],
-          meta: { total: 0, page: 1, per_page: 25, summary: { total_value: "0" } },
-        })
-      )
+          meta: {
+            total: 0,
+            page: 1,
+            per_page: 25,
+            summary: { total_value: "0" },
+          },
+        }),
+      ),
     );
     renderWithProviders(<OrdersPage />, { route: "/orders" });
     await waitFor(() => {
-      expect(screen.getByText(/No records found|No orders/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/No records found|No orders/i),
+      ).toBeInTheDocument();
     });
-    const headers = screen.getAllByRole("columnheader").map((c) => c.textContent || "");
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((c) => c.textContent || "");
     const deliveryIdx = headers.findIndex(
-      (t) => /Delivery/i.test(t) && !/Delivery method/i.test(t)
+      (t) => /Delivery/i.test(t) && !/Delivery method/i.test(t),
     );
     const methodIdx = headers.findIndex((t) => /Delivery method/i.test(t));
     expect(deliveryIdx).toBeGreaterThanOrEqual(0);

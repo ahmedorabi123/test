@@ -19,7 +19,9 @@ function setupMatchMedia(initialMatches: boolean) {
     removeListener: () => undefined,
     dispatchEvent: () => false,
   } as unknown as MediaQueryList;
-  window.matchMedia = vi.fn().mockImplementation(() => mq) as typeof window.matchMedia;
+  window.matchMedia = vi
+    .fn()
+    .mockImplementation(() => mq) as typeof window.matchMedia;
   return {
     fire(matches: boolean) {
       (mq as unknown as { matches: boolean }).matches = matches;

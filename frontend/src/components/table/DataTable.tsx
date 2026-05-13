@@ -277,136 +277,140 @@ export default function DataTable<T extends { id: string | number }>({
               })}
           </div>
         )}
-        {!useMobileCards && <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                {selectable && (
-                  <th className="w-10 px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={allVisibleSelected}
-                      ref={(el) => {
-                        if (el) el.indeterminate = someVisibleSelected;
-                      }}
-                      onChange={toggleAll}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                      aria-label="Select all visible rows"
-                    />
-                  </th>
-                )}
-                {columns.map((col, index) => {
-                  const isSorted = currentSort?.key === col.sortKey;
-                  return (
-                    <th
-                      key={col.id}
-                      className={`px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider ${!selectable && index === 0 ? "sticky-col bg-slate-50" : ""} ${col.headerClassName ?? ""} ${col.sortKey ? "cursor-pointer select-none hover:bg-slate-100" : ""}`}
-                      onClick={() => handleSort(col)}
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        {col.header}
-                        {col.sortKey && (
-                          <span
-                            className={`text-xs ${isSorted ? "text-indigo-600" : "text-slate-300"}`}
-                          >
-                            {isSorted
-                              ? currentSort!.dir === "asc"
-                                ? "▲"
-                                : "▼"
-                              : "↕"}
-                          </span>
-                        )}
-                      </span>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading && (
+        {!useMobileCards && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <td
-                    colSpan={columns.length + (selectable ? 1 : 0)}
-                    className="px-4 py-8 text-center text-slate-500"
-                  >
-                    Loading…
-                  </td>
-                </tr>
-              )}
-              {!loading && error && (
-                <tr>
-                  <td
-                    colSpan={columns.length + (selectable ? 1 : 0)}
-                    className="px-4 py-8 text-center text-red-600"
-                  >
-                    {error}
-                  </td>
-                </tr>
-              )}
-              {!loading && !error && rows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={columns.length + (selectable ? 1 : 0)}
-                    className="px-4 py-8 text-center text-slate-500"
-                  >
-                    {emptyMessage}
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                !error &&
-                rows.map((row) => {
-                  const checked = selectedIds.has(row.id);
-                  const expanded = expandedIds.has(row.id);
-                  return (
-                    <Fragment key={row.id}>
-                      <tr
-                        className={`${onRowClick || renderExpanded ? "cursor-pointer" : ""} ${checked ? "bg-indigo-50/40" : "hover:bg-slate-50"}`}
-                        onClick={(e) => {
-                          const tag = (e.target as HTMLElement).tagName;
-                          if (["A", "BUTTON", "INPUT", "SELECT"].includes(tag))
-                            return;
-                          if (onRowClick) onRowClick(row);
-                          else if (renderExpanded) toggleExpanded(row.id);
+                  {selectable && (
+                    <th className="w-10 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someVisibleSelected;
                         }}
+                        onChange={toggleAll}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        aria-label="Select all visible rows"
+                      />
+                    </th>
+                  )}
+                  {columns.map((col, index) => {
+                    const isSorted = currentSort?.key === col.sortKey;
+                    return (
+                      <th
+                        key={col.id}
+                        className={`px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider ${!selectable && index === 0 ? "sticky-col bg-slate-50" : ""} ${col.headerClassName ?? ""} ${col.sortKey ? "cursor-pointer select-none hover:bg-slate-100" : ""}`}
+                        onClick={() => handleSort(col)}
                       >
-                        {selectable && (
-                          <td className="px-4 py-3">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleRow(row.id)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                              aria-label={`Select row ${row.id}`}
-                            />
-                          </td>
-                        )}
-                        {columns.map((col, index) => (
-                          <td
-                            key={col.id}
-                            className={`px-4 py-3 text-slate-700 ${!selectable && index === 0 ? "sticky-col bg-inherit" : ""} ${col.className ?? ""}`}
-                          >
-                            {col.render(row)}
-                          </td>
-                        ))}
-                      </tr>
-                      {renderExpanded && expanded && (
-                        <tr className="bg-slate-50/70">
-                          <td
-                            colSpan={columns.length + (selectable ? 1 : 0)}
-                            className="px-4 py-4"
-                          >
-                            {renderExpanded(row)}
-                          </td>
+                        <span className="inline-flex items-center gap-1">
+                          {col.header}
+                          {col.sortKey && (
+                            <span
+                              className={`text-xs ${isSorted ? "text-indigo-600" : "text-slate-300"}`}
+                            >
+                              {isSorted
+                                ? currentSort!.dir === "asc"
+                                  ? "▲"
+                                  : "▼"
+                                : "↕"}
+                            </span>
+                          )}
+                        </span>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading && (
+                  <tr>
+                    <td
+                      colSpan={columns.length + (selectable ? 1 : 0)}
+                      className="px-4 py-8 text-center text-slate-500"
+                    >
+                      Loading…
+                    </td>
+                  </tr>
+                )}
+                {!loading && error && (
+                  <tr>
+                    <td
+                      colSpan={columns.length + (selectable ? 1 : 0)}
+                      className="px-4 py-8 text-center text-red-600"
+                    >
+                      {error}
+                    </td>
+                  </tr>
+                )}
+                {!loading && !error && rows.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={columns.length + (selectable ? 1 : 0)}
+                      className="px-4 py-8 text-center text-slate-500"
+                    >
+                      {emptyMessage}
+                    </td>
+                  </tr>
+                )}
+                {!loading &&
+                  !error &&
+                  rows.map((row) => {
+                    const checked = selectedIds.has(row.id);
+                    const expanded = expandedIds.has(row.id);
+                    return (
+                      <Fragment key={row.id}>
+                        <tr
+                          className={`${onRowClick || renderExpanded ? "cursor-pointer" : ""} ${checked ? "bg-indigo-50/40" : "hover:bg-slate-50"}`}
+                          onClick={(e) => {
+                            const tag = (e.target as HTMLElement).tagName;
+                            if (
+                              ["A", "BUTTON", "INPUT", "SELECT"].includes(tag)
+                            )
+                              return;
+                            if (onRowClick) onRowClick(row);
+                            else if (renderExpanded) toggleExpanded(row.id);
+                          }}
+                        >
+                          {selectable && (
+                            <td className="px-4 py-3">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleRow(row.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                aria-label={`Select row ${row.id}`}
+                              />
+                            </td>
+                          )}
+                          {columns.map((col, index) => (
+                            <td
+                              key={col.id}
+                              className={`px-4 py-3 text-slate-700 ${!selectable && index === 0 ? "sticky-col bg-inherit" : ""} ${col.className ?? ""}`}
+                            >
+                              {col.render(row)}
+                            </td>
+                          ))}
                         </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>}
+                        {renderExpanded && expanded && (
+                          <tr className="bg-slate-50/70">
+                            <td
+                              colSpan={columns.length + (selectable ? 1 : 0)}
+                              className="px-4 py-4"
+                            >
+                              {renderExpanded(row)}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Pagination */}
         {(onPageChange || onPerPageChange) && (

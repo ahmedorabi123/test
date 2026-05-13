@@ -28,8 +28,8 @@ describe("AuditLogsPage", () => {
         HttpResponse.json({
           data: [SAMPLE_LOG],
           meta: { page: 1, per_page: 50, total: 1 },
-        })
-      )
+        }),
+      ),
     );
     renderWithProviders(<AuditLogsPage />, { route: "/audit-logs" });
     await waitFor(() => {
@@ -41,8 +41,8 @@ describe("AuditLogsPage", () => {
   it("renders a permission error when API returns 403", async () => {
     server.use(
       http.get("*/api/v1/audit_logs", () =>
-        HttpResponse.json({ error: "forbidden" }, { status: 403 })
-      )
+        HttpResponse.json({ error: "forbidden" }, { status: 403 }),
+      ),
     );
     renderWithProviders(<AuditLogsPage />, { route: "/audit-logs" });
     await waitFor(() => {
@@ -59,7 +59,7 @@ describe("AuditLogsPage", () => {
           data: [SAMPLE_LOG],
           meta: { page: 1, per_page: 50, total: 1 },
         });
-      })
+      }),
     );
     renderWithProviders(<AuditLogsPage />, { route: "/audit-logs" });
     await waitFor(() => {
@@ -83,10 +83,12 @@ describe("AuditLogsPage", () => {
           data: [],
           meta: { page: 1, per_page: 50, total: 0 },
         });
-      })
+      }),
     );
     renderWithProviders(<AuditLogsPage />, { route: "/audit-logs" });
-    const input = screen.getByPlaceholderText(/Action \(e\.g\. customer\.create\)/i);
+    const input = screen.getByPlaceholderText(
+      /Action \(e\.g\. customer\.create\)/i,
+    );
     await userEvent.type(input, "order.create");
 
     await waitFor(() => {

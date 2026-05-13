@@ -46,7 +46,8 @@ export function Modal({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const focusTimer = window.setTimeout(() => {
-      const target = dialogRef.current?.querySelector<HTMLElement>(focusableSelector);
+      const target =
+        dialogRef.current?.querySelector<HTMLElement>(focusableSelector);
       target?.focus();
     }, 0);
 

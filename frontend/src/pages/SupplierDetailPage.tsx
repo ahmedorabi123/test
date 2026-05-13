@@ -14,8 +14,10 @@ function formatMoney(value: string | number | undefined, currency = "EGP") {
 }
 
 function statusClass(status: string) {
-  if (status === "active") return "bg-emerald-50 text-emerald-700 ring-emerald-600/20";
-  if (status === "on_hold") return "bg-amber-50 text-amber-700 ring-amber-600/20";
+  if (status === "active")
+    return "bg-emerald-50 text-emerald-700 ring-emerald-600/20";
+  if (status === "on_hold")
+    return "bg-amber-50 text-amber-700 ring-amber-600/20";
   return "bg-gray-100 text-gray-600 ring-gray-500/20";
 }
 
@@ -40,7 +42,9 @@ export default function SupplierDetailPage() {
         setSupplier(supplierRow);
         setPurchaseOrders(poRows);
       })
-      .catch((err) => setError((err as Error).message || "Failed to load supplier"))
+      .catch((err) =>
+        setError((err as Error).message || "Failed to load supplier"),
+      )
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -57,7 +61,9 @@ export default function SupplierDetailPage() {
   }, [supplier]);
 
   if (loading)
-    return <div className="p-6 text-sm text-slate-500">Loading supplier...</div>;
+    return (
+      <div className="p-6 text-sm text-slate-500">Loading supplier...</div>
+    );
   if (error) return <div className="p-6 text-sm text-rose-600">{error}</div>;
   if (!supplier) return null;
 
@@ -68,11 +74,16 @@ export default function SupplierDetailPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link to="/suppliers" className="text-sm text-slate-500 hover:text-slate-700">
+          <Link
+            to="/suppliers"
+            className="text-sm text-slate-500 hover:text-slate-700"
+          >
             Back to suppliers
           </Link>
           <div className="mt-1 flex items-center gap-2">
-            <h1 className="text-2xl font-semibold text-slate-900">{supplier.name}</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              {supplier.name}
+            </h1>
             {supplier.supplier_code && (
               <span className="rounded bg-slate-100 px-2 py-1 text-xs font-mono text-slate-600">
                 {supplier.supplier_code}
@@ -99,10 +110,24 @@ export default function SupplierDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <SummaryCard label="Open balance" value={formatMoney(summary?.open_total, supplier.currency)} />
-        <SummaryCard label="Total ordered" value={formatMoney(summary?.total_ordered, supplier.currency)} />
-        <SummaryCard label="Received" value={formatMoney(summary?.received_total, supplier.currency)} />
-        <SummaryCard label="POs" value={String(summary?.purchase_orders_count ?? purchaseOrders.length)} />
+        <SummaryCard
+          label="Open balance"
+          value={formatMoney(summary?.open_total, supplier.currency)}
+        />
+        <SummaryCard
+          label="Total ordered"
+          value={formatMoney(summary?.total_ordered, supplier.currency)}
+        />
+        <SummaryCard
+          label="Received"
+          value={formatMoney(summary?.received_total, supplier.currency)}
+        />
+        <SummaryCard
+          label="POs"
+          value={String(
+            summary?.purchase_orders_count ?? purchaseOrders.length,
+          )}
+        />
       </div>
 
       <div className="border-b border-slate-200">
@@ -135,7 +160,14 @@ export default function SupplierDetailPage() {
             <Info label="Email" value={supplier.email || "-"} />
             <Info label="Phone" value={supplier.phone || "-"} />
             <Info label="Tax ID" value={supplier.tax_id || "-"} />
-            <Info label="Lead time" value={supplier.lead_time_days ? `${supplier.lead_time_days} days` : "-"} />
+            <Info
+              label="Lead time"
+              value={
+                supplier.lead_time_days
+                  ? `${supplier.lead_time_days} days`
+                  : "-"
+              }
+            />
           </section>
           <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
             <h2 className="text-sm font-semibold text-slate-900">Address</h2>
@@ -152,12 +184,19 @@ export default function SupplierDetailPage() {
           <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
             <h2 className="text-sm font-semibold text-slate-900">Payment</h2>
             <Info label="Net days" value={String(terms?.net_days ?? "-")} />
-            <Info label="Notes" value={typeof terms?.notes === "string" ? terms.notes : "-"} />
+            <Info
+              label="Notes"
+              value={typeof terms?.notes === "string" ? terms.notes : "-"}
+            />
           </section>
           {supplier.notes && (
             <section className="rounded-xl border border-slate-200 bg-white p-4 lg:col-span-3">
-              <h2 className="text-sm font-semibold text-slate-900 mb-2">Notes</h2>
-              <div className="whitespace-pre-wrap text-sm text-slate-700">{supplier.notes}</div>
+              <h2 className="text-sm font-semibold text-slate-900 mb-2">
+                Notes
+              </h2>
+              <div className="whitespace-pre-wrap text-sm text-slate-700">
+                {supplier.notes}
+              </div>
             </section>
           )}
         </div>
@@ -166,43 +205,55 @@ export default function SupplierDetailPage() {
       {tab === "purchase_orders" && (
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="overflow-x-auto">
-          <table className="min-w-[680px] text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-              <tr>
-                <th className="px-4 py-2 text-left">PO</th>
-                <th className="px-4 py-2 text-left">Warehouse</th>
-                <th className="px-4 py-2 text-left">Status</th>
-                <th className="px-4 py-2 text-right">Total</th>
-                <th className="px-4 py-2 text-left">Expected</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {purchaseOrders.map((po) => (
-                <tr key={po.id}>
-                  <td className="px-4 py-2">
-                    <Link to={`/purchases/${po.id}`} className="font-mono text-indigo-700 hover:underline">
-                      {po.po_number}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2 text-slate-600">{po.warehouse_name || "-"}</td>
-                  <td className="px-4 py-2 capitalize text-slate-700">{po.status}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">
-                    {formatMoney(po.total, po.currency)}
-                  </td>
-                  <td className="px-4 py-2 text-slate-600">
-                    {po.expected_at ? new Date(po.expected_at).toLocaleDateString() : "-"}
-                  </td>
-                </tr>
-              ))}
-              {purchaseOrders.length === 0 && (
+            <table className="min-w-[680px] text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
-                  <td colSpan={5} className="px-4 py-4 text-center text-slate-400">
-                    No purchase orders
-                  </td>
+                  <th className="px-4 py-2 text-left">PO</th>
+                  <th className="px-4 py-2 text-left">Warehouse</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-right">Total</th>
+                  <th className="px-4 py-2 text-left">Expected</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {purchaseOrders.map((po) => (
+                  <tr key={po.id}>
+                    <td className="px-4 py-2">
+                      <Link
+                        to={`/purchases/${po.id}`}
+                        className="font-mono text-indigo-700 hover:underline"
+                      >
+                        {po.po_number}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-slate-600">
+                      {po.warehouse_name || "-"}
+                    </td>
+                    <td className="px-4 py-2 capitalize text-slate-700">
+                      {po.status}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {formatMoney(po.total, po.currency)}
+                    </td>
+                    <td className="px-4 py-2 text-slate-600">
+                      {po.expected_at
+                        ? new Date(po.expected_at).toLocaleDateString()
+                        : "-"}
+                    </td>
+                  </tr>
+                ))}
+                {purchaseOrders.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-4 py-4 text-center text-slate-400"
+                    >
+                      No purchase orders
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
@@ -212,7 +263,11 @@ export default function SupplierDetailPage() {
           <ActivityItem label="Supplier created" at={supplier.created_at} />
           <ActivityItem label="Supplier updated" at={supplier.updated_at} />
           {purchaseOrders.slice(0, 8).map((po) => (
-            <ActivityItem key={po.id} label={`PO ${po.po_number} ${po.status}`} at={po.updated_at} />
+            <ActivityItem
+              key={po.id}
+              label={`PO ${po.po_number} ${po.status}`}
+              at={po.updated_at}
+            />
           ))}
         </section>
       )}
@@ -223,7 +278,9 @@ export default function SupplierDetailPage() {
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </div>
       <div className="mt-1 text-lg font-semibold text-slate-900">{value}</div>
     </div>
   );

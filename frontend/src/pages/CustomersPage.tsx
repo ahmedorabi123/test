@@ -301,11 +301,19 @@ export default function CustomersPage() {
               }
               fields={[
                 { label: "Orders", value: customer.orders_count },
-                { label: "Location", value: [city, country].filter(Boolean).join(", ") || "-" },
-                { label: "Source", value: customer.source === "shopify" ? "Shopify" : "Manual" },
+                {
+                  label: "Location",
+                  value: [city, country].filter(Boolean).join(", ") || "-",
+                },
+                {
+                  label: "Source",
+                  value: customer.source === "shopify" ? "Shopify" : "Manual",
+                },
                 {
                   label: "Last order",
-                  value: customer.last_order_at ? new Date(customer.last_order_at).toLocaleDateString() : "No orders",
+                  value: customer.last_order_at
+                    ? new Date(customer.last_order_at).toLocaleDateString()
+                    : "No orders",
                 },
               ]}
               actions={

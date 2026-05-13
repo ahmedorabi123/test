@@ -14,10 +14,18 @@ export interface TabsProps<T extends string> {
   className?: string;
 }
 
-export function Tabs<T extends string>({ tabs, value, onChange, className }: TabsProps<T>) {
+export function Tabs<T extends string>({
+  tabs,
+  value,
+  onChange,
+  className,
+}: TabsProps<T>) {
   return (
     <div className={cn("-mx-1 overflow-x-auto px-1", className)}>
-      <div role="tablist" className="flex min-w-max gap-1 border-b border-slate-200">
+      <div
+        role="tablist"
+        className="flex min-w-max gap-1 border-b border-slate-200"
+      >
         {tabs.map((tab) => {
           const active = tab.id === value;
           return (

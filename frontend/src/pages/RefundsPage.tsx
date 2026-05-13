@@ -110,15 +110,18 @@ export default function RefundsPage() {
     setSearchParams(sp, { replace: true });
   };
 
-  const transitionRefund = useCallback(async (row: Refund, toStatus: string) => {
-    try {
-      if (toStatus === "cancelled") await refundsApi.cancel(row.id);
-      else await refundsApi.transition(row.id, toStatus);
-      await load();
-    } catch (e) {
-      setError((e as Error).message || "Refund transition failed");
-    }
-  }, [load]);
+  const transitionRefund = useCallback(
+    async (row: Refund, toStatus: string) => {
+      try {
+        if (toStatus === "cancelled") await refundsApi.cancel(row.id);
+        else await refundsApi.transition(row.id, toStatus);
+        await load();
+      } catch (e) {
+        setError((e as Error).message || "Refund transition failed");
+      }
+    },
+    [load],
+  );
 
   const today = new Date().toISOString().slice(0, 10);
   const weekStartDate = new Date();
@@ -172,7 +175,9 @@ export default function RefundsPage() {
               {row.customer?.name || row.customer?.email || "-"}
             </span>
             {row.customer?.email && (
-              <span className="text-xs text-slate-500">{row.customer.email}</span>
+              <span className="text-xs text-slate-500">
+                {row.customer.email}
+              </span>
             )}
           </div>
         ),
@@ -190,7 +195,11 @@ export default function RefundsPage() {
                   : "bg-amber-50 text-amber-700 ring-amber-600/20"
             }`}
           >
-            {row.kind === "exchange" ? "exchange" : row.full ? "full" : "partial"}
+            {row.kind === "exchange"
+              ? "exchange"
+              : row.full
+                ? "full"
+                : "partial"}
           </span>
         ),
       },
@@ -262,8 +271,10 @@ export default function RefundsPage() {
         render: (row) => {
           const value = row.status || "processed";
           const actionable =
-            !row.shopify_refund_id && !["processed", "cancelled"].includes(value);
-          if (!actionable) return <span className="text-xs text-slate-400">-</span>;
+            !row.shopify_refund_id &&
+            !["processed", "cancelled"].includes(value);
+          if (!actionable)
+            return <span className="text-xs text-slate-400">-</span>;
           return (
             <div className="flex flex-wrap gap-1">
               {value === "draft" && (
@@ -460,7 +471,9 @@ export default function RefundsPage() {
         </button>
         <button
           type="button"
-          onClick={() => applyFilterSet({ restock: "true", status: "approved" })}
+          onClick={() =>
+            applyFilterSet({ restock: "true", status: "approved" })
+          }
           className="rounded-full border border-indigo-300 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-50"
         >
           Restock pending
@@ -520,7 +533,8 @@ export default function RefundsPage() {
                   ? "bg-gray-100 text-gray-600 ring-gray-500/20"
                   : "bg-amber-50 text-amber-700 ring-amber-600/20";
           const actionable =
-            !refund.shopify_refund_id && !["processed", "cancelled"].includes(value);
+            !refund.shopify_refund_id &&
+            !["processed", "cancelled"].includes(value);
           return (
             <MobileRowCard
               title={
@@ -531,7 +545,9 @@ export default function RefundsPage() {
                   RF-{refund.id.slice(0, 8).toUpperCase()}
                 </Link>
               }
-              subtitle={refund.customer?.name || refund.customer?.email || "No customer"}
+              subtitle={
+                refund.customer?.name || refund.customer?.email || "No customer"
+              }
               meta={money(refund)}
               fields={[
                 {
@@ -549,10 +565,22 @@ export default function RefundsPage() {
                 },
                 {
                   label: "Type",
-                  value: refund.kind === "exchange" ? "exchange" : refund.full ? "full" : "partial",
+                  value:
+                    refund.kind === "exchange"
+                      ? "exchange"
+                      : refund.full
+                        ? "full"
+                        : "partial",
                 },
                 { label: "Reason", value: refund.reason || "-" },
-                { label: "Restock", value: refund.restock ? (refund.inventory_restocked ? "Restocked" : "Pending") : "No" },
+                {
+                  label: "Restock",
+                  value: refund.restock
+                    ? refund.inventory_restocked
+                      ? "Restocked"
+                      : "Pending"
+                    : "No",
+                },
                 {
                   label: "Status",
                   value: (
@@ -565,7 +593,9 @@ export default function RefundsPage() {
                 },
                 {
                   label: "Processed",
-                  value: refund.processed_at ? new Date(refund.processed_at).toLocaleDateString() : "-",
+                  value: refund.processed_at
+                    ? new Date(refund.processed_at).toLocaleDateString()
+                    : "-",
                 },
               ]}
               actions={
@@ -628,34 +658,34 @@ function RefundExpanded({ refundId }: { refundId: string }) {
         </div>
         {(refund.line_items ?? []).length > 0 ? (
           <div className="overflow-x-auto">
-          <table className="min-w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-3 py-2 text-left">Item</th>
-                <th className="px-3 py-2 text-left">SKU</th>
-                <th className="px-3 py-2 text-right">Qty</th>
-                <th className="px-3 py-2 text-right">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {(refund.line_items ?? []).map((item) => (
-                <tr key={item.id}>
-                  <td className="px-3 py-2 text-slate-800">
-                    {item.title || item.variant_title || "Item"}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-slate-500">
-                    {item.sku || "-"}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {item.quantity}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {Number(item.subtotal).toFixed(2)}
-                  </td>
+            <table className="min-w-full text-xs">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 text-left">Item</th>
+                  <th className="px-3 py-2 text-left">SKU</th>
+                  <th className="px-3 py-2 text-right">Qty</th>
+                  <th className="px-3 py-2 text-right">Subtotal</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {(refund.line_items ?? []).map((item) => (
+                  <tr key={item.id}>
+                    <td className="px-3 py-2 text-slate-800">
+                      {item.title || item.variant_title || "Item"}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-slate-500">
+                      {item.sku || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {item.quantity}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {Number(item.subtotal).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
           <div className="px-3 py-3 text-sm text-slate-400">
@@ -704,4 +734,3 @@ function RefundsChip({
     </button>
   );
 }
-

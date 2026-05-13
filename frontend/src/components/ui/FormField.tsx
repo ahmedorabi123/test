@@ -27,8 +27,12 @@ export function FormField({
         </span>
       )}
       {children}
-      {hint && !error && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
-      {error && <span className="mt-1 block text-xs text-red-600">{error}</span>}
+      {hint && !error && (
+        <span className="mt-1 block text-xs text-slate-500">{hint}</span>
+      )}
+      {error && (
+        <span className="mt-1 block text-xs text-red-600">{error}</span>
+      )}
     </label>
   );
 }

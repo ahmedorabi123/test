@@ -252,7 +252,9 @@ export default function ProductionPage() {
         }}
         mobileCardRenderer={(order) => (
           <MobileRowCard
-            title={<span className="font-medium text-slate-900">{order.number}</span>}
+            title={
+              <span className="font-medium text-slate-900">{order.number}</span>
+            }
             subtitle={
               order.parent_variant
                 ? `${order.parent_variant.product_title}${order.parent_variant.title ? ` · ${order.parent_variant.title}` : ""}`
@@ -271,7 +273,10 @@ export default function ProductionPage() {
               { label: "SKU", value: order.parent_variant?.sku || "-" },
               { label: "Warehouse", value: order.warehouse_name || "-" },
               { label: "Quantity", value: order.quantity },
-              { label: "Created", value: new Date(order.created_at).toLocaleString() },
+              {
+                label: "Created",
+                value: new Date(order.created_at).toLocaleString(),
+              },
             ]}
             actions={
               <>
@@ -289,7 +294,8 @@ export default function ProductionPage() {
                     Run
                   </button>
                 )}
-                {(order.status === "draft" || order.status === "in_progress") && (
+                {(order.status === "draft" ||
+                  order.status === "in_progress") && (
                   <button
                     onClick={() => cancelOrder(order)}
                     className="inline-flex min-h-10 items-center justify-center rounded-md bg-rose-50 px-3 text-sm font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20 hover:bg-rose-100"
@@ -398,7 +404,6 @@ function NewProductionOrderModal({
   return (
     <Modal open onClose={onClose} size="md" title="New production order">
       <div className="space-y-4">
-
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-600">
             Parent variant

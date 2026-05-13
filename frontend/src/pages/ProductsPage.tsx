@@ -308,10 +308,19 @@ export default function ProductsPage() {
               />
             }
             fields={[
-              { label: "Inventory", value: `${product.inventory_total ?? 0} in stock` },
+              {
+                label: "Inventory",
+                value: `${product.inventory_total ?? 0} in stock`,
+              },
               { label: "Variants", value: product.variants_count ?? 0 },
-              { label: "Category", value: product.primary_category || product.product_type || "-" },
-              { label: "Source", value: product.source === "shopify" ? "Shopify" : "Manual" },
+              {
+                label: "Category",
+                value: product.primary_category || product.product_type || "-",
+              },
+              {
+                label: "Source",
+                value: product.source === "shopify" ? "Shopify" : "Manual",
+              },
             ]}
             actions={
               <Link

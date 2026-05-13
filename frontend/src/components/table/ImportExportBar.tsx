@@ -200,127 +200,127 @@ export default function ImportExportBar({
         size="lg"
         title={`Import ${resource}`}
       >
+        <div>
+          {!preview && (
             <div>
-              {!preview && (
-                <div>
-                  <p className="text-sm text-slate-600 mb-3">
-                    {importHelpText ??
-                      "Upload a CSV file. Column headers should match the Shopify export format. The system will validate every row before committing."}
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={importAccept}
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                    className="block text-sm"
-                  />
-                  {file && (
-                    <div className="mt-2 text-xs text-slate-500">
-                      Selected: {file.name} ({Math.round(file.size / 1024)} KB)
-                    </div>
-                  )}
-                </div>
-              )}
-              {preview && (
-                <div>
-                  {(() => {
-                    const previewErrors = preview.errors ?? [];
-                    const previewSample = preview.sample ?? [];
-
-                    return (
-                      <>
-                        <div className="mb-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                          <Stat label="Rows" value={preview.total ?? 0} />
-                          <Stat
-                            label="Valid"
-                            value={preview.valid ?? 0}
-                            color="green"
-                          />
-                          <Stat
-                            label="Errors"
-                            value={previewErrors.length}
-                            color="red"
-                          />
-                          <Stat
-                            label="Warnings"
-                            value={preview.warnings?.length ?? 0}
-                            color="amber"
-                          />
-                        </div>
-                        {previewErrors.length > 0 && (
-                          <div className="mb-3 max-h-48 overflow-auto border border-red-200 rounded bg-red-50 p-3 text-xs">
-                            <div className="font-semibold text-red-900 mb-1">
-                              Errors
-                            </div>
-                            {previewErrors.slice(0, 20).map((e, i) => (
-                              <div key={i} className="text-red-700">
-                                Row {e.row}: {e.message}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {previewSample.length > 0 && (
-                          <div className="text-xs text-slate-600">
-                            <div className="font-semibold mb-1">
-                              Preview (first 5 rows)
-                            </div>
-                            <pre className="bg-slate-50 p-2 rounded overflow-auto max-h-48">
-                              {JSON.stringify(previewSample, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-              {error && (
-                <div className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
-                  {error}
+              <p className="text-sm text-slate-600 mb-3">
+                {importHelpText ??
+                  "Upload a CSV file. Column headers should match the Shopify export format. The system will validate every row before committing."}
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={importAccept}
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="block text-sm"
+              />
+              {file && (
+                <div className="mt-2 text-xs text-slate-500">
+                  Selected: {file.name} ({Math.round(file.size / 1024)} KB)
                 </div>
               )}
             </div>
-            <div className="mt-4 flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50 pt-3 sm:flex-row sm:justify-end">
+          )}
+          {preview && (
+            <div>
+              {(() => {
+                const previewErrors = preview.errors ?? [];
+                const previewSample = preview.sample ?? [];
+
+                return (
+                  <>
+                    <div className="mb-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                      <Stat label="Rows" value={preview.total ?? 0} />
+                      <Stat
+                        label="Valid"
+                        value={preview.valid ?? 0}
+                        color="green"
+                      />
+                      <Stat
+                        label="Errors"
+                        value={previewErrors.length}
+                        color="red"
+                      />
+                      <Stat
+                        label="Warnings"
+                        value={preview.warnings?.length ?? 0}
+                        color="amber"
+                      />
+                    </div>
+                    {previewErrors.length > 0 && (
+                      <div className="mb-3 max-h-48 overflow-auto border border-red-200 rounded bg-red-50 p-3 text-xs">
+                        <div className="font-semibold text-red-900 mb-1">
+                          Errors
+                        </div>
+                        {previewErrors.slice(0, 20).map((e, i) => (
+                          <div key={i} className="text-red-700">
+                            Row {e.row}: {e.message}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {previewSample.length > 0 && (
+                      <div className="text-xs text-slate-600">
+                        <div className="font-semibold mb-1">
+                          Preview (first 5 rows)
+                        </div>
+                        <pre className="bg-slate-50 p-2 rounded overflow-auto max-h-48">
+                          {JSON.stringify(previewSample, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+          {error && (
+            <div className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+              {error}
+            </div>
+          )}
+        </div>
+        <div className="mt-4 flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50 pt-3 sm:flex-row sm:justify-end">
+          <button
+            onClick={() => {
+              setImportOpen(false);
+              setFile(null);
+              setPreview(null);
+              setError(null);
+            }}
+            className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm"
+          >
+            Cancel
+          </button>
+          {!preview && (
+            <button
+              onClick={handleValidate}
+              disabled={!file || busy}
+              className="min-h-11 rounded-md bg-indigo-600 px-3 text-sm text-white disabled:opacity-50"
+            >
+              {busy ? "Validating…" : "Validate"}
+            </button>
+          )}
+          {preview && (
+            <>
               <button
                 onClick={() => {
-                  setImportOpen(false);
-                  setFile(null);
                   setPreview(null);
-                  setError(null);
                 }}
                 className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm"
               >
-                Cancel
+                Back
               </button>
-              {!preview && (
-                <button
-                  onClick={handleValidate}
-                  disabled={!file || busy}
-                  className="min-h-11 rounded-md bg-indigo-600 px-3 text-sm text-white disabled:opacity-50"
-                >
-                  {busy ? "Validating…" : "Validate"}
-                </button>
-              )}
-              {preview && (
-                <>
-                  <button
-                    onClick={() => {
-                      setPreview(null);
-                    }}
-                    className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleCommit}
-                    disabled={busy || (preview.errors?.length ?? 0) > 0}
-                    className="min-h-11 rounded-md bg-green-600 px-3 text-sm text-white disabled:opacity-50"
-                  >
-                    {busy ? "Importing…" : `Commit ${preview.valid ?? 0} rows`}
-                  </button>
-                </>
-              )}
-            </div>
+              <button
+                onClick={handleCommit}
+                disabled={busy || (preview.errors?.length ?? 0) > 0}
+                className="min-h-11 rounded-md bg-green-600 px-3 text-sm text-white disabled:opacity-50"
+              >
+                {busy ? "Importing…" : `Commit ${preview.valid ?? 0} rows`}
+              </button>
+            </>
+          )}
+        </div>
       </Modal>
     </div>
   );

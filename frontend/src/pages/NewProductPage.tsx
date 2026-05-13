@@ -410,7 +410,10 @@ export default function NewProductPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {options.map((option, index) => (
-                <div key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div
+                  key={index}
+                  className="grid grid-cols-1 gap-2 sm:grid-cols-3"
+                >
                   <input
                     value={option.name}
                     onChange={(e) =>

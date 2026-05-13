@@ -284,51 +284,51 @@ export default function CustomerDetailPage() {
             </div>
             {lo.line_items && lo.line_items.length > 0 && (
               <div className="overflow-x-auto">
-              <table className="min-w-[680px] text-sm">
-                <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Item</th>
-                    <th className="px-4 py-2 text-left">SKU</th>
-                    <th className="px-4 py-2 text-right">Qty</th>
-                    <th className="px-4 py-2 text-right">Price</th>
-                    <th className="px-4 py-2 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {lo.line_items.map((li) => (
-                    <tr key={li.id}>
-                      <td className="px-4 py-2">
-                        <div className="font-medium text-slate-900">
-                          {li.title}
-                        </div>
-                        {li.variant_title && (
-                          <div className="text-xs text-slate-500">
-                            {li.variant_title}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-slate-600 font-mono text-xs">
-                        {li.sku || "—"}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {li.quantity}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {formatMoney(
-                          li.price,
-                          lo.currency || customer.currency,
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums font-medium">
-                        {formatMoney(
-                          li.line_total,
-                          lo.currency || customer.currency,
-                        )}
-                      </td>
+                <table className="min-w-[680px] text-sm">
+                  <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Item</th>
+                      <th className="px-4 py-2 text-left">SKU</th>
+                      <th className="px-4 py-2 text-right">Qty</th>
+                      <th className="px-4 py-2 text-right">Price</th>
+                      <th className="px-4 py-2 text-right">Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {lo.line_items.map((li) => (
+                      <tr key={li.id}>
+                        <td className="px-4 py-2">
+                          <div className="font-medium text-slate-900">
+                            {li.title}
+                          </div>
+                          {li.variant_title && (
+                            <div className="text-xs text-slate-500">
+                              {li.variant_title}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-slate-600 font-mono text-xs">
+                          {li.sku || "—"}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {li.quantity}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {formatMoney(
+                            li.price,
+                            lo.currency || customer.currency,
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums font-medium">
+                          {formatMoney(
+                            li.line_total,
+                            lo.currency || customer.currency,
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -571,43 +571,43 @@ export default function CustomerDetailPage() {
           </div>
           {customer.orders && customer.orders.length > 0 ? (
             <div className="overflow-x-auto">
-            <table className="min-w-[680px] text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
-                <tr>
-                  <th className="px-4 py-2 text-left">Order</th>
-                  <th className="px-4 py-2 text-left">Date</th>
-                  <th className="px-4 py-2 text-left">Payment</th>
-                  <th className="px-4 py-2 text-left">Fulfillment</th>
-                  <th className="px-4 py-2 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {customer.orders.map((o) => (
-                  <tr key={o.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2">
-                      <Link
-                        to={`/orders/${o.id}`}
-                        className="font-mono text-indigo-700 hover:underline"
-                      >
-                        {o.order_number}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2 text-slate-600">
-                      {new Date(o.placed_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-2 capitalize text-slate-600">
-                      {o.financial_status.replace("_", " ")}
-                    </td>
-                    <td className="px-4 py-2 capitalize text-slate-600">
-                      {o.status}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums font-medium">
-                      {formatMoney(o.total_price, customer.currency)}
-                    </td>
+              <table className="min-w-[680px] text-sm">
+                <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Order</th>
+                    <th className="px-4 py-2 text-left">Date</th>
+                    <th className="px-4 py-2 text-left">Payment</th>
+                    <th className="px-4 py-2 text-left">Fulfillment</th>
+                    <th className="px-4 py-2 text-right">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {customer.orders.map((o) => (
+                    <tr key={o.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-2">
+                        <Link
+                          to={`/orders/${o.id}`}
+                          className="font-mono text-indigo-700 hover:underline"
+                        >
+                          {o.order_number}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2 text-slate-600">
+                        {new Date(o.placed_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-2 capitalize text-slate-600">
+                        {o.financial_status.replace("_", " ")}
+                      </td>
+                      <td className="px-4 py-2 capitalize text-slate-600">
+                        {o.status}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums font-medium">
+                        {formatMoney(o.total_price, customer.currency)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="px-4 py-6 text-center text-sm text-slate-400">

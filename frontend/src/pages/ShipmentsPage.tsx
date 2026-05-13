@@ -365,11 +365,21 @@ export default function ShipmentsPage() {
                 {shipment.tracking_number || shipment.id.slice(0, 8)}
               </Link>
             }
-            subtitle={shipment.customer?.name || shipment.customer?.email || "No customer"}
+            subtitle={
+              shipment.customer?.name ||
+              shipment.customer?.email ||
+              "No customer"
+            }
             meta={<StatusBadge value={shipment.delivery_status} />}
             fields={[
-              { label: "Carrier", value: shipment.carrier || shipment.tracking_company || "-" },
-              { label: "Status", value: <StatusBadge value={shipment.status} /> },
+              {
+                label: "Carrier",
+                value: shipment.carrier || shipment.tracking_company || "-",
+              },
+              {
+                label: "Status",
+                value: <StatusBadge value={shipment.status} />,
+              },
               {
                 label: "Order",
                 value: shipment.order ? (
@@ -385,11 +395,15 @@ export default function ShipmentsPage() {
               },
               {
                 label: "Shipped",
-                value: shipment.shipped_at ? new Date(shipment.shipped_at).toLocaleDateString() : "-",
+                value: shipment.shipped_at
+                  ? new Date(shipment.shipped_at).toLocaleDateString()
+                  : "-",
               },
               {
                 label: "Delivered",
-                value: shipment.delivered_at ? new Date(shipment.delivered_at).toLocaleDateString() : "-",
+                value: shipment.delivered_at
+                  ? new Date(shipment.delivered_at).toLocaleDateString()
+                  : "-",
               },
             ]}
             actions={

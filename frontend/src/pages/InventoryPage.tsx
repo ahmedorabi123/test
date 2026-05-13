@@ -152,173 +152,171 @@ function NewStockItemModal({
 
   return (
     <Modal open onClose={onClose} size="md" title="Set stock">
-        {error && (
-          <div className="mb-3 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-md text-sm">
-            {error}
-          </div>
-        )}
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Warehouse
-            </label>
-            <select
-              className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={warehouseId}
+      {error && (
+        <div className="mb-3 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-md text-sm">
+          {error}
+        </div>
+      )}
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Warehouse
+          </label>
+          <select
+            className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            value={warehouseId}
+            onChange={(e) => {
+              setWarehouseId(e.target.value);
+              setVariantId("");
+              setVariantLabel("");
+              setExistingStockItemId(null);
+              setSearch("");
+              setOptions([]);
+              setQty("0");
+              setThreshold("0");
+            }}
+          >
+            <option value="">Choose warehouse…</option>
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name} ({w.code})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Variant
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={variantId ? variantLabel : search}
+              disabled={!warehouseId}
+              placeholder={
+                warehouseId
+                  ? "Search by SKU, variant or product title..."
+                  : "Choose a warehouse first"
+              }
               onChange={(e) => {
-                setWarehouseId(e.target.value);
                 setVariantId("");
                 setVariantLabel("");
                 setExistingStockItemId(null);
-                setSearch("");
-                setOptions([]);
-                setQty("0");
-                setThreshold("0");
+                setSearch(e.target.value);
               }}
-            >
-              <option value="">Choose warehouse…</option>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name} ({w.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Variant
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={variantId ? variantLabel : search}
-                disabled={!warehouseId}
-                placeholder={
-                  warehouseId
-                    ? "Search by SKU, variant or product title..."
-                    : "Choose a warehouse first"
-                }
-                onChange={(e) => {
+              className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+            />
+            {variantId && (
+              <button
+                type="button"
+                onClick={() => {
                   setVariantId("");
                   setVariantLabel("");
                   setExistingStockItemId(null);
-                  setSearch(e.target.value);
+                  setSearch("");
                 }}
-                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
-              />
-              {variantId && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVariantId("");
-                    setVariantLabel("");
-                    setExistingStockItemId(null);
-                    setSearch("");
-                  }}
-                  className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-600"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            {options.length > 0 && !variantId && (
-              <ul className="mt-1 max-h-48 overflow-y-auto border border-slate-200 rounded-lg bg-white shadow-sm divide-y divide-slate-100">
-                {options.map((o) => (
-                  <li
-                    key={o.id}
-                    className="px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm"
-                    onClick={() => {
-                      setVariantId(o.id);
-                      setVariantLabel(
-                        `${o.product_title ?? ""} · ${o.title}${o.sku ? ` (${o.sku})` : ""}`,
-                      );
-                      const stockItem = o.stock_items?.[0];
-                      setExistingStockItemId(stockItem?.id || null);
-                      if (stockItem) {
-                        setQty(String(stockItem.quantity_on_hand));
-                        setThreshold(
-                          String(stockItem.low_stock_threshold || 0),
-                        );
-                      } else {
-                        setQty("0");
-                        setThreshold("0");
-                      }
-                      setSearch("");
-                      setOptions([]);
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-medium text-slate-900">
-                          {o.product_title} · {o.title}
-                        </div>
-                        <div className="text-xs text-slate-500 font-mono">
-                          {o.sku || "no SKU"}
-                        </div>
-                      </div>
-                      {o.stock_items?.[0] ? (
-                        <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-700">
-                          {o.stock_items[0].quantity_on_hand} on hand /{" "}
-                          {o.stock_items[0].quantity_reserved} reserved
-                        </span>
-                      ) : (
-                        <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700">
-                          new in warehouse
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-600"
+              >
+                Clear
+              </button>
             )}
           </div>
+          {options.length > 0 && !variantId && (
+            <ul className="mt-1 max-h-48 overflow-y-auto border border-slate-200 rounded-lg bg-white shadow-sm divide-y divide-slate-100">
+              {options.map((o) => (
+                <li
+                  key={o.id}
+                  className="px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm"
+                  onClick={() => {
+                    setVariantId(o.id);
+                    setVariantLabel(
+                      `${o.product_title ?? ""} · ${o.title}${o.sku ? ` (${o.sku})` : ""}`,
+                    );
+                    const stockItem = o.stock_items?.[0];
+                    setExistingStockItemId(stockItem?.id || null);
+                    if (stockItem) {
+                      setQty(String(stockItem.quantity_on_hand));
+                      setThreshold(String(stockItem.low_stock_threshold || 0));
+                    } else {
+                      setQty("0");
+                      setThreshold("0");
+                    }
+                    setSearch("");
+                    setOptions([]);
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium text-slate-900">
+                        {o.product_title} · {o.title}
+                      </div>
+                      <div className="text-xs text-slate-500 font-mono">
+                        {o.sku || "no SKU"}
+                      </div>
+                    </div>
+                    {o.stock_items?.[0] ? (
+                      <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-700">
+                        {o.stock_items[0].quantity_on_hand} on hand /{" "}
+                        {o.stock_items[0].quantity_reserved} reserved
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700">
+                        new in warehouse
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Quantity on hand
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Low-stock threshold
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={threshold}
-                onChange={(e) => setThreshold(e.target.value)}
-                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-            </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Quantity on hand
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Low-stock threshold
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={threshold}
+              onChange={(e) => setThreshold(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
           </div>
         </div>
+      </div>
 
-        <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-11 px-3 text-sm text-slate-600 hover:text-slate-900"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={save}
-            className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save stock"}
-          </button>
-        </div>
+      <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className="min-h-11 px-3 text-sm text-slate-600 hover:text-slate-900"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={save}
+          className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save stock"}
+        </button>
+      </div>
     </Modal>
   );
 }
@@ -356,94 +354,94 @@ function AdjustModal({
       title="Adjust stock"
       description={`${si.product_title} · ${si.variant_title} @ ${si.warehouse_name}`}
     >
-        {state.error && (
-          <div className="mb-3 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-md text-sm">
-            {state.error}
-          </div>
-        )}
-        <div className="space-y-3">
+      {state.error && (
+        <div className="mb-3 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-md text-sm">
+          {state.error}
+        </div>
+      )}
+      <div className="space-y-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <label className="text-sm font-medium text-slate-700">
+            Physical on hand
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={state.onHand}
+            onChange={(e) => onChange({ onHand: e.target.value })}
+            className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-right sm:w-28"
+          />
+        </div>
+        <div className="space-y-1">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <label className="text-sm font-medium text-slate-700">
-              Physical on hand
+              Unavailable
             </label>
             <input
               type="number"
               min={0}
-              value={state.onHand}
-              onChange={(e) => onChange({ onHand: e.target.value })}
+              value={state.unavailable}
+              onChange={(e) => onChange({ unavailable: e.target.value })}
               className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-right sm:w-28"
             />
           </div>
-          <div className="space-y-1">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <label className="text-sm font-medium text-slate-700">
-                Unavailable
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={state.unavailable}
-                onChange={(e) => onChange({ unavailable: e.target.value })}
-                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-right sm:w-28"
-              />
-            </div>
-            {unavailable > 0 && (
-              <input
-                type="text"
-                placeholder="Reason (e.g. damaged, quality hold)"
-                value={state.unavailabilityReason}
-                onChange={(e) =>
-                  onChange({ unavailabilityReason: e.target.value })
-                }
-                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-              />
-            )}
-          </div>
-          <div className="flex items-center justify-between text-sm text-slate-500">
-            <span title="Reserved stock comes from active order allocations and is not edited manually.">
-              Committed (reserved)
-            </span>
-            <span className="font-mono text-slate-700">
-              {si.quantity_reserved}
-            </span>
-          </div>
-          <div className="flex items-center justify-between border-t border-slate-200 pt-3">
-            <span className="text-sm font-semibold text-slate-700">
-              Available
-            </span>
-            <span
-              className={`text-lg font-bold ${
-                available === 0
-                  ? "text-red-600"
-                  : available <= si.low_stock_threshold
-                    ? "text-amber-600"
-                    : "text-emerald-600"
-              }`}
-            >
-              {available}
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400">
-            Available = physical on hand - committed - unavailable.
-          </p>
+          {unavailable > 0 && (
+            <input
+              type="text"
+              placeholder="Reason (e.g. damaged, quality hold)"
+              value={state.unavailabilityReason}
+              onChange={(e) =>
+                onChange({ unavailabilityReason: e.target.value })
+              }
+              className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+            />
+          )}
         </div>
-        <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-11 px-3 text-sm text-slate-600 hover:text-slate-900"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={state.saving}
-            onClick={onSave}
-            className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {state.saving ? "Saving…" : "Save"}
-          </button>
+        <div className="flex items-center justify-between text-sm text-slate-500">
+          <span title="Reserved stock comes from active order allocations and is not edited manually.">
+            Committed (reserved)
+          </span>
+          <span className="font-mono text-slate-700">
+            {si.quantity_reserved}
+          </span>
         </div>
+        <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+          <span className="text-sm font-semibold text-slate-700">
+            Available
+          </span>
+          <span
+            className={`text-lg font-bold ${
+              available === 0
+                ? "text-red-600"
+                : available <= si.low_stock_threshold
+                  ? "text-amber-600"
+                  : "text-emerald-600"
+            }`}
+          >
+            {available}
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Available = physical on hand - committed - unavailable.
+        </p>
+      </div>
+      <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className="min-h-11 px-3 text-sm text-slate-600 hover:text-slate-900"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={state.saving}
+          onClick={onSave}
+          className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {state.saving ? "Saving…" : "Save"}
+        </button>
+      </div>
     </Modal>
   );
 }
@@ -929,7 +927,10 @@ export default function InventoryPage() {
               { label: "Warehouse", value: stockItem.warehouse_name || "-" },
               { label: "On hand", value: stockItem.quantity_on_hand },
               { label: "Committed", value: stockItem.quantity_reserved },
-              { label: "Unavailable", value: stockItem.quantity_unavailable || "-" },
+              {
+                label: "Unavailable",
+                value: stockItem.quantity_unavailable || "-",
+              },
               { label: "Stock", value: stockItem.low_stock ? "Low" : "OK" },
             ]}
             actions={

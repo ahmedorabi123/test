@@ -31,7 +31,7 @@ const ACCOUNTS = [
 function mockBaseEndpoints() {
   server.use(
     http.get("*/api/v1/accounting/accounts", () =>
-      HttpResponse.json({ data: ACCOUNTS })
+      HttpResponse.json({ data: ACCOUNTS }),
     ),
     http.get("*/api/v1/accounting/journal_entries", () =>
       HttpResponse.json({
@@ -49,8 +49,8 @@ function mockBaseEndpoints() {
           },
         ],
         meta: { page: 1, per_page: 25, total: 1 },
-      })
-    )
+      }),
+    ),
   );
 }
 
@@ -60,20 +60,26 @@ describe("AccountingPage", () => {
   it("renders the heading and default journal tab", async () => {
     mockBaseEndpoints();
     renderWithProviders(<AccountingPage />, { route: "/accounting" });
-    expect(screen.getByRole("heading", { name: "Accounting" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Accounting" }),
+    ).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getAllByText("Opening balance").length).toBeGreaterThan(0)
+      expect(screen.getAllByText("Opening balance").length).toBeGreaterThan(0),
     );
   });
 
   it("switches to the Chart of Accounts tab and shows sorted accounts", async () => {
     mockBaseEndpoints();
     renderWithProviders(<AccountingPage />, { route: "/accounting" });
-    await userEvent.click(screen.getByRole("tab", { name: /Chart of Accounts/i }));
+    await userEvent.click(
+      screen.getByRole("tab", { name: /Chart of Accounts/i }),
+    );
     await waitFor(() => {
       // Both account names appear
       expect(screen.getAllByText("Cash").length).toBeGreaterThan(0);
-      expect(screen.getAllByText("Accounts Receivable").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Accounts Receivable").length).toBeGreaterThan(
+        0,
+      );
     });
   });
 
@@ -81,7 +87,7 @@ describe("AccountingPage", () => {
     let lastUrl = "";
     server.use(
       http.get("*/api/v1/accounting/accounts", () =>
-        HttpResponse.json({ data: ACCOUNTS })
+        HttpResponse.json({ data: ACCOUNTS }),
       ),
       http.get("*/api/v1/accounting/journal_entries", ({ request }) => {
         lastUrl = request.url;
@@ -89,7 +95,7 @@ describe("AccountingPage", () => {
           data: [],
           meta: { page: 1, per_page: 25, total: 0 },
         });
-      })
+      }),
     );
     renderWithProviders(<AccountingPage />, { route: "/accounting" });
 
@@ -107,7 +113,7 @@ describe("AccountingPage", () => {
     let lastUrl = "";
     server.use(
       http.get("*/api/v1/accounting/accounts", () =>
-        HttpResponse.json({ data: ACCOUNTS })
+        HttpResponse.json({ data: ACCOUNTS }),
       ),
       http.get("*/api/v1/accounting/journal_entries", ({ request }) => {
         lastUrl = request.url;
@@ -115,7 +121,7 @@ describe("AccountingPage", () => {
           data: [],
           meta: { page: 1, per_page: 25, total: 0 },
         });
-      })
+      }),
     );
     renderWithProviders(<AccountingPage />, { route: "/accounting" });
     await waitFor(() => expect(lastUrl).toMatch(/sort=entry_date/));

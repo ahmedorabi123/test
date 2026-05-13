@@ -175,28 +175,28 @@ export default function ShipmentDetailPage() {
           Items
         </div>
         <div className="overflow-x-auto">
-        <table className="min-w-[640px] text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-            <tr>
-              <th className="px-4 py-2 text-left">Item</th>
-              <th className="px-4 py-2 text-left">SKU</th>
-              <th className="px-4 py-2 text-right">Qty</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {(shipment.line_items || []).map((item) => (
-              <tr key={item.id}>
-                <td className="px-4 py-2">
-                  {item.title || item.variant_title || "Item"}
-                </td>
-                <td className="px-4 py-2 font-mono text-xs text-slate-500">
-                  {item.sku || "-"}
-                </td>
-                <td className="px-4 py-2 text-right">{item.quantity}</td>
+          <table className="min-w-[640px] text-sm">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-4 py-2 text-left">Item</th>
+                <th className="px-4 py-2 text-left">SKU</th>
+                <th className="px-4 py-2 text-right">Qty</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(shipment.line_items || []).map((item) => (
+                <tr key={item.id}>
+                  <td className="px-4 py-2">
+                    {item.title || item.variant_title || "Item"}
+                  </td>
+                  <td className="px-4 py-2 font-mono text-xs text-slate-500">
+                    {item.sku || "-"}
+                  </td>
+                  <td className="px-4 py-2 text-right">{item.quantity}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 

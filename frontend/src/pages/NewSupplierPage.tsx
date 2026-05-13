@@ -106,7 +106,9 @@ export default function NewSupplierPage() {
             <input
               type="text"
               value={form.supplier_code}
-              onChange={(e) => set("supplier_code", e.target.value.toUpperCase())}
+              onChange={(e) =>
+                set("supplier_code", e.target.value.toUpperCase())
+              }
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
             />
           </div>
