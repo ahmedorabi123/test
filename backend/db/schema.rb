@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_14_123000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_14_130200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -557,6 +557,23 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_14_123000) do
     t.index ["shopify_gid"], name: "index_shopify_mappings_on_shopify_gid", unique: true
   end
 
+  create_table "showroom_reversals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "warehouse_id", null: false
+    t.string "period", null: false
+    t.string "currency", limit: 3, default: "EGP", null: false
+    t.decimal "total_amount", precision: 14, scale: 2, default: "0.0", null: false
+    t.jsonb "lines", default: [], null: false
+    t.string "idempotency_key", null: false
+    t.text "notes"
+    t.uuid "posted_by_user_id"
+    t.datetime "posted_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["idempotency_key"], name: "index_showroom_reversals_on_idempotency_key", unique: true
+    t.index ["period"], name: "index_showroom_reversals_on_period"
+    t.index ["warehouse_id", "period"], name: "idx_showroom_reversals_uniq_warehouse_period", unique: true
+  end
+
   create_table "stock_cost_layers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "stock_item_id", null: false
     t.uuid "variant_id", null: false
@@ -623,6 +640,37 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_14_123000) do
     t.index ["order_line_item_id", "status"], name: "index_stock_reservations_on_order_line_item_id_and_status"
     t.index ["order_line_item_id", "stock_item_id"], name: "idx_stock_reservations_active_line_stock", unique: true, where: "((status)::text = 'active'::text)"
     t.index ["stock_item_id", "status"], name: "index_stock_reservations_on_stock_item_id_and_status"
+  end
+
+  create_table "stock_transfer_lines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "stock_transfer_id", null: false
+    t.uuid "variant_id", null: false
+    t.integer "quantity", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["stock_transfer_id", "variant_id"], name: "idx_stock_transfer_lines_uniq_variant", unique: true
+    t.index ["stock_transfer_id"], name: "index_stock_transfer_lines_on_stock_transfer_id"
+    t.index ["variant_id"], name: "index_stock_transfer_lines_on_variant_id"
+    t.check_constraint "quantity > 0", name: "stock_transfer_lines_quantity_positive"
+  end
+
+  create_table "stock_transfers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "reference", null: false
+    t.uuid "from_warehouse_id", null: false
+    t.uuid "to_warehouse_id", null: false
+    t.string "status", default: "posted", null: false
+    t.string "reason", default: "transfer", null: false
+    t.text "note"
+    t.datetime "posted_at"
+    t.uuid "posted_by_user_id"
+    t.uuid "created_by_user_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["from_warehouse_id"], name: "index_stock_transfers_on_from_warehouse_id"
+    t.index ["posted_at"], name: "index_stock_transfers_on_posted_at"
+    t.index ["reference"], name: "index_stock_transfers_on_reference", unique: true
+    t.index ["status"], name: "index_stock_transfers_on_status"
+    t.index ["to_warehouse_id"], name: "index_stock_transfers_on_to_warehouse_id"
   end
 
   create_table "suppliers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -788,6 +836,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_14_123000) do
   add_foreign_key "role_permissions", "roles"
   add_foreign_key "shipment_events", "fulfillments", on_delete: :cascade
   add_foreign_key "shipment_events", "users", column: "actor_id"
+  add_foreign_key "showroom_reversals", "users", column: "posted_by_user_id"
+  add_foreign_key "showroom_reversals", "warehouses"
   add_foreign_key "stock_cost_layers", "stock_items"
   add_foreign_key "stock_cost_layers", "variants"
   add_foreign_key "stock_cost_layers", "warehouses"
@@ -796,6 +846,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_14_123000) do
   add_foreign_key "stock_movements", "stock_items"
   add_foreign_key "stock_reservations", "order_line_items", on_delete: :cascade
   add_foreign_key "stock_reservations", "stock_items", on_delete: :restrict
+  add_foreign_key "stock_transfer_lines", "stock_transfers", on_delete: :cascade
+  add_foreign_key "stock_transfer_lines", "variants"
+  add_foreign_key "stock_transfers", "users", column: "created_by_user_id"
+  add_foreign_key "stock_transfers", "users", column: "posted_by_user_id"
+  add_foreign_key "stock_transfers", "warehouses", column: "from_warehouse_id"
+  add_foreign_key "stock_transfers", "warehouses", column: "to_warehouse_id"
   add_foreign_key "user_roles", "roles"
   add_foreign_key "user_roles", "users"
   add_foreign_key "variants", "products"

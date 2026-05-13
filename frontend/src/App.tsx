@@ -10,6 +10,8 @@ import DashboardPage from "./pages/DashboardPage";
 import ProductsPage from "./pages/ProductsPage";
 import OrdersPage from "./pages/OrdersPage";
 import InventoryPage from "./pages/InventoryPage";
+import StockTransfersPage from "./pages/inventory/StockTransfersPage";
+import StockTransferDetailPage from "./pages/inventory/StockTransferDetailPage";
 import WarehousesPage from "./pages/WarehousesPage";
 import AccountingPage from "./pages/AccountingPage";
 import CustomersPage from "./pages/CustomersPage";
@@ -78,6 +80,8 @@ function App() {
             <Route path="/suppliers/new" element={<NewSupplierPage />} />
             <Route path="/suppliers/:id" element={<SupplierDetailPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/inventory/transfers" element={<StockTransfersPage />} />
+            <Route path="/inventory/transfers/:id" element={<StockTransferDetailPage />} />
             <Route path="/warehouses" element={<WarehousesPage />} />
             <Route path="/accounting" element={<AccountingPage />} />
             <Route path="/production" element={<ProductionPage />} />

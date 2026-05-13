@@ -117,7 +117,57 @@ export const stockItemsApi = {
       .then((r) => r.data.data),
 };
 
+export interface StockTransferLine {
+  id?: string;
+  variant_id: string;
+  sku?: string | null;
+  variant_title?: string | null;
+  product_title?: string | null;
+  quantity: number;
+}
+
+export interface StockTransferMovement {
+  id: string;
+  stock_item_id: string;
+  delta: number;
+  reason: string;
+  snapshot_before: number;
+  snapshot_after: number;
+  reference_id: string;
+  created_at: string;
+}
+
+export interface StockTransfer {
+  id: string;
+  reference: string;
+  status: "draft" | "posted" | "cancelled";
+  reason: string;
+  note?: string | null;
+  from_warehouse_id: string;
+  to_warehouse_id: string;
+  from_warehouse_code?: string;
+  to_warehouse_code?: string;
+  from_warehouse_name?: string;
+  to_warehouse_name?: string;
+  posted_at?: string | null;
+  posted_by_user_id?: string | null;
+  total_quantity: number;
+  line_count: number;
+  lines?: StockTransferLine[];
+  movements?: StockTransferMovement[];
+}
+
+export interface StockTransferFilters {
+  from_warehouse_id?: string;
+  to_warehouse_id?: string;
+  status?: string;
+  page?: number;
+  per_page?: number;
+}
+
 export const stockTransfersApi = {
+  // Legacy single-variant transfer (kept for callers that still post one
+  // variant at a time). The backend normalises this into a one-line batch.
   create: (payload: {
     variant_id: string;
     from_warehouse_id: string;
@@ -126,14 +176,58 @@ export const stockTransfersApi = {
     reason?: string;
   }) =>
     api
-      .post<{
-        data: {
-          from: { warehouse_code: string; on_hand: number };
-          to: { warehouse_code: string; on_hand: number };
-        };
-      }>("/stock_transfers", payload)
+      .post<{ data: StockTransfer }>("/stock_transfers", payload)
+      .then((r) => r.data.data),
+  // Multi-variant batch transfer.
+  createBatch: (payload: {
+    stock_transfer: {
+      from_warehouse_id: string;
+      to_warehouse_id: string;
+      reason?: string;
+      note?: string;
+    };
+    lines: Array<{ variant_id: string; quantity: number }>;
+  }) =>
+    api
+      .post<{ data: StockTransfer }>("/stock_transfers", payload)
+      .then((r) => r.data.data),
+  list: (filters: StockTransferFilters = {}) =>
+    api
+      .get<{
+        data: StockTransfer[];
+        meta: { page: number; per_page: number; total: number };
+      }>("/stock_transfers", { params: filters })
+      .then((r) => r.data),
+  get: (id: string) =>
+    api
+      .get<{ data: StockTransfer }>(`/stock_transfers/${id}`)
       .then((r) => r.data.data),
 };
+
+export interface ShowroomReversal {
+  id: string;
+  warehouse_id: string;
+  period: string;
+  currency: string;
+  total_amount: string;
+  idempotency_key: string;
+  lines: Array<{
+    variant_id: string;
+    quantity: number;
+    unit_price: string;
+  }>;
+  posted_at?: string | null;
+}
+
+export interface ShowroomSalesResult {
+  id?: string;
+  order_number?: string;
+  total_price?: string;
+  order?: { id: string; order_number: string; total_price: string } | null;
+  reversal?: ShowroomReversal | null;
+  sales_total: string;
+  reversal_total: string;
+}
 
 export const showroomSalesApi = {
   create: (payload: {
@@ -144,13 +238,11 @@ export const showroomSalesApi = {
     notes?: string;
     line_items: Array<{
       variant_id: string;
-      quantity: number;
+      quantity: number; // may be negative for accounting-only reversal lines
       unit_price: string;
     }>;
   }) =>
     api
-      .post<{
-        data: { id: string; order_number: string; total_price: string };
-      }>("/showroom_sales", payload)
+      .post<{ data: ShowroomSalesResult }>("/showroom_sales", payload)
       .then((r) => r.data.data),
 };

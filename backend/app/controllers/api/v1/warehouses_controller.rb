@@ -27,7 +27,9 @@ module Api
       # PATCH /api/v1/warehouses/:id
       def update
         authorize @warehouse
+        previous_commission = @warehouse.commission_rate
         @warehouse.update!(warehouse_params)
+        record_commission_audit(previous_commission)
         render json: { data: WarehouseSerializer.call(@warehouse) }
       end
 
@@ -52,6 +54,22 @@ module Api
         params.require(:warehouse).permit(
           :name, :code, :address, :active, :kind, :partner_name,
           :partner_email, :partner_phone, :commission_rate, :currency, :notes
+        )
+      end
+
+      # Phase 1: commission_rate is informational only. Settlement accounting
+      # comes in a later phase. Any change is recorded in the audit log so
+      # finance has a trail.
+      def record_commission_audit(previous)
+        current = @warehouse.commission_rate
+        return if previous.to_s == current.to_s
+
+        AuditLog.record(
+          user:    current_user,
+          action:  "showroom.commission_rate.changed",
+          subject: @warehouse,
+          diff:    { from: previous&.to_s, to: current&.to_s },
+          request: request
         )
       end
     end

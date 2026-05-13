@@ -9,19 +9,38 @@ module Sales
   #     currency:       "EGP"  # optional, defaults to warehouse currency or EGP
   #     line_items:     [{ variant_id:, quantity:, unit_price: }, ...]
   #     notes:          "..." # optional
+  #     actor:          User # optional, recorded on the reversal aggregate
   #   }
   #
-  # Effect (atomic):
-  #   1. Creates an Order with source="showroom", financial_status="paid",
-  #      status="fulfilled", customer_name="<warehouse_name> – <period>"
-  #   2. Deducts stock from the consignment warehouse via WriteMovement
-  #   3. Posts the sales journal (DR A/R, CR Sales) via PostSaleJournalHandler
-  #   4. Posts COGS journal (DR 5000, CR 1200) using variant.cost_per_item
+  # Quantity sign semantics:
+  # * quantity > 0  → sales line. Builds an OrderLineItem, deducts stock at
+  #   the consignment warehouse (strict — no clamping), feeds the sale
+  #   journal + COGS journal.
+  # * quantity < 0  → accounting-only sales reversal. Does NOT create an
+  #   OrderLineItem, does NOT move physical stock, does NOT create a Refund.
+  #   Aggregated into a +ShowroomReversal+ that posts a single reversal
+  #   journal (DR 4000 / CR 1100) via +Accounting::PostShowroomReversalHandler+.
+  # * quantity = 0  → rejected.
   #
-  # Idempotent: rejects if an order with the same showroom_id+period exists.
+  # Idempotency: a given (warehouse, period) tuple is immutable. Re-running
+  # the same report (positive lines, negative lines, or both) is a no-op:
+  # rejected with +AlreadyPosted+. The Order's "[showroom:<code>:<period>]"
+  # note tag AND any existing +ShowroomReversal+ for the period are checked.
+  #
+  # Atomicity: the order, its line items, all stock movements, the sale
+  # journal, the COGS journal, the reversal record, and the reversal journal
+  # are wrapped in a single +ActiveRecord::Base.transaction+. Any failure —
+  # including journal posting — rolls back the whole report.
   class ShowroomSalesReportPoster
-    class InvalidInput < StandardError; end
+    class InvalidInput  < StandardError; end
     class AlreadyPosted < StandardError; end
+
+    Result = Struct.new(:order, :reversal, :sales_total, :reversal_total, keyword_init: true) do
+      def order_id        = order&.id
+      def order_number    = order&.order_number
+      def reversal_id     = reversal&.id
+      def idempotency_key = reversal&.idempotency_key
+    end
 
     def self.call(attrs)
       new(attrs).call
@@ -29,6 +48,7 @@ module Sales
 
     def initialize(attrs)
       @attrs = attrs.to_h.with_indifferent_access
+      @actor = @attrs.delete(:actor)
     end
 
     def call
@@ -36,13 +56,30 @@ module Sales
       warehouse = Warehouse.find(@attrs[:warehouse_id])
       raise InvalidInput, "warehouse must be consignment" unless warehouse.kind == "consignment"
 
+      sales_lines, reversal_lines = split_lines!
       check_idempotency!(warehouse, @attrs[:period])
 
-      Order.transaction do
-        order = build_order(warehouse)
-        deduct_inventory(order, warehouse)
-        post_journals(order)
-        order
+      ActiveRecord::Base.transaction do
+        order    = nil
+        reversal = nil
+
+        if sales_lines.any?
+          order = build_order(warehouse, sales_lines)
+          deduct_inventory(order, warehouse)
+          post_sale_journals(order)
+        end
+
+        if reversal_lines.any?
+          reversal = build_reversal(warehouse, reversal_lines)
+          Accounting::PostShowroomReversalHandler.call(reversal)
+        end
+
+        Result.new(
+          order:           order,
+          reversal:        reversal,
+          sales_total:     sales_lines.sum { |li| li[:quantity].to_i * li[:unit_price].to_d },
+          reversal_total:  reversal_lines.sum { |li| li[:quantity].to_i.abs * li[:unit_price].to_d }
+        )
       end
     end
 
@@ -54,9 +91,37 @@ module Sales
       raise InvalidInput, "line_items required"          if Array(@attrs[:line_items]).empty?
     end
 
+    # Splits incoming line_items into positive (sales) and negative (reversal)
+    # groups, after rejecting zero-qty rows and duplicate +(variant_id, sign)+
+    # pairs.
+    def split_lines!
+      raw = Array(@attrs[:line_items]).map { |li| li.to_h.with_indifferent_access }
+
+      raw.each do |li|
+        raise InvalidInput, "variant_id required on every line" if li[:variant_id].blank?
+        raise InvalidInput, "quantity must not be zero"         if li[:quantity].to_i == 0
+        raise InvalidInput, "unit_price must be present"        if li[:unit_price].to_s.strip.empty?
+      end
+
+      grouped = raw.group_by { |li| [li[:variant_id], li[:quantity].to_i.positive? ? :pos : :neg] }
+      duplicates = grouped.select { |_, rows| rows.size > 1 }
+      if duplicates.any?
+        offending = duplicates.keys.map(&:first).uniq
+        raise InvalidInput, "duplicate line(s) for variant(s): #{offending.join(', ')}"
+      end
+
+      sales    = raw.select { |li| li[:quantity].to_i > 0 }
+      reversal = raw.select { |li| li[:quantity].to_i < 0 }
+      [sales, reversal]
+    end
+
     def check_idempotency!(warehouse, period)
       tag = showroom_tag(warehouse, period)
       if Order.where("notes LIKE ?", "%#{tag}%").exists?
+        raise AlreadyPosted, "Showroom report for #{warehouse.name} #{period} already posted"
+      end
+      idem_key = ShowroomReversal.build_idempotency_key(warehouse_id: warehouse.id, period: period)
+      if ShowroomReversal.exists?(idempotency_key: idem_key)
         raise AlreadyPosted, "Showroom report for #{warehouse.name} #{period} already posted"
       end
     end
@@ -65,7 +130,7 @@ module Sales
       "[showroom:#{warehouse.code}:#{period}]"
     end
 
-    def build_order(warehouse)
+    def build_order(warehouse, sales_lines)
       currency = (@attrs[:currency].presence || warehouse.currency.presence || "EGP").upcase
       report_date = @attrs[:report_date].present? ? Date.parse(@attrs[:report_date]) : Date.current
 
@@ -74,9 +139,8 @@ module Sales
         currency:      currency,
         customer_name: "#{warehouse.name} – #{@attrs[:period]}",
         notes:         "#{@attrs[:notes].to_s.strip}\n#{showroom_tag(warehouse, @attrs[:period])}".strip,
-        line_items:    Array(@attrs[:line_items]).map { |li|
-          h = li.to_h.with_indifferent_access
-          { variant_id: h[:variant_id], quantity: h[:quantity], price: h[:unit_price] }
+        line_items:    sales_lines.map { |li|
+          { variant_id: li[:variant_id], quantity: li[:quantity], price: li[:unit_price] }
         },
         mark_paid:     false, # we'll transition manually
         skip_reservations: true
@@ -103,7 +167,8 @@ module Sales
           stock_item: si,
           delta:      -li.quantity,
           reason:     "showroom_sale",
-          reference:  order
+          reference:  order,
+          strict:     true
         )
         @line_costs[li.id] = Inventory::ConsumeCostLayers.call(
           stock_item: si,
@@ -113,7 +178,10 @@ module Sales
       end
     end
 
-    def post_journals(order)
+    # Posts the sale journal + COGS journal. Failures are intentionally
+    # allowed to escape so the outer +ActiveRecord::Base.transaction+ rolls
+    # back the entire report (order + line items + movements + journals).
+    def post_sale_journals(order)
       ::Accounting::PostSaleJournalHandler.call(order)
 
       total_cogs = order.line_items.sum do |li|
@@ -144,8 +212,24 @@ module Sales
             description: "Inventory consumed – showroom sale" }
         ]
       )
-    rescue StandardError => e
-      Rails.logger.warn "[ShowroomSalesReportPoster] journal failure: #{e.message}"
+    end
+
+    def build_reversal(warehouse, reversal_lines)
+      currency = (@attrs[:currency].presence || warehouse.currency.presence || "EGP").upcase
+      total = reversal_lines.sum { |li| li[:quantity].to_i.abs * li[:unit_price].to_d }
+      ShowroomReversal.create!(
+        warehouse:         warehouse,
+        period:            @attrs[:period],
+        currency:          currency,
+        total_amount:      total,
+        lines:             reversal_lines.map { |li|
+          { variant_id: li[:variant_id], quantity: li[:quantity].to_i, unit_price: li[:unit_price].to_s }
+        },
+        idempotency_key:   ShowroomReversal.build_idempotency_key(warehouse_id: warehouse.id, period: @attrs[:period]),
+        notes:             @attrs[:notes].presence,
+        posted_at:         Time.current,
+        posted_by_user_id: @actor&.id
+      )
     end
   end
 end

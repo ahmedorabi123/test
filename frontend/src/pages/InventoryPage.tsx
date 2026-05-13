@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import api from "../api/client";
 import {
   stockItemsApi,
@@ -811,6 +811,12 @@ export default function InventoryPage() {
             + Set stock
           </button>
           <TransferStockButton warehouses={warehouses} onDone={load} />
+          <Link
+            to="/inventory/transfers"
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Transfer history
+          </Link>
           <ShowroomReportButton warehouses={warehouses} onDone={load} />
         </div>
       </div>

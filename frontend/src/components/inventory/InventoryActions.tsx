@@ -48,6 +48,11 @@ async function fetchAllVariants() {
   return variants;
 }
 
+interface TransferLine {
+  variant_id: string;
+  quantity: string;
+}
+
 export function TransferStockButton({
   warehouses,
   onDone,
@@ -56,12 +61,21 @@ export function TransferStockButton({
   onDone: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [variantId, setVariantId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [qty, setQty] = useState("");
+  const [reason, setReason] = useState("transfer");
+  const [note, setNote] = useState("");
+  const [lines, setLines] = useState<TransferLine[]>([
+    { variant_id: "", quantity: "" },
+  ]);
   const [variants, setVariants] = useState<VariantOption[]>([]);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // Shopify-origin warehouses are read-only — exclude them from the source
+  // and destination lists.
+  const eligible = warehouses.filter((w) => !w.read_only_origin && w.active);
+  const noEligible = eligible.length < 2;
 
   useEffect(() => {
     if (open && variants.length === 0) {
@@ -71,27 +85,53 @@ export function TransferStockButton({
     }
   }, [open, variants.length]);
 
+  const reset = () => {
+    setFrom("");
+    setTo("");
+    setReason("transfer");
+    setNote("");
+    setLines([{ variant_id: "", quantity: "" }]);
+    setError("");
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const valid = lines.filter(
+      (l) => l.variant_id && Number(l.quantity) > 0,
+    );
+    if (valid.length === 0) {
+      setError("Add at least one line with a variant and a positive quantity");
+      return;
+    }
+    const ids = valid.map((l) => l.variant_id);
+    if (new Set(ids).size !== ids.length) {
+      setError("Each variant can appear at most once");
+      return;
+    }
+    setSubmitting(true);
     try {
-      await stockTransfersApi.create({
-        variant_id: variantId,
-        from_warehouse_id: from,
-        to_warehouse_id: to,
-        quantity: Number(qty),
+      await stockTransfersApi.createBatch({
+        stock_transfer: {
+          from_warehouse_id: from,
+          to_warehouse_id: to,
+          reason,
+          note: note || undefined,
+        },
+        lines: valid.map((l) => ({
+          variant_id: l.variant_id,
+          quantity: Number(l.quantity),
+        })),
       });
       setOpen(false);
-      setVariantId("");
-      setFrom("");
-      setTo("");
-      setQty("");
+      reset();
       onDone();
     } catch (e) {
-      const msg =
-        (e as { response?: { data?: { error?: string } } })?.response?.data
-          ?.error || (e as Error).message;
-      setError(msg);
+      const resp = (e as { response?: { data?: { error?: { detail?: string; type?: string } } } })
+        ?.response?.data?.error;
+      setError(resp?.detail || (e as Error).message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -106,29 +146,14 @@ export function TransferStockButton({
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        size="md"
+        size="xl"
         title="Transfer stock"
+        description="Move one or more variants from a source warehouse to a destination. Shopify-managed warehouses are read-only and excluded."
       >
         <form onSubmit={submit} className="space-y-3">
-          <label className="block text-sm">
-            <span className="block text-slate-600 mb-1">Variant</span>
-            <select
-              required
-              value={variantId}
-              onChange={(e) => setVariantId(e.target.value)}
-              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-            >
-              <option value="">Select variant…</option>
-              {variants.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {variantLabel(v)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <label className="text-sm">
-              <span className="block text-slate-600 mb-1">From</span>
+              <span className="block text-slate-600 mb-1">From *</span>
               <select
                 required
                 value={from}
@@ -136,7 +161,7 @@ export function TransferStockButton({
                 className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
               >
                 <option value="">—</option>
-                {warehouses.map((w) => (
+                {eligible.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name} ({w.code})
                   </option>
@@ -144,7 +169,7 @@ export function TransferStockButton({
               </select>
             </label>
             <label className="text-sm">
-              <span className="block text-slate-600 mb-1">To</span>
+              <span className="block text-slate-600 mb-1">To *</span>
               <select
                 required
                 value={to}
@@ -152,7 +177,7 @@ export function TransferStockButton({
                 className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
               >
                 <option value="">—</option>
-                {warehouses
+                {eligible
                   .filter((w) => w.id !== from)
                   .map((w) => (
                     <option key={w.id} value={w.id}>
@@ -162,23 +187,131 @@ export function TransferStockButton({
                   ))}
               </select>
             </label>
+            <label className="text-sm">
+              <span className="block text-slate-600 mb-1">Reason</span>
+              <select
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+              >
+                <option value="transfer">Transfer</option>
+                <option value="restock">Restock</option>
+                <option value="showroom_prep">Showroom prep</option>
+                <option value="return">Return</option>
+                <option value="rebalance">Rebalance</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
           </div>
+
+          {noEligible && (
+            <div className="bg-amber-50 text-amber-800 text-sm p-2 rounded">
+              At least two non-Shopify warehouses are required to transfer stock.
+            </div>
+          )}
+
+          <div className="rounded border border-slate-200">
+            <div className="overflow-x-auto">
+              <table className="min-w-[480px] text-sm">
+                <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
+                  <tr>
+                    <th className="px-2 py-2 text-left">Variant</th>
+                    <th className="px-2 py-2 text-right w-28">Quantity</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((l, idx) => (
+                    <tr key={idx} className="border-t border-slate-100">
+                      <td className="px-2 py-1">
+                        <select
+                          value={l.variant_id}
+                          onChange={(e) =>
+                            setLines((arr) =>
+                              arr.map((x, i) =>
+                                i === idx
+                                  ? { ...x, variant_id: e.target.value }
+                                  : x,
+                              ),
+                            )
+                          }
+                          className="w-full border border-slate-200 rounded px-2 py-1"
+                        >
+                          <option value="">—</option>
+                          {variants.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {variantLabel(v)}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-2 py-1">
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={l.quantity}
+                          onChange={(e) =>
+                            setLines((arr) =>
+                              arr.map((x, i) =>
+                                i === idx
+                                  ? { ...x, quantity: e.target.value }
+                                  : x,
+                              ),
+                            )
+                          }
+                          className="w-full border border-slate-200 rounded px-2 py-1 text-right"
+                        />
+                      </td>
+                      <td className="px-2 py-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setLines((arr) =>
+                              arr.length === 1
+                                ? arr
+                                : arr.filter((_, i) => i !== idx),
+                            )
+                          }
+                          className="text-red-500 hover:text-red-700 text-sm"
+                          aria-label="Remove line"
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setLines((arr) => [...arr, { variant_id: "", quantity: "" }])
+              }
+              className="min-h-10 w-full border-t border-slate-200 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50"
+            >
+              + Add line
+            </button>
+          </div>
+
           <label className="block text-sm">
-            <span className="block text-slate-600 mb-1">Quantity</span>
-            <input
-              type="number"
-              min={1}
-              required
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+            <span className="block text-slate-600 mb-1">Note</span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              className="w-full rounded border border-slate-300 px-3 py-2"
             />
           </label>
+
           {error && (
             <div className="bg-red-50 text-red-700 text-sm p-2 rounded">
               {error}
             </div>
           )}
+
           <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
             <button
               type="button"
@@ -189,9 +322,10 @@ export function TransferStockButton({
             </button>
             <button
               type="submit"
-              className="min-h-11 rounded bg-amber-600 px-4 text-sm font-medium text-white hover:bg-amber-700"
+              disabled={submitting || noEligible}
+              className="min-h-11 rounded bg-amber-600 px-4 text-sm font-medium text-white hover:bg-amber-700 disabled:bg-slate-400"
             >
-              Transfer
+              {submitting ? "Transferring…" : "Transfer"}
             </button>
           </div>
         </form>
@@ -227,9 +361,12 @@ export function ShowroomReportButton({
   const [variants, setVariants] = useState<VariantOption[]>([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [lastOrder, setLastOrder] = useState<{
-    id: string;
-    order_number: string;
+  const [lastResult, setLastResult] = useState<{
+    orderId?: string;
+    orderNumber?: string;
+    salesTotal: string;
+    reversalTotal: string;
+    reversalId?: string;
   } | null>(null);
 
   const showrooms = warehouses.filter((w) => w.kind === "consignment");
@@ -246,12 +383,14 @@ export function ShowroomReportButton({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    // Quantities may be negative — those rows post an accounting-only sales
+    // reversal (no Refund, no inventory movement). Zero is rejected.
     const valid = lines.filter(
       (l) =>
-        l.variant_id && Number(l.quantity) > 0 && Number(l.unit_price) >= 0,
+        l.variant_id && Number(l.quantity) !== 0 && l.unit_price !== "" && Number(l.unit_price) >= 0,
     );
     if (valid.length === 0) {
-      setError("Add at least one line with quantity and price");
+      setError("Add at least one line with a non-zero quantity and a price");
       return;
     }
     setSubmitting(true);
@@ -267,16 +406,21 @@ export function ShowroomReportButton({
           unit_price: l.unit_price,
         })),
       });
-      setLastOrder({ id: created.id, order_number: created.order_number });
+      setLastResult({
+        orderId: created.order?.id || created.id,
+        orderNumber: created.order?.order_number || created.order_number,
+        salesTotal: created.sales_total,
+        reversalTotal: created.reversal_total,
+        reversalId: created.reversal?.id,
+      });
       setOpen(false);
       setLines([{ variant_id: "", quantity: "", unit_price: "" }]);
       setNotes("");
       onDone();
     } catch (e) {
-      const msg =
-        (e as { response?: { data?: { error?: string } } })?.response?.data
-          ?.error || (e as Error).message;
-      setError(msg);
+      const resp = (e as { response?: { data?: { error?: { detail?: string } } } })
+        ?.response?.data?.error;
+      setError(resp?.detail || (e as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -290,23 +434,35 @@ export function ShowroomReportButton({
       >
         Showroom report
       </button>
-      {lastOrder && (
+      {lastResult && (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border border-emerald-200 bg-emerald-50 p-3 shadow-lg">
           <div className="flex items-start gap-3">
             <div className="text-sm text-emerald-900">
               <div className="font-medium">Showroom report posted</div>
-              <div className="text-xs">Order {lastOrder.order_number}</div>
+              {lastResult.orderNumber && (
+                <div className="text-xs">Order {lastResult.orderNumber}</div>
+              )}
+              <div className="text-xs" data-testid="showroom-sales-total">
+                Sales: {lastResult.salesTotal}
+              </div>
+              {Number(lastResult.reversalTotal) > 0 && (
+                <div className="text-xs" data-testid="showroom-reversal-total">
+                  Reversal: {lastResult.reversalTotal}
+                </div>
+              )}
             </div>
-            <Link
-              to={`/orders/${lastOrder.id}`}
-              className="text-xs font-medium text-emerald-700 underline hover:text-emerald-900"
-              onClick={() => setLastOrder(null)}
-            >
-              View order
-            </Link>
+            {lastResult.orderId && (
+              <Link
+                to={`/orders/${lastResult.orderId}`}
+                className="text-xs font-medium text-emerald-700 underline hover:text-emerald-900"
+                onClick={() => setLastResult(null)}
+              >
+                View order
+              </Link>
+            )}
             <button
               type="button"
-              onClick={() => setLastOrder(null)}
+              onClick={() => setLastResult(null)}
               className="text-emerald-700 hover:text-emerald-900"
               aria-label="Dismiss"
             >
@@ -407,8 +563,10 @@ export function ShowroomReportButton({
                       <td className="px-2 py-1">
                         <input
                           type="number"
-                          min={0}
+                          step={1}
                           value={l.quantity}
+                          aria-label="Quantity"
+                          placeholder="e.g. 2 or -1"
                           onChange={(e) =>
                             setLines((arr) =>
                               arr.map((x, i) =>

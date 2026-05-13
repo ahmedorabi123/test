@@ -435,6 +435,11 @@ function WarehouseModal({
                     = {(Number(form.commission_rate || 0) * 100).toFixed(2)}%
                   </span>
                 </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Phase 1: informational only. Showroom commission settlement
+                  posting is planned for a later phase. Changes are recorded
+                  in the audit log.
+                </p>
               </label>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -152,7 +152,7 @@ Rails.application.routes.draw do
           post :bulk
         end
       end
-      resources :stock_transfers, only: %i[create]
+      resources :stock_transfers, only: %i[index show create]
       post "inventory/shopify_backfill", to: "inventory_sync#shopify_backfill"
 
       # Showroom (consignment) sales reports
