@@ -13,7 +13,6 @@ export type FinancialStatus =
   | "pending"
   | "authorized"
   | "paid"
-  | "partially_paid"
   | "partially_refunded"
   | "refunded"
   | "voided";

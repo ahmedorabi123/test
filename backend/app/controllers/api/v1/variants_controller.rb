@@ -23,9 +23,26 @@ module Api
         warehouse_id  = params[:warehouse_id].presence
         min_available = [params[:min_available].to_i, params[:in_stock].to_s == "true" ? 1 : 0].max
 
+        if warehouse_id
+          warehouse = Warehouse.find_by(id: warehouse_id)
+          if warehouse.nil?
+            return render_error(404, "not_found", "Warehouse not found")
+          end
+          if warehouse.shopify_origin?
+            return render_error(
+              422,
+              "unprocessable_entity",
+              "Cannot list variants for a Shopify-managed warehouse from this endpoint. Manual orders must target a non-Shopify warehouse."
+            )
+          end
+        end
+
         if warehouse_id && min_available > 0
           # Inner-join to stock_items so we both filter and can sort by available.
-          available_expr = "(stock_items.quantity_on_hand - stock_items.quantity_reserved - stock_items.quantity_unavailable)"
+          # Clamp to 0 to match StockItem#available semantics (negative deltas are
+          # not "available" — a variant over-reserved should NOT appear in the
+          # in-stock list).
+          available_expr = "GREATEST(stock_items.quantity_on_hand - stock_items.quantity_reserved - stock_items.quantity_unavailable, 0)"
           scope = scope.joins(:stock_items)
                        .where(stock_items: { warehouse_id: warehouse_id })
                        .where("#{available_expr} >= ?", min_available)

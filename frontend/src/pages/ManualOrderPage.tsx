@@ -82,6 +82,12 @@ export default function ManualOrderPage() {
     })();
   }, []);
 
+  // Reset "in stock only" when warehouse is cleared, otherwise the filter
+  // would request stock for no warehouse (returns nothing) and surprise users.
+  useEffect(() => {
+    if (!warehouseId && inStockOnly) setInStockOnly(false);
+  }, [warehouseId, inStockOnly]);
+
   // Debounced variant lookup via /variants?search=&include=stock_items_summary
   useEffect(() => {
     const q = variantQuery.trim();
@@ -306,10 +312,11 @@ export default function ManualOrderPage() {
               <input
                 type="checkbox"
                 checked={inStockOnly}
+                disabled={!warehouseId}
                 onChange={(e) => setInStockOnly(e.target.checked)}
-                className="rounded border-slate-300"
+                className="rounded border-slate-300 disabled:opacity-50"
               />
-              In stock only
+              In stock only{!warehouseId && " (select a warehouse first)"}
             </label>
             <div className="relative w-full sm:w-80">
               <input

@@ -65,23 +65,6 @@ RSpec.describe "Manual and showroom inventory lifecycle", type: :model do
     expect(JournalEntry.where(idempotency_key: "refund-partial-#{refund.id}")).to exist
   end
 
-  it "routes showroom imports through the same reservation lifecycle" do
-    csv = <<~CSV
-      Order #,SKU,Quantity,Price,Customer Email,Customer Name,Warehouse Code
-      SR-1001,#{variant.sku},2,12.00,showroom@example.com,Showroom Buyer,#{warehouse.code}
-    CSV
-
-    result = Imports::ShowroomSalesImporter.commit(csv)
-
-    expect(result[:created]).to eq(1)
-    expect(result[:errors]).to be_empty
-
-    order = Order.find_by!(source: "showroom", customer_email: "showroom@example.com")
-    expect(order.financial_status).to eq("paid")
-    expect(order.line_items.first.stock_reservations.active.sum(:quantity)).to eq(2)
-    expect(stock_item.reload.quantity_reserved).to eq(2)
-  end
-
   def seed_accounts
     {
       "1100" => %w[asset debit],

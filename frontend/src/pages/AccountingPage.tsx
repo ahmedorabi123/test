@@ -6,6 +6,7 @@ import {
   type TrialBalance,
   type Pnl,
   type BalanceSheet,
+  type AccountLedgerRow,
 } from "../api/accounting";
 import { suppliersApi, type Supplier } from "../api/suppliers";
 import { MobileRowCard } from "../components/table/MobileRowCard";
@@ -229,6 +230,10 @@ function JournalTab() {
     dateInput(new Date(today.getFullYear(), today.getMonth(), 1)),
   );
   const [to, setTo] = useState(dateInput(today));
+  const [q, setQ] = useState("");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [accountCode, setAccountCode] = useState("");
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [meta, setMeta] = useState({ page: 1, per_page: 25, total: 0 });
   const [page, setPage] = useState(1);
@@ -246,6 +251,10 @@ function JournalTab() {
       .journalEntries({
         from,
         to,
+        q: q || undefined,
+        min_amount: minAmount || undefined,
+        max_amount: maxAmount || undefined,
+        account_code: accountCode || undefined,
         page,
         per_page: perPage,
         sort: sortKey,
@@ -257,7 +266,7 @@ function JournalTab() {
       })
       .catch(() => setError("Failed to load journal entries"))
       .finally(() => setLoading(false));
-  }, [from, to, page, perPage, sortKey, sortDir]);
+  }, [from, to, q, minAmount, maxAmount, accountCode, page, perPage, sortKey, sortDir]);
 
   useEffect(() => {
     load();
@@ -325,6 +334,64 @@ function JournalTab() {
         <span className="text-slate-400 text-sm self-end ml-auto">
           {meta.total} entries
         </span>
+      </div>
+
+      {/* Search row */}
+      <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">Search description</label>
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
+            placeholder="text in entry or line description"
+            className="min-h-11 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">Account code starts with</label>
+          <input
+            type="text"
+            value={accountCode}
+            onChange={(e) => {
+              setAccountCode(e.target.value);
+              setPage(1);
+            }}
+            placeholder="e.g. 1100"
+            className="min-h-11 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">Min amount</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={minAmount}
+            onChange={(e) => {
+              setMinAmount(e.target.value);
+              setPage(1);
+            }}
+            className="min-h-11 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">Max amount</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={maxAmount}
+            onChange={(e) => {
+              setMaxAmount(e.target.value);
+              setPage(1);
+            }}
+            className="min-h-11 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
       </div>
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -1456,10 +1523,201 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+function AccountLedgerTab() {
+  const today = new Date();
+  const [code, setCode] = useState("");
+  const [from, setFrom] = useState(
+    dateInput(new Date(today.getFullYear(), today.getMonth(), 1)),
+  );
+  const [to, setTo] = useState(dateInput(today));
+  const [q, setQ] = useState("");
+  const [rows, setRows] = useState<AccountLedgerRow[]>([]);
+  const [meta, setMeta] = useState<{
+    page: number;
+    per_page: number;
+    total: number;
+    account?: Account;
+  }>({ page: 1, per_page: 50, total: 0 });
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    if (!code.trim()) {
+      setRows([]);
+      setMeta({ page: 1, per_page: 50, total: 0 });
+      return;
+    }
+    setLoading(true);
+    setError("");
+    accountingApi
+      .accountLedger(code.trim(), {
+        from,
+        to,
+        q: q || undefined,
+        page,
+        per_page: 50,
+      })
+      .then((r) => {
+        setRows(r.data);
+        setMeta(r.meta);
+      })
+      .catch(() => setError("Failed to load ledger (check account code)"))
+      .finally(() => setLoading(false));
+  }, [code, from, to, q, page]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(meta.total / meta.per_page));
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">Account code</label>
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value);
+              setPage(1);
+            }}
+            placeholder="e.g. 1100"
+            className="min-h-11 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">From</label>
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => {
+              setFrom(e.target.value);
+              setPage(1);
+            }}
+            className="min-h-11 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">To</label>
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => {
+              setTo(e.target.value);
+              setPage(1);
+            }}
+            className="min-h-11 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+        <div className="flex-1 min-w-[180px]">
+          <label className="block text-xs text-slate-500 mb-1">Search description</label>
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
+            className="min-h-11 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+        <span className="text-slate-400 text-sm self-end ml-auto">
+          {meta.total} lines
+        </span>
+      </div>
+
+      {meta.account && (
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <span className="font-mono text-slate-800">{meta.account.code}</span>{" "}
+          <span className="font-semibold">{meta.account.name}</span>{" "}
+          <span className="text-slate-500">
+            ({meta.account.account_type}, normal {meta.account.normal_side})
+          </span>
+        </div>
+      )}
+
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+
+      <div className="overflow-x-auto rounded-md border border-slate-200">
+        <table className="min-w-full text-sm">
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              <th className="px-3 py-2 text-left">Date</th>
+              <th className="px-3 py-2 text-left">Entry</th>
+              <th className="px-3 py-2 text-left">Line description</th>
+              <th className="px-3 py-2 text-right">Debit</th>
+              <th className="px-3 py-2 text-right">Credit</th>
+              <th className="px-3 py-2 text-right">Running balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td colSpan={6} className="py-6 text-center text-slate-400">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-6 text-center text-slate-400">
+                  {code.trim() ? "No lines in this range" : "Enter an account code to begin"}
+                </td>
+              </tr>
+            )}
+            {rows.map((r) => (
+              <tr key={r.line_id} className="border-t border-slate-100">
+                <td className="px-3 py-2 font-mono text-xs">{r.entry_date}</td>
+                <td className="px-3 py-2">{r.entry_description}</td>
+                <td className="px-3 py-2 text-slate-600">{r.description ?? "—"}</td>
+                <td className="px-3 py-2 text-right font-mono">
+                  {r.side === "debit" ? fmt(r.amount) : ""}
+                </td>
+                <td className="px-3 py-2 text-right font-mono">
+                  {r.side === "credit" ? fmt(r.amount) : ""}
+                </td>
+                <td className="px-3 py-2 text-right font-mono">
+                  {fmt(r.running_balance)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {meta.total > 0 && (
+        <div className="flex items-center justify-between text-sm">
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="rounded-md border px-3 py-1 disabled:opacity-50"
+          >
+            Prev
+          </button>
+          <span className="text-slate-500">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className="rounded-md border px-3 py-1 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type Tab =
   | "journal"
   | "manual_entry"
   | "coa"
+  | "ledger"
   | "trial_balance"
   | "pnl"
   | "balance_sheet";
@@ -1471,6 +1729,7 @@ export default function AccountingPage() {
     { id: "journal", label: "Journal Entries" },
     { id: "manual_entry", label: "+ Manual Entry" },
     { id: "coa", label: "Chart of Accounts" },
+    { id: "ledger", label: "Account Ledger" },
     { id: "trial_balance", label: "Trial Balance" },
     { id: "pnl", label: "P & L" },
     { id: "balance_sheet", label: "Balance Sheet" },
@@ -1493,6 +1752,7 @@ export default function AccountingPage() {
         <ManualEntryTab onPosted={() => setTab("journal")} />
       )}
       {tab === "coa" && <AccountsTab />}
+      {tab === "ledger" && <AccountLedgerTab />}
       {tab === "trial_balance" && <TrialBalanceTab />}
       {tab === "pnl" && <PnlTab />}
       {tab === "balance_sheet" && <BalanceSheetTab />}

@@ -11,6 +11,7 @@ import AsyncCombobox, {
   type AsyncComboboxOption,
 } from "../components/AsyncCombobox";
 import { htmlToText } from "../lib/htmlText";
+import { absoluteMediaUrl } from "../lib/media";
 
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
@@ -18,7 +19,6 @@ const STATUS_STYLES: Record<string, string> = {
   archived: "bg-gray-100 text-gray-600 ring-gray-500/20",
 };
 
-const apiOrigin = import.meta.env.VITE_API_URL || "http://localhost:3010";
 const ALLOWED_MEDIA_TYPES = [
   "image/png",
   "image/jpeg",
@@ -110,11 +110,6 @@ function collectionOptions(product: Product): AsyncComboboxOption[] {
       label: collection.title,
       description: collection.handle ? `/${collection.handle}` : undefined,
     }));
-}
-
-function absoluteMediaUrl(url: string) {
-  if (/^https?:\/\//.test(url)) return url;
-  return `${apiOrigin}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
 function variantToJson(v: Variant): VariantDraft {

@@ -76,7 +76,7 @@ module Imports
             customer_email:  first["Email"],
             customer_name:   first["Billing Name"] || first["Name"],
             notes:           "Imported from Shopify export (#{order_name})",
-            mark_paid:       %w[paid partially_paid].include?(first["Financial Status"].to_s.downcase),
+            mark_paid:       %w[paid].include?(first["Financial Status"].to_s.downcase),
             line_items:      line_items
           )
           created += 1

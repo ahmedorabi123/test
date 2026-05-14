@@ -134,7 +134,13 @@ module Api
       private
 
       def filtered_scope
-        scope = policy_scope(Product).includes(:collections, :product_options, :product_images, variants: :stock_items)
+        scope = policy_scope(Product).includes(
+          :collections,
+          :product_options,
+          :product_images,
+          { uploaded_images_attachments: :blob },
+          variants: :stock_items
+        )
         scope = scope.where("products.title ILIKE :q OR products.handle ILIKE :q", q: "%#{params[:search]}%") if params[:search].present?
         scope = scope.where(status: params[:status]) if params[:status].present?
         scope = scope.from_shopify if params[:from_shopify].to_s == "true"

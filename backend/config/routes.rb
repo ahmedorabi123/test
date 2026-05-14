@@ -139,6 +139,7 @@ Rails.application.routes.draw do
         get  "journal_entries",            to: "accounting#journal_entries"
         post "journal_entries",            to: "accounting#create_journal_entry"
         get  "journal_entries/:id",        to: "accounting#journal_entry"
+        get  "accounts/:code/ledger",      to: "accounting#account_ledger"
         get  "trial_balance",              to: "accounting#trial_balance"
         get  "pnl",                        to: "accounting#pnl"
         get  "balance_sheet",              to: "accounting#balance_sheet"

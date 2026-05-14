@@ -1,7 +1,7 @@
 module Crm
   class CustomerStatsRecomputer
     COUNTABLE_STATUSES = %w[pending processing fulfilled].freeze
-    SPENT_FINANCIAL_STATUSES = %w[paid partially_paid].freeze
+    SPENT_FINANCIAL_STATUSES = %w[paid].freeze
 
     def self.call(customer)
       new(customer).call

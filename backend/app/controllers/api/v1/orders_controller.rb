@@ -13,8 +13,10 @@ module Api
 
       before_action :set_order, only: %i[show update transition stock_allocation timeline]
 
+      # Showroom sales are posted via Sales::ShowroomSalesReportPoster from the
+      # Inventory page; the CSV importer only handles Shopify exports.
       def importer_class
-        params[:mode] == "showroom" ? Imports::ShowroomSalesImporter : Imports::OrdersImporter
+        Imports::OrdersImporter
       end
       private :importer_class
 

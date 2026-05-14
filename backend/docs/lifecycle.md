@@ -262,7 +262,7 @@ POST /api/v1/purchase_orders
 **Order.status**: `pending → processing → fulfilled`, any `→ cancelled`.
 
 **Order.financial_status**:
-`pending → authorized → paid → (partially_paid | refunded)`,
+`pending → authorized → paid → refunded`,
 also `pending → voided`, `authorized → voided`.
 
 Enforced by `Sales::OrderStateMachine` (authoritative) — direct `update` on

@@ -20,7 +20,6 @@ const FIN_STATUS_STYLES: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
   authorized: "bg-sky-50 text-sky-700 ring-sky-600/20",
   paid: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  partially_paid: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
   partially_refunded: "bg-purple-50 text-purple-700 ring-purple-600/20",
   refunded: "bg-rose-50 text-rose-700 ring-rose-600/20",
   voided: "bg-gray-100 text-gray-600 ring-gray-500/20",
@@ -151,8 +150,7 @@ export default function OrderDetailPage() {
   const legalFinancial: Record<string, string[]> = {
     pending: ["authorized", "paid", "voided"],
     authorized: ["paid", "voided"],
-    paid: ["partially_paid"],
-    partially_paid: ["paid"],
+    paid: [],
     partially_refunded: [],
     refunded: [],
     voided: [],
@@ -163,7 +161,6 @@ export default function OrderDetailPage() {
     cancelled: "Cancel order",
     authorized: "Mark as authorized",
     paid: "Mark as paid",
-    partially_paid: "Mark partially paid",
     voided: "Void payment",
   };
 

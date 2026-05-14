@@ -30,7 +30,7 @@ module Sales
       @attrs = attrs.to_h.with_indifferent_access
     end
 
-    REFUNDABLE_FINANCIAL_STATES = %w[paid partially_paid partially_refunded].freeze
+    REFUNDABLE_FINANCIAL_STATES = %w[paid partially_refunded].freeze
 
     def call
       validate!

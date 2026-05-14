@@ -2,7 +2,7 @@ class Order < ApplicationRecord
   include Shopify::Origin
 
   STATUSES            = %w[pending processing fulfilled cancelled refunded].freeze
-  FINANCIAL_STATUSES  = %w[pending authorized paid partially_paid partially_refunded refunded voided].freeze
+  FINANCIAL_STATUSES  = %w[pending authorized paid partially_refunded refunded voided].freeze
   FULFILLMENT_STATUSES = %w[partial fulfilled].freeze
   SOURCES             = %w[manual shopify showroom].freeze
 

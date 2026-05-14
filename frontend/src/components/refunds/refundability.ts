@@ -1,6 +1,5 @@
 export const REFUNDABLE_FINANCIAL_STATES: string[] = [
   "paid",
-  "partially_paid",
   "partially_refunded",
 ];
 

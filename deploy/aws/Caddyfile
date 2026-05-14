@@ -1,0 +1,36 @@
+# Caddy reverse proxy for AWS Lightsail single-instance deployment.
+# Serves the React build statically and proxies /api to the Rails container.
+#
+# Usage:
+#   1. Replace `erp.example.com` with your real hostname (DNS A record → instance IP).
+#   2. `docker compose -f compose.production.yml up -d`.
+
+erp.example.com {
+    encode zstd gzip
+
+    # API
+    handle /api/* {
+        reverse_proxy backend:3010
+    }
+    handle /webhooks/* {
+        reverse_proxy backend:3010
+    }
+    handle /up {
+        reverse_proxy backend:3010
+    }
+    handle /rails/active_storage/* {
+        reverse_proxy backend:3010
+    }
+
+    # Static SPA
+    handle {
+        root * /srv/frontend
+        try_files {path} /index.html
+        file_server
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

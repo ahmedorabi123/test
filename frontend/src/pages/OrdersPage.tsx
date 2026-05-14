@@ -29,7 +29,6 @@ const FIN_STATUS_STYLES: Record<FinancialStatus, string> = {
   pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
   authorized: "bg-sky-50 text-sky-700 ring-sky-600/20",
   paid: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  partially_paid: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
   partially_refunded: "bg-purple-50 text-purple-700 ring-purple-600/20",
   refunded: "bg-rose-50 text-rose-700 ring-rose-600/20",
   voided: "bg-gray-100 text-gray-600 ring-gray-500/20",
@@ -93,9 +92,6 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(search);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const [importMode, setImportMode] = useState<"shopify" | "showroom">(
-    "shopify",
-  );
 
   const setParam = (key: string, value: string | null) => {
     const sp = new URLSearchParams(searchParams);
@@ -396,13 +392,8 @@ export default function OrdersPage() {
           <ImportExportBar
             resource="orders"
             allowImport={true}
-            importParams={{ mode: importMode }}
             importAccept=".csv,text/csv,.xlsx,.xls"
-            importHelpText={
-              importMode === "showroom"
-                ? "Showroom sales CSV/XLSX. Required headers: Order #, SKU, Quantity, Price. Optional: Customer Email, Customer Name, Warehouse Code, Notes. Each unique 'Order #' becomes one EGP-priced, paid showroom order via the standard manual order pipeline (reservations + accounting included)."
-                : "Shopify orders CSV/XLSX. Column headers should match the Shopify export format. The system will validate every row before committing."
-            }
+            importHelpText="Shopify orders CSV/XLSX. Column headers should match the Shopify export format. The system will validate every row before committing."
             onImported={() => load()}
             exportParams={{
               search: search || undefined,
@@ -413,17 +404,6 @@ export default function OrdersPage() {
               dir: sortDir,
             }}
           />
-          <select
-            value={importMode}
-            onChange={(e) =>
-              setImportMode(e.target.value as "shopify" | "showroom")
-            }
-            title="Import mode"
-            className="min-h-11 rounded-lg border border-slate-300 px-2 py-2 text-xs"
-          >
-            <option value="shopify">Import as: Shopify export</option>
-            <option value="showroom">Import as: Showroom sales</option>
-          </select>
           <Link
             to="/orders/new"
             className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"

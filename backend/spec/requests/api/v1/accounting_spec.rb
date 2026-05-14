@@ -239,4 +239,84 @@ RSpec.describe "Api::V1::Accounting", type: :request do
       expect(response).to have_http_status(:not_found)
     end
   end
+
+  # ─── Search + Account Ledger ──────────────────────────────────────────────
+  describe "GET /api/v1/accounting/journal_entries with search params" do
+    let!(:entry_a) do
+      JournalEntry.post!(
+        { entry_date: Date.current, description: "Office supplies invoice", entry_type: "manual" },
+        [
+          { account_code: "1100", side: "debit",  amount: 50, description: "stationery" },
+          { account_code: "4000", side: "credit", amount: 50, description: "stationery" }
+        ]
+      )
+    end
+    let!(:entry_b) do
+      JournalEntry.post!(
+        { entry_date: Date.current, description: "Coffee for staff", entry_type: "manual" },
+        [
+          { account_code: "1100", side: "debit",  amount: 5_000, description: "coffee beans" },
+          { account_code: "4000", side: "credit", amount: 5_000, description: "coffee beans" }
+        ]
+      )
+    end
+
+    it "filters by q (substring)" do
+      get "/api/v1/accounting/journal_entries", params: { q: "coffee" }, headers: auth_headers(admin)
+      ids = json_response[:data].map { |e| e[:id] }
+      expect(ids).to include(entry_b.id)
+      expect(ids).not_to include(entry_a.id)
+    end
+
+    it "filters by min_amount/max_amount" do
+      get "/api/v1/accounting/journal_entries",
+          params: { min_amount: "1000" },
+          headers: auth_headers(admin)
+      ids = json_response[:data].map { |e| e[:id] }
+      expect(ids).to include(entry_b.id)
+      expect(ids).not_to include(entry_a.id)
+    end
+
+    it "filters by account_code prefix" do
+      get "/api/v1/accounting/journal_entries",
+          params: { account_code: "11" },
+          headers: auth_headers(admin)
+      ids = json_response[:data].map { |e| e[:id] }
+      expect(ids).to include(entry_a.id, entry_b.id)
+    end
+  end
+
+  describe "GET /api/v1/accounting/accounts/:code/ledger" do
+    before do
+      JournalEntry.post!(
+        { entry_date: Date.current - 2, description: "Open" },
+        [
+          { account_code: "1100", side: "debit",  amount: 100 },
+          { account_code: "4000", side: "credit", amount: 100 }
+        ]
+      )
+      JournalEntry.post!(
+        { entry_date: Date.current, description: "More" },
+        [
+          { account_code: "1100", side: "debit",  amount: 50 },
+          { account_code: "4000", side: "credit", amount: 50 }
+        ]
+      )
+    end
+
+    it "returns running balance for the account (debit-normal)" do
+      get "/api/v1/accounting/accounts/1100/ledger", headers: auth_headers(admin)
+      expect(response).to have_http_status(:ok)
+      rows = json_response[:data]
+      expect(rows.size).to eq(2)
+      expect(rows.first[:running_balance]).to eq(100.0)
+      expect(rows.last[:running_balance]).to eq(150.0)
+      expect(json_response[:meta][:account][:code]).to eq("1100")
+    end
+
+    it "404s for unknown code" do
+      get "/api/v1/accounting/accounts/9999/ledger", headers: auth_headers(admin)
+      expect(response).to have_http_status(:not_found)
+    end
+  end
 end

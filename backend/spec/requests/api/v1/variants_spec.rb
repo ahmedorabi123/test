@@ -31,6 +31,41 @@ RSpec.describe "Variants API", type: :request do
     expect(ids).not_to include(out_of_stock.id)
   end
 
+  it "clamps available stock at zero when reservations exceed on-hand" do
+    warehouse = create(:warehouse)
+    product = create(:product, title: "Clamp Tee")
+    variant = create(:variant, product: product, sku: "CLAMP-1", title: "x")
+    create(:stock_item,
+      variant: variant, warehouse: warehouse,
+      quantity_on_hand: 2, quantity_reserved: 5, quantity_unavailable: 0
+    )
+
+    get "/api/v1/variants",
+        params: { search: "clamp", warehouse_id: warehouse.id, in_stock: "true" },
+        headers: auth_headers(admin)
+
+    ids = json.fetch("data").map { |row| row.fetch("id") }
+    expect(ids).not_to include(variant.id)
+  end
+
+  it "rejects Shopify-origin warehouses with 422" do
+    warehouse = create(:warehouse, shopify_location_id: "gid://shopify/Location/123")
+
+    get "/api/v1/variants",
+        params: { search: "x", warehouse_id: warehouse.id, in_stock: "true" },
+        headers: auth_headers(admin)
+
+    expect(response).to have_http_status(:unprocessable_entity)
+  end
+
+  it "returns 404 when warehouse_id does not exist" do
+    get "/api/v1/variants",
+        params: { search: "x", warehouse_id: SecureRandom.uuid, in_stock: "true" },
+        headers: auth_headers(admin)
+
+    expect(response).to have_http_status(:not_found)
+  end
+
   def json
     JSON.parse(response.body)
   end

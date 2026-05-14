@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../../api/client";
 import {
@@ -85,6 +85,10 @@ export function TransferStockButton({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Stable handler so the Modal's focus-management effect doesn't re-fire on
+  // every parent render (which would steal focus from inputs as the user types).
+  const handleClose = useCallback(() => setOpen(false), []);
+
   // Shopify-origin warehouses are read-only — exclude them from the source
   // and destination lists.
   const eligible = warehouses.filter(isWarehouseMutable);
@@ -159,7 +163,7 @@ export function TransferStockButton({
       </button>
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleClose}
         size="xl"
         title="Transfer stock"
         description="Move one or more variants from a source warehouse to a destination. Shopify-managed warehouses are read-only and excluded."
@@ -418,6 +422,10 @@ export function ShowroomReportButton({
     reversalId?: string;
   } | null>(null);
 
+  // Stable handler so the Modal's focus-management effect doesn't re-fire on
+  // every parent render (which would steal focus from inputs as the user types).
+  const handleClose = useCallback(() => setOpen(false), []);
+
   const showrooms = warehouses.filter(
     (w) => w.kind === "consignment" && isWarehouseMutable(w),
   );
@@ -540,7 +548,7 @@ export function ShowroomReportButton({
       )}
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleClose}
         size="xl"
         title="Post showroom sales report"
         description="Records sales sold by a consignment showroom. Posts a sales journal entry, COGS, and deducts inventory at the showroom."

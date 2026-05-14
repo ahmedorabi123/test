@@ -10,6 +10,7 @@ import ImportExportBar from "../components/table/ImportExportBar";
 import { MobileRowCard } from "../components/table/MobileRowCard";
 import { PageContainer } from "../components/ui/PageContainer";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { productThumbnailSrc } from "../lib/media";
 
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
@@ -85,32 +86,35 @@ export default function ProductsPage() {
         id: "title",
         header: "Product",
         sortKey: "title",
-        render: (p) => (
-          <div className="flex items-center gap-3">
-            {p.images && p.images[0]?.src ? (
-              <img
-                src={p.images[0].src}
-                alt={p.images[0].alt || p.title}
-                className="h-10 w-10 rounded object-cover ring-1 ring-slate-200"
-              />
-            ) : (
-              <div className="h-10 w-10 rounded bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-400 text-xs">
-                IMG
+        render: (p) => {
+          const thumb = productThumbnailSrc(p);
+          return (
+            <div className="flex items-center gap-3">
+              {thumb ? (
+                <img
+                  src={thumb}
+                  alt={p.images?.[0]?.alt || p.title}
+                  className="h-10 w-10 rounded object-cover ring-1 ring-slate-200"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-400 text-xs">
+                  IMG
+                </div>
+              )}
+              <div className="flex flex-col min-w-0">
+                <Link
+                  to={`/products/${p.id}`}
+                  className="font-medium text-indigo-700 hover:underline truncate max-w-[260px]"
+                >
+                  {p.title}
+                </Link>
+                <span className="text-xs text-slate-500 font-mono truncate max-w-[260px]">
+                  {p.handle}
+                </span>
               </div>
-            )}
-            <div className="flex flex-col min-w-0">
-              <Link
-                to={`/products/${p.id}`}
-                className="font-medium text-indigo-700 hover:underline truncate max-w-[260px]"
-              >
-                {p.title}
-              </Link>
-              <span className="text-xs text-slate-500 font-mono truncate max-w-[260px]">
-                {p.handle}
-              </span>
             </div>
-          </div>
-        ),
+          );
+        },
       },
       {
         id: "status",

@@ -94,6 +94,18 @@ export interface BalanceSheet {
   total_liab_equity: number;
 }
 
+export interface AccountLedgerRow {
+  line_id: string;
+  entry_id: string;
+  entry_date: string;
+  entry_description: string;
+  entry_type?: string;
+  side: "debit" | "credit";
+  amount: number;
+  description?: string;
+  running_balance: number;
+}
+
 const BASE = "/accounting";
 
 export const accountingApi = {
@@ -107,6 +119,10 @@ export const accountingApi = {
     to?: string;
     entry_type?: string;
     status?: string;
+    q?: string;
+    min_amount?: string | number;
+    max_amount?: string | number;
+    account_code?: string;
     page?: number;
     per_page?: number;
     sort?: string;
@@ -170,4 +186,25 @@ export const accountingApi = {
     api
       .post<{ data: JournalEntry }>(`${BASE}/journal_entries`, payload)
       .then((r: AxiosResponse<{ data: JournalEntry }>) => r.data),
+
+  accountLedger: (
+    code: string,
+    params?: { from?: string; to?: string; q?: string; page?: number; per_page?: number },
+  ): Promise<{
+    data: AccountLedgerRow[];
+    meta: { page: number; per_page: number; total: number; account: Account };
+  }> =>
+    api
+      .get<{
+        data: AccountLedgerRow[];
+        meta: { page: number; per_page: number; total: number; account: Account };
+      }>(`${BASE}/accounts/${encodeURIComponent(code)}/ledger`, { params })
+      .then(
+        (
+          r: AxiosResponse<{
+            data: AccountLedgerRow[];
+            meta: { page: number; per_page: number; total: number; account: Account };
+          }>,
+        ) => r.data,
+      ),
 };

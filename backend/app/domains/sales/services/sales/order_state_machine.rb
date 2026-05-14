@@ -4,7 +4,7 @@ module Sales
   # Two parallel state axes mirror Shopify:
   #   - status:           pending → processing → fulfilled
   #                       any     → cancelled
-  #   - financial_status: pending → authorized → paid → partially_paid
+  #   - financial_status: pending → authorized → paid
   #
   # Side effects per transition:
   #   - to "paid":      posts the sale journal (idempotent)
@@ -28,8 +28,7 @@ module Sales
     LEGAL_FINANCIAL = {
       "pending"            => %w[authorized paid voided],
       "authorized"         => %w[paid voided],
-      "paid"               => %w[partially_paid],
-      "partially_paid"     => %w[paid],
+      "paid"               => [],
       "partially_refunded" => [],
       "refunded"           => [],
       "voided"             => []
@@ -97,7 +96,7 @@ module Sales
         safe { ensure_fulfillment_inventory_consumed! }
       when "cancelled"
         safe { ::Inventory::ReleaseOrderReservations.call(@order) }
-        if %w[paid partially_paid partially_refunded].include?(@order.financial_status.to_s)
+        if %w[paid partially_refunded].include?(@order.financial_status.to_s)
           safe { ::Accounting::RefundReversalHandler.call(@order, force: true) }
         end
         safe { recompute_customer_stats }

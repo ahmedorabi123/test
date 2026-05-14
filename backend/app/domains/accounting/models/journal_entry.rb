@@ -16,6 +16,35 @@ class JournalEntry < ApplicationRecord
   scope :for_date, ->(d) { where(entry_date: d) }
   scope :between,  ->(from, to) { where(entry_date: from..to) }
 
+  # Free-text ILIKE on the entry description and any line description.
+  scope :search_text, ->(q) {
+    next all if q.blank?
+    term = "%#{ActiveRecord::Base.sanitize_sql_like(q.to_s)}%"
+    where(
+      "journal_entries.description ILIKE :q OR EXISTS (" \
+        "SELECT 1 FROM journal_lines jl WHERE jl.journal_entry_id = journal_entries.id " \
+        "AND jl.description ILIKE :q)",
+      q: term
+    )
+  }
+
+  # Restrict to entries that touch at least one line in the given amount range.
+  scope :with_amount_between, ->(min, max) {
+    next all if min.nil? && max.nil?
+    sub = JournalLine.select(:journal_entry_id)
+    sub = sub.where("amount >= ?", min) if min.present?
+    sub = sub.where("amount <= ?", max) if max.present?
+    where(id: sub)
+  }
+
+  # Restrict to entries that post to an account whose code starts with the given prefix.
+  scope :with_account_code, ->(code) {
+    next all if code.blank?
+    where(id: JournalLine.joins(:account)
+      .where("LOWER(accounts.code) LIKE ?", "#{code.to_s.downcase}%")
+      .select(:journal_entry_id))
+  }
+
   # Post a new journal entry atomically.
   # lines_attrs: array of { account_code:, side:, amount:, description: }
   def self.post!(attrs, lines_attrs)

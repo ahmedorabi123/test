@@ -279,7 +279,7 @@ docker compose -f backend/docker-compose.yml logs -f backend
 
 1. In Shopify Admin: refund the order.
 2. Backend log shows `refunds/create`.
-3. ERP order: `financial_status` becomes `refunded` (or `partially_paid`
+3. ERP order: `financial_status` becomes `refunded` (or `partially_refunded`
    on a partial refund). A contra journal entry appears in Accounting.
 
 ### 7.5 Inventory adjusted in Shopify

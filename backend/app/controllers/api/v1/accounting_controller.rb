@@ -15,13 +15,21 @@ module Api
         render json: { data: accounts.map { |a| AccountSerializer.call(a) } }
       end
 
-      # GET /api/v1/accounting/journal_entries?from=&to=&entry_type=&page=&per_page=&sort=&dir=
+      # GET /api/v1/accounting/journal_entries?from=&to=&entry_type=&status=&q=&min_amount=&max_amount=&account_code=&page=&per_page=&sort=&dir=
       def journal_entries
         scope = JournalEntry.includes(journal_lines: :account)
         scope = scope.where("entry_date >= ?", params[:from]) if params[:from].present?
         scope = scope.where("entry_date <= ?", params[:to])   if params[:to].present?
         scope = scope.where(entry_type: params[:entry_type])  if params[:entry_type].present?
         scope = scope.where(status: params[:status])          if params[:status].present?
+        scope = scope.search_text(params[:q])                 if params[:q].present?
+        if params[:min_amount].present? || params[:max_amount].present?
+          scope = scope.with_amount_between(
+            params[:min_amount].present? ? params[:min_amount].to_d : nil,
+            params[:max_amount].present? ? params[:max_amount].to_d : nil
+          )
+        end
+        scope = scope.with_account_code(params[:account_code]) if params[:account_code].present?
 
         scope = apply_journal_sort(scope)
 
@@ -40,6 +48,72 @@ module Api
       def journal_entry
         entry = JournalEntry.includes(journal_lines: :account).find(params[:id])
         render json: { data: JournalEntrySerializer.call(entry, include_lines: true) }
+      end
+
+      # GET /api/v1/accounting/accounts/:code/ledger?from=&to=&q=&page=&per_page=
+      # Returns posted journal lines for a single account with a running balance.
+      def account_ledger
+        account = Account.find_by!(code: params[:code])
+
+        lines = account.journal_lines
+                       .joins(:journal_entry)
+                       .where("journal_entries.status = 'posted'")
+        lines = lines.where("journal_entries.entry_date >= ?", params[:from]) if params[:from].present?
+        lines = lines.where("journal_entries.entry_date <= ?", params[:to])   if params[:to].present?
+        if params[:q].present?
+          term = "%#{ActiveRecord::Base.sanitize_sql_like(params[:q].to_s)}%"
+          lines = lines.where(
+            "journal_lines.description ILIKE :q OR journal_entries.description ILIKE :q",
+            q: term
+          )
+        end
+
+        # Compute running balance in SQL using a window function. Postgres-only.
+        sign_expr =
+          if account.normal_side == "debit"
+            "CASE WHEN journal_lines.side = 'debit' THEN journal_lines.amount ELSE -journal_lines.amount END"
+          else
+            "CASE WHEN journal_lines.side = 'credit' THEN journal_lines.amount ELSE -journal_lines.amount END"
+          end
+
+        ordered = lines.select(
+          "journal_lines.id AS line_id",
+          "journal_lines.amount",
+          "journal_lines.side",
+          "journal_lines.description AS line_description",
+          "journal_entries.id AS entry_id",
+          "journal_entries.entry_date",
+          "journal_entries.description AS entry_description",
+          "journal_entries.entry_type",
+          "SUM(#{sign_expr}) OVER (ORDER BY journal_entries.entry_date, journal_lines.created_at, journal_lines.id) AS running_balance"
+        ).order("journal_entries.entry_date ASC, journal_lines.created_at ASC, journal_lines.id ASC")
+
+        page     = [params[:page].to_i, 1].max
+        per_page = (params[:per_page].to_i.positive? ? params[:per_page].to_i : 50).clamp(1, 200)
+        total    = lines.count
+        rows     = ordered.offset((page - 1) * per_page).limit(per_page)
+
+        data = rows.map do |r|
+          {
+            line_id:           r["line_id"],
+            entry_id:          r["entry_id"],
+            entry_date:        r["entry_date"],
+            entry_description: r["entry_description"],
+            entry_type:        r["entry_type"],
+            side:              r["side"],
+            amount:            r["amount"].to_f,
+            description:       r["line_description"],
+            running_balance:   r["running_balance"].to_f
+          }
+        end
+
+        render json: {
+          data: data,
+          meta: {
+            page: page, per_page: per_page, total: total,
+            account: AccountSerializer.call(account)
+          }
+        }
       end
 
       # GET /api/v1/accounting/trial_balance?as_of=
