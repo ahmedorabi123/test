@@ -56,20 +56,7 @@ Rails.application.routes.draw do
           delete "products/:product_id", action: :remove_product, as: :remove_product
         end
       end
-      resources :variants, only: %i[index] do
-        resources :bom_items, only: %i[index create update destroy]
-      end
-      resources :production_orders, only: %i[index show create update destroy] do
-        member do
-          post :run
-          post :cancel
-          post   "stages",                 action: :add_stage,        as: :add_stage
-          patch  "stages/:stage_id",       action: :update_stage,     as: :update_stage
-          post   "stages/:stage_id/start", action: :start_stage,      as: :start_stage
-          post   "stages/:stage_id/complete", action: :complete_stage, as: :complete_stage
-          delete "stages/:stage_id",       action: :destroy_stage,    as: :destroy_stage
-        end
-      end
+      resources :variants, only: %i[index]
 
       # Sales / Orders
       resources :orders, only: %i[index show create update] do
@@ -108,18 +95,6 @@ Rails.application.routes.draw do
           get :events
           patch :annotation
           post :transition_delivery
-        end
-      end
-
-      # Returns / Refunds (read-only from Shopify; create for manual/showroom)
-      resources :refunds, only: %i[index show create] do
-        collection do
-          get  :export
-          post :bulk
-        end
-        member do
-          post :transition
-          post :cancel
         end
       end
 

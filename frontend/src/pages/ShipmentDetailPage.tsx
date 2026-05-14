@@ -35,6 +35,7 @@ export default function ShipmentDetailPage() {
 
   async function saveAnnotation() {
     if (!shipment) return;
+    if (isShipmentReadOnly(shipment)) return;
     setSaving(true);
     try {
       const updated = await fulfillmentsApi.annotate(shipment.id, {
@@ -60,7 +61,11 @@ export default function ShipmentDetailPage() {
     unknown
   >;
   const isReadOnly = Boolean(
-    shipment.read_only_origin || shipment.shopify_fulfillment_id,
+    shipment.read_only_origin ||
+      shipment.shopify_fulfillment_id ||
+      shipment.order?.read_only_origin ||
+      shipment.order?.source === "shopify" ||
+      shipment.order?.shopify_order_id,
   );
 
   return (
@@ -289,6 +294,16 @@ export default function ShipmentDetailPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+function isShipmentReadOnly(shipment: Fulfillment) {
+  return Boolean(
+    shipment.read_only_origin ||
+      shipment.shopify_fulfillment_id ||
+      shipment.order?.read_only_origin ||
+      shipment.order?.source === "shopify" ||
+      shipment.order?.shopify_order_id,
   );
 }
 

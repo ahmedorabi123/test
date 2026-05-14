@@ -5,13 +5,10 @@ module Sales
   #   - status:           pending → processing → fulfilled
   #                       any     → cancelled
   #   - financial_status: pending → authorized → paid → partially_paid
-  #                                                   → partially_refunded
-  #                                                   → refunded
   #
   # Side effects per transition:
   #   - to "paid":      posts the sale journal (idempotent)
   #   - to "fulfilled": consumes fulfillment line items via Inventory::ConsumeReservation
-  #   - to "refunded":  reverses the sale journal
   #   - to "cancelled" (after paid): reverses the sale journal via force: true
   #   - to "voided":    releases active reservations
   class OrderStateMachine
@@ -31,9 +28,9 @@ module Sales
     LEGAL_FINANCIAL = {
       "pending"            => %w[authorized paid voided],
       "authorized"         => %w[paid voided],
-      "paid"               => %w[partially_paid partially_refunded refunded],
-      "partially_paid"     => %w[paid partially_refunded refunded],
-      "partially_refunded" => %w[refunded],
+      "paid"               => %w[partially_paid],
+      "partially_paid"     => %w[paid],
+      "partially_refunded" => [],
       "refunded"           => [],
       "voided"             => []
     }.freeze
@@ -62,7 +59,6 @@ module Sales
     private
 
     def classify(target)
-      return :financial if target == "refunded"
       return :status    if LEGAL_STATUS.keys.include?(target)
       return :financial if LEGAL_FINANCIAL.keys.include?(target)
       nil
@@ -113,9 +109,6 @@ module Sales
       case to
       when "paid"
         safe { ::Accounting::PostSaleJournalHandler.call(@order) }
-        safe { recompute_customer_stats }
-      when "refunded"
-        safe { ::Accounting::RefundReversalHandler.call(@order) }
         safe { recompute_customer_stats }
       when "voided"
         safe { ::Inventory::ReleaseOrderReservations.call(@order) }

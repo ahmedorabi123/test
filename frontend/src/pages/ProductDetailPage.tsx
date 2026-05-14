@@ -18,6 +18,8 @@ const STATUS_STYLES: Record<string, string> = {
   archived: "bg-gray-100 text-gray-600 ring-gray-500/20",
 };
 
+const apiOrigin = import.meta.env.VITE_API_URL || "http://localhost:3010";
+
 const CATEGORY_METAFIELDS = [
   { key: "color", label: "Color" },
   { key: "size", label: "Size" },
@@ -90,11 +92,21 @@ type Draft = Pick<
 };
 
 function collectionOptions(product: Product): AsyncComboboxOption[] {
-  return (product.collections ?? []).map((collection) => ({
-    value: collection.id,
-    label: collection.title,
-    description: collection.handle ? `/${collection.handle}` : undefined,
-  }));
+  return (product.collections ?? [])
+    .filter(
+      (collection) =>
+        collection.source !== "shopify" && !collection.read_only_origin,
+    )
+    .map((collection) => ({
+      value: collection.id,
+      label: collection.title,
+      description: collection.handle ? `/${collection.handle}` : undefined,
+    }));
+}
+
+function absoluteMediaUrl(url: string) {
+  if (/^https?:\/\//.test(url)) return url;
+  return `${apiOrigin}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
 function variantToJson(v: Variant): VariantDraft {
@@ -164,11 +176,16 @@ export default function ProductDetailPage() {
       sort: "title",
       dir: "asc",
     });
-    return rows.data.map((collection) => ({
-      value: collection.id,
-      label: collection.title,
-      description: collection.handle ? `/${collection.handle}` : undefined,
-    }));
+    return rows.data
+      .filter(
+        (collection) =>
+          collection.source !== "shopify" && !collection.read_only_origin,
+      )
+      .map((collection) => ({
+        value: collection.id,
+        label: collection.title,
+        description: collection.handle ? `/${collection.handle}` : undefined,
+      }));
   }, []);
 
   useEffect(() => {
@@ -402,7 +419,18 @@ export default function ProductDetailPage() {
     return <div className="p-6 text-sm text-rose-600">{error}</div>;
   if (!product || !draft) return null;
 
-  const images = product.images || [];
+  const images = [
+    ...(product.images ?? []).map((image) => ({
+      id: image.id,
+      src: image.src,
+      alt: image.alt,
+    })),
+    ...(product.uploaded_images ?? []).map((image) => ({
+      id: `uploaded-${image.id}`,
+      src: absoluteMediaUrl(image.url),
+      alt: image.filename,
+    })),
+  ];
 
   return (
     <div className="max-w-7xl mx-auto pb-24">

@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Manual and showroom inventory lifecycle", type: :model do
-  let(:warehouse) { create(:warehouse, code: "WH-MAIN", shopify_location_id: 9001, active: true) }
+  let(:warehouse) { create(:warehouse, code: "WH-MAIN", active: true) }
   let(:transfer_warehouse) { create(:warehouse, code: "WH-SECOND", active: true) }
   let(:product) { create(:product) }
   let(:variant) { create(:variant, product: product, sku: "LIFE-SKU", price: "10.00") }

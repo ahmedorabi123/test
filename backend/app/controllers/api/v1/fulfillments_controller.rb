@@ -43,7 +43,7 @@ module Api
       def annotation
         fulfillment = Fulfillment.find(params[:id])
         authorize fulfillment, :update?
-        return unless ensure_not_shopify_origin!(fulfillment)
+        return unless ensure_fulfillment_mutable!(fulfillment)
         fulfillment.update!(annotation_params)
         Shipping::RecordShipmentEvent.call(fulfillment, kind: "annotation_updated", payload: annotation_params.to_h, actor: current_user)
         render json: { data: FulfillmentSerializer.call(fulfillment.reload) }
@@ -55,6 +55,7 @@ module Api
         authorize fulfillment, :transition_delivery?
         target = params[:to].to_s
         return render_error(400, "bad_request", "missing 'to'") if target.blank?
+        return unless ensure_fulfillment_mutable!(fulfillment)
 
         updated = Shipping::TransitionDelivery.call(
           fulfillment,
@@ -117,6 +118,12 @@ module Api
       end
 
       private
+
+      def ensure_fulfillment_mutable!(fulfillment)
+        return render_read_only_shopify_resource && false if fulfillment.order&.shopify_origin?
+
+        ensure_not_shopify_origin!(fulfillment)
+      end
 
       def filtered_scope
         scope = policy_scope(Fulfillment).includes(order: :customer)

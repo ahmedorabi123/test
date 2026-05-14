@@ -63,6 +63,7 @@ module Api
         warehouse = Warehouse.find(params.require(:warehouse_id))
         qty       = Integer(params[:quantity_on_hand].presence || 0)
         threshold = Integer(params[:low_stock_threshold].presence || 0)
+        return unless ensure_inventory_sources_mutable!(variant, warehouse)
 
         si = StockItem.find_or_initialize_by(variant: variant, warehouse: warehouse)
         return unless ensure_not_shopify_origin!(si)
@@ -208,6 +209,16 @@ module Api
 
       def ensure_stock_item_mutable
         ensure_not_shopify_origin!(@stock_item)
+      end
+
+      def ensure_inventory_sources_mutable!(variant, warehouse)
+        locked = [variant, variant.product, warehouse].compact.any? do |record|
+          record.respond_to?(:shopify_origin?) && record.shopify_origin?
+        end
+        return true unless locked
+
+        render_read_only_shopify_resource
+        false
       end
 
       def stock_item_params

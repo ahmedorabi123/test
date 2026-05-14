@@ -13,7 +13,9 @@ module Inventory
         StockItem.transaction do
           stock_item = StockItem.lock.find(@stock_item.id)
           quantity = StockReservation.active.where(stock_item_id: stock_item.id).sum(:quantity)
-          stock_item.update!(quantity_reserved: quantity)
+          ::Shopify::Origin.without_read_only do
+            stock_item.update!(quantity_reserved: quantity)
+          end
           stock_item
         end
       end

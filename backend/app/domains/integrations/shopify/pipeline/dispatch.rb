@@ -27,8 +27,6 @@ module Shopify
           Inventory::HandleShopifyInventoryJob.perform_later(@payload)
         when :order
           Sales::HandleShopifyOrderJob.perform_later(@payload)
-        when :refund
-          Sales::HandleShopifyRefundJob.perform_later(@payload)
         when :fulfillment
           Shipping::HandleShopifyFulfillmentJob.perform_later(@payload)
         when :customer

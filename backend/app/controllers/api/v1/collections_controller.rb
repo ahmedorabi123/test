@@ -102,9 +102,12 @@ module Api
       def add_product
         authorize @collection, :update?
         product = Product.find(params[:product_id])
+        Catalog::AssignCollectionsToProduct.validate!(product, [@collection])
         cp = @collection.collection_products.find_or_create_by!(product: product)
         cp.update!(position: params[:position].to_i) if params[:position].present?
         render json: { data: CollectionSerializer.call(@collection, include_products: true) }
+      rescue Catalog::AssignCollectionsToProduct::InvalidCollection => e
+        render_error(422, "invalid_collection", e.message)
       end
 
       # DELETE /api/v1/collections/:id/products/:product_id

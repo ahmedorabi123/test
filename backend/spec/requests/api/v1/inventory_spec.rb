@@ -56,7 +56,7 @@ RSpec.describe "Api::V1::Warehouses", type: :request do
             as: :json,
             headers: auth_headers(admin)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:locked)
       expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
       expect(wh.reload.name).to eq("Shopify Location")
     end

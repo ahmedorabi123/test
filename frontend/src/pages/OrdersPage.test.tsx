@@ -102,6 +102,36 @@ describe("OrdersPage", () => {
     expect(deliveryIdx).toBeLessThan(methodIdx);
   });
 
+  it("does not expose the retired refunded quick filter", async () => {
+    server.use(
+      http.get("*/api/v1/orders", () =>
+        HttpResponse.json({
+          data: [],
+          meta: {
+            total: 0,
+            page: 1,
+            per_page: 25,
+            summary: { total_value: "0" },
+          },
+        }),
+      ),
+    );
+
+    renderWithProviders(<OrdersPage />, { route: "/orders" });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/No records found|No orders/i),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /^refunded$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: /^refunded$/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("sends warehouse_id when filtering by warehouse", async () => {
     let lastUrl = "";
     server.use(

@@ -13,7 +13,6 @@ module Shopify
       "orders/edited"             => :shopify_order_edited,
       "orders/fulfilled"          => :shopify_order_fulfilled,
       "orders/partially_fulfilled" => :shopify_order_partially_fulfilled,
-      "refunds/create"            => :shopify_refund_created,
       "products/create"           => :shopify_product_created,
       "products/update"           => :shopify_product_updated,
       "products/delete"           => :shopify_product_deleted,

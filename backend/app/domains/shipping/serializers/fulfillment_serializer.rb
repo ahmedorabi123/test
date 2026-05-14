@@ -32,11 +32,14 @@ class FulfillmentSerializer
     {
       id: order.id,
       order_number: order.order_number,
+      source: order.source,
       status: order.status,
       financial_status: order.financial_status,
       fulfillment_status: order.fulfillment_status,
       total_price: order.total_price,
       currency: order.currency,
+      shopify_order_id: order.shopify_order_id,
+      read_only_origin: order.shopify_origin?,
       shipping_address: order.shipping_address
     }
   end

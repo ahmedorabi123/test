@@ -132,6 +132,8 @@ RSpec.describe "Api::V1::Products", type: :request do
 
       expect(response).to have_http_status(:created), response.body
       expect(JSON.parse(response.body).dig("data", 0, "filename")).to eq("product.png"), response.body
+      get "/api/v1/products/#{product.id}", headers: auth_headers(admin)
+      expect(json_response.dig(:data, :uploaded_images, 0, :filename)).to eq("product.png")
       attachment_count = ActiveStorage::Attachment.where(
         record_type: "Product",
         record_id: product.id,
@@ -162,7 +164,7 @@ RSpec.describe "Api::V1::Products", type: :request do
             as: :json,
             headers: auth_headers(admin)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:locked)
       expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
       expect(product.reload.title).to eq("Shopify")
     end
@@ -181,7 +183,7 @@ RSpec.describe "Api::V1::Products", type: :request do
 
       delete "/api/v1/products/#{product.id}", headers: auth_headers(admin)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:locked)
       expect(Product.exists?(product.id)).to be(true)
     end
   end

@@ -37,6 +37,21 @@ export default function DeliveryActions({
   const [error, setError] = useState<string | null>(null);
   const current = (fulfillment.delivery_status || "pending").toLowerCase();
   const next = LEGAL[current] ?? [];
+  const isReadOnly = Boolean(
+    fulfillment.read_only_origin ||
+      fulfillment.shopify_fulfillment_id ||
+      fulfillment.order?.read_only_origin ||
+      fulfillment.order?.source === "shopify" ||
+      fulfillment.order?.shopify_order_id,
+  );
+
+  if (isReadOnly) {
+    return (
+      <span className="text-xs text-slate-500 capitalize">
+        {current.replace(/_/g, " ")}
+      </span>
+    );
+  }
 
   if (next.length === 0) {
     return (

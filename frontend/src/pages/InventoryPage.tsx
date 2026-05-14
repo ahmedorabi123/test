@@ -28,6 +28,11 @@ interface VariantOption {
   title: string;
   product_title: string | null;
   price: string;
+  shopify_variant_id?: number | null;
+  read_only_origin?: boolean;
+  product_source?: "manual" | "shopify";
+  product_shopify_product_id?: number | null;
+  product_read_only_origin?: boolean;
   stock_items?: Array<{
     id: string;
     warehouse_id: string;
@@ -41,6 +46,24 @@ interface VariantOption {
 
 function isStockItemReadOnly(stockItem: StockItem) {
   return Boolean(stockItem.read_only_origin);
+}
+
+function isWarehouseMutable(warehouse: Warehouse) {
+  return Boolean(
+    warehouse.active &&
+      !warehouse.read_only_origin &&
+      !warehouse.shopify_location_id,
+  );
+}
+
+function isVariantMutable(variant: VariantOption) {
+  return !(
+    variant.read_only_origin ||
+    variant.shopify_variant_id ||
+    variant.product_read_only_origin ||
+    variant.product_source === "shopify" ||
+    variant.product_shopify_product_id
+  );
 }
 
 function NewStockItemModal({
@@ -66,6 +89,7 @@ function NewStockItemModal({
   const [threshold, setThreshold] = useState("0");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const eligibleWarehouses = warehouses.filter(isWarehouseMutable);
 
   useEffect(() => {
     if (!warehouseId || variantId) {
@@ -84,7 +108,7 @@ function NewStockItemModal({
               warehouse_id: warehouseId,
             },
           });
-          setOptions(res.data.data);
+          setOptions(res.data.data.filter(isVariantMutable));
         } catch {
           setOptions([]);
         }
@@ -123,6 +147,10 @@ function NewStockItemModal({
   async function save() {
     if (!variantId || !warehouseId) {
       setError("Pick a variant and a warehouse");
+      return;
+    }
+    if (!eligibleWarehouses.some((warehouse) => warehouse.id === warehouseId)) {
+      setError("Shopify-managed warehouses cannot be edited in the ERP");
       return;
     }
     setSaving(true);
@@ -182,12 +210,17 @@ function NewStockItemModal({
             }}
           >
             <option value="">Choose warehouse…</option>
-            {warehouses.map((w) => (
+            {eligibleWarehouses.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name} ({w.code})
               </option>
             ))}
           </select>
+          {eligibleWarehouses.length === 0 && (
+            <p className="mt-1 text-xs text-amber-700">
+              No editable warehouses are available.
+            </p>
+          )}
         </div>
 
         <div>
@@ -898,7 +931,14 @@ export default function InventoryPage() {
       {modalOpen && (
         <NewStockItemModal
           warehouses={warehouses}
-          defaultWarehouseId={warehouseId}
+          defaultWarehouseId={
+            warehouses.find(
+              (warehouse) =>
+                warehouse.id === warehouseId && isWarehouseMutable(warehouse),
+            )
+              ? warehouseId
+              : null
+          }
           onClose={() => setModalOpen(false)}
           onCreated={() => {
             setModalOpen(false);

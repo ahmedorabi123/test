@@ -65,8 +65,13 @@ module Api
           sku: variant.sku,
           title: variant.title,
           price: variant.price,
+          shopify_variant_id: variant.shopify_variant_id,
+          read_only_origin: variant.shopify_origin?,
           product_id: variant.product_id,
           product_title: variant.product&.title,
+          product_source: variant.product&.source,
+          product_shopify_product_id: variant.product&.shopify_product_id,
+          product_read_only_origin: variant.product&.shopify_origin?,
           stock_items: stock_items.map do |stock_item|
             {
               id: stock_item.id,

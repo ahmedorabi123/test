@@ -4,7 +4,7 @@ RSpec.describe "Api::V1::Orders timeline", type: :request do
   let(:admin) { create(:user, :admin) }
   let(:order) { create(:order) }
 
-  it "returns order events, fulfillment activity, shipment events, and refunds chronologically" do
+  it "returns order events, fulfillment activity, and shipment events chronologically" do
     DomainEvent.create!(
       aggregate_type: "Order",
       aggregate_id:   order.id,
@@ -35,8 +35,7 @@ RSpec.describe "Api::V1::Orders timeline", type: :request do
     expect(types).to eq([
       "order.created",
       "fulfillment.created",
-      "shipment.tracking_update",
-      "refund.processed"
+      "shipment.tracking_update"
     ])
   end
 end

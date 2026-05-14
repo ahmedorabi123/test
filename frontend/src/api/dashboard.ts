@@ -7,8 +7,6 @@ export interface DashboardSummary {
     orders_count: number;
     ar_outstanding: number;
     pending_shipments: number;
-    pending_refunds: number;
-    pending_refund_amount: number;
     low_stock_count: number;
     orders_pending: number;
   };
@@ -40,7 +38,7 @@ export interface DashboardSummary {
     margin_pct: number;
   };
   recent_activity: Array<{
-    kind: "order" | "shipment" | "refund";
+    kind: "order" | "shipment";
     at: string;
     title: string;
     subtitle: string;

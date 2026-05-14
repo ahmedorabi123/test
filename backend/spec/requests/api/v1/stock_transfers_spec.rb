@@ -64,7 +64,7 @@ RSpec.describe "Api::V1::StockTransfers", type: :request do
       expect(StockTransfer.count).to eq(0)
     end
 
-    it "returns 403 when transferring to/from a Shopify-origin warehouse" do
+    it "returns 423 when transferring to/from a Shopify-origin warehouse" do
       shop_wh = create(:warehouse, code: "WH-SHOP", shopify_location_id: 12345)
       post "/api/v1/stock_transfers",
            params: {
@@ -72,7 +72,7 @@ RSpec.describe "Api::V1::StockTransfers", type: :request do
              lines: [{ variant_id: v1.id, quantity: 1 }]
            }, as: :json, headers: auth_headers(admin)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:locked)
       expect(JSON.parse(response.body).dig("error", "type")).to eq("read_only_shopify_resource")
     end
 

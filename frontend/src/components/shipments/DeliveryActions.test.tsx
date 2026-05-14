@@ -26,7 +26,7 @@ function fulfillment(overrides: Partial<Fulfillment> = {}): Fulfillment {
 }
 
 describe("DeliveryActions", () => {
-  it("keeps delivery transition buttons available for Shopify-origin fulfillments", () => {
+  it("hides delivery transition buttons for Shopify-origin fulfillments", () => {
     render(
       <DeliveryActions
         fulfillment={fulfillment({
@@ -38,7 +38,33 @@ describe("DeliveryActions", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: /mark in transit/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /mark in transit/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("pending")).toBeInTheDocument();
+  });
+
+  it("hides delivery transition buttons when the parent order is Shopify-origin", () => {
+    render(
+      <DeliveryActions
+        fulfillment={fulfillment({
+          order: {
+            id: "ord-1",
+            order_number: "SO-1",
+            source: "shopify",
+            status: "processing",
+            financial_status: "paid",
+            total_price: "100.00",
+            currency: "EGP",
+            shopify_order_id: 98765,
+            read_only_origin: true,
+          },
+        })}
+        onUpdated={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /mark in transit/i }),
+    ).not.toBeInTheDocument();
   });
 });

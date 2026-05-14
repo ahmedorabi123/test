@@ -117,10 +117,12 @@ RSpec.describe Shopify::ProcessWebhookJob, type: :job do
         .to have_enqueued_job(Sales::HandleShopifyOrderJob)
     end
 
-    it "dispatches refunds/create to Sales::HandleShopifyRefundJob" do
+    it "does not dispatch refunds/create in Phase 1" do
       ev = make_event("refunds/create", { "id" => 101, "order_id" => 42, "updated_at" => "2026-04-21T10:00:00Z" })
       expect { described_class.new.perform(ev.id) }
-        .to have_enqueued_job(Sales::HandleShopifyRefundJob)
+        .not_to have_enqueued_job(Sales::HandleShopifyRefundJob)
+      expect(ev.reload).to be_processed
+      expect(ev.error).to match(/Unsupported Shopify topic/)
     end
 
     it "dispatches fulfillments/create to Shipping::HandleShopifyFulfillmentJob" do
@@ -162,10 +164,10 @@ RSpec.describe Shopify::ProcessWebhookJob, type: :job do
     it "uses the inbound-only pipeline when SHOPIFY_PIPELINE_V2=true" do
       original = ENV["SHOPIFY_PIPELINE_V2"]
       ENV["SHOPIFY_PIPELINE_V2"] = "true"
-      ev = make_event("refunds/create", { "id" => 101, "order_id" => 42, "updated_at" => "2026-04-21T10:00:00Z" })
+      ev = make_event("orders/paid", { "id" => 101, "order_id" => 42, "updated_at" => "2026-04-21T10:00:00Z" })
 
       expect { described_class.new.perform(ev.id) }
-        .to have_enqueued_job(Sales::HandleShopifyRefundJob)
+        .to have_enqueued_job(Sales::HandleShopifyOrderJob)
     ensure
       ENV["SHOPIFY_PIPELINE_V2"] = original
     end

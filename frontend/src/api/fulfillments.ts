@@ -6,11 +6,14 @@ export interface Fulfillment {
   order?: {
     id: string;
     order_number: string;
+    source?: "manual" | "shopify" | "showroom";
     status: string;
     financial_status: string;
     fulfillment_status?: string | null;
     total_price: string;
     currency: string;
+    shopify_order_id?: number | null;
+    read_only_origin?: boolean;
     shipping_address?: Record<string, unknown>;
   } | null;
   customer?: {

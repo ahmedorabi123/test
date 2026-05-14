@@ -53,6 +53,12 @@ function formatMoney(val: string | number | undefined, currency = "USD") {
   }).format(n);
 }
 
+function isShopifyOrder(order: Order) {
+  return Boolean(
+    order.read_only_origin || order.source === "shopify" || order.shopify_order_id,
+  );
+}
+
 export default function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -309,7 +315,7 @@ export default function OrdersPage() {
         label: "Cancel",
         destructive: true,
         run: async (sel) => {
-          if (sel.some((order) => order.read_only_origin)) {
+          if (sel.some(isShopifyOrder)) {
             window.alert(
               "Shopify-managed orders cannot be cancelled in the ERP.",
             );
@@ -357,7 +363,6 @@ export default function OrdersPage() {
             <option value="processing">Processing</option>
             <option value="fulfilled">Fulfilled</option>
             <option value="cancelled">Cancelled</option>
-            <option value="refunded">Refunded</option>
           </select>
           <select
             value={source}
@@ -458,14 +463,6 @@ export default function OrdersPage() {
               "delivery_status",
               deliveryStatus === "delivered" ? null : "delivered",
             );
-          }}
-        />
-        <OrdersChip
-          label="Refunded"
-          active={status === "refunded"}
-          onClick={() => {
-            setParam("page", "1");
-            setParam("status", status === "refunded" ? null : "refunded");
           }}
         />
         {(status || deliveryStatus || financialStatus || source || search) && (

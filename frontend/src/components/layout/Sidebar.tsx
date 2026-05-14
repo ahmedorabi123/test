@@ -100,13 +100,6 @@ const navItems: NavItem[] = [
     resource: "fulfillments",
   },
   {
-    label: "Refunds",
-    path: "/refunds",
-    icon: <Icon d="M3 7v6h6M3 13a9 9 0 1 0 3-6.708" />,
-    phase: "live",
-    resource: "orders",
-  },
-  {
     label: "Purchases",
     path: "/purchases",
     icon: (
@@ -128,13 +121,6 @@ const navItems: NavItem[] = [
     icon: <Icon d="M4 4h16v4H4zM4 12h10v8H4zM18 12h2v8h-2z" />,
     phase: "live",
     resource: "accounting",
-  },
-  {
-    label: "Production",
-    path: "/production",
-    icon: <Icon d="M4 20h16M4 20V10l8-6 8 6v10M9 20v-6h6v6" />,
-    phase: "live",
-    resource: "production_orders",
   },
   {
     label: "Audit logs",

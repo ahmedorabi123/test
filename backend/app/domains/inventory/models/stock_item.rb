@@ -32,6 +32,6 @@ class StockItem < ApplicationRecord
   end
 
   def shopify_origin?
-    super || (warehouse&.shopify_origin? && variant&.shopify_origin?)
+    super || warehouse&.shopify_origin? || variant&.shopify_origin? || variant&.product&.shopify_origin?
   end
 end

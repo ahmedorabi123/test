@@ -1,6 +1,5 @@
 import api from "./client";
 import type { Fulfillment } from "./fulfillments";
-import type { Refund } from "./refunds";
 import type { Warehouse } from "./inventory";
 
 export type OrderStatus =
@@ -93,7 +92,6 @@ export interface Order {
   updated_at: string;
   line_items?: OrderLineItem[];
   fulfillments?: Fulfillment[];
-  refunds?: Refund[];
   customer_id?: string | null;
   location_id?: number | null;
 }

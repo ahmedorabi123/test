@@ -18,8 +18,6 @@ import CustomersPage from "./pages/CustomersPage";
 import NewCustomerPage from "./pages/NewCustomerPage";
 import ShipmentsPage from "./pages/ShipmentsPage";
 import ShipmentDetailPage from "./pages/ShipmentDetailPage";
-import RefundsPage from "./pages/RefundsPage";
-import RefundDetailPage from "./pages/RefundDetailPage";
 import ManualOrderPage from "./pages/ManualOrderPage";
 import PurchasesPage from "./pages/PurchasesPage";
 import NewPurchaseOrderPage from "./pages/NewPurchaseOrderPage";
@@ -28,8 +26,6 @@ import SuppliersPage from "./pages/SuppliersPage";
 import NewSupplierPage from "./pages/NewSupplierPage";
 import SupplierDetailPage from "./pages/SupplierDetailPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
-import ProductionPage from "./pages/ProductionPage";
-import BomEditorPage from "./pages/BomEditorPage";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import CustomerDetailPage from "./pages/CustomerDetailPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
@@ -71,8 +67,6 @@ function App() {
             <Route path="/customers/:id" element={<CustomerDetailPage />} />
             <Route path="/shipments" element={<ShipmentsPage />} />
             <Route path="/shipments/:id" element={<ShipmentDetailPage />} />
-            <Route path="/refunds" element={<RefundsPage />} />
-            <Route path="/refunds/:id" element={<RefundDetailPage />} />
             <Route path="/purchases" element={<PurchasesPage />} />
             <Route path="/purchases/new" element={<NewPurchaseOrderPage />} />
             <Route
@@ -93,8 +87,6 @@ function App() {
             />
             <Route path="/warehouses" element={<WarehousesPage />} />
             <Route path="/accounting" element={<AccountingPage />} />
-            <Route path="/production" element={<ProductionPage />} />
-            <Route path="/production/bom" element={<BomEditorPage />} />
             <Route path="/audit_logs" element={<AuditLogsPage />} />
             <Route path="/users" element={<UsersPage />} />
           </Route>

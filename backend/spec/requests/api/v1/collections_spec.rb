@@ -130,7 +130,7 @@ RSpec.describe "Api::V1::Collections", type: :request do
             params: { collection: { title: "ERP Edit" } },
             headers: auth_headers(admin)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:locked)
       expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
       expect(collection.reload.title).to eq("Shopify Collection")
     end
@@ -178,6 +178,19 @@ RSpec.describe "Api::V1::Collections", type: :request do
       expect(response).to have_http_status(:ok)
       expect(collection.collection_products.reload.count).to eq(1)
     end
+
+    it "rejects adding Shopify-origin products to manual collections" do
+      collection = create(:collection)
+      product = create(:product, :from_shopify)
+
+      post "/api/v1/collections/#{collection.id}/products",
+           params: { product_id: product.id },
+           headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(json_response.dig(:error, :type)).to eq("invalid_collection")
+      expect(collection.products.reload).to be_empty
+    end
   end
 
   describe "DELETE /api/v1/collections/:id/products/:product_id" do
@@ -207,7 +220,7 @@ RSpec.describe "Api::V1::Collections", type: :request do
            params: { product_id: product.id },
            headers: auth_headers(admin)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:locked)
       expect(collection.products.reload).to be_empty
     end
   end

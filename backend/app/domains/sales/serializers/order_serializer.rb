@@ -13,7 +13,7 @@ class OrderSerializer
       total_tax:          order.total_tax,
       total_shipping:     order.total_shipping,
       total_discount:     order.total_discount,
-      total_refunded:     order.respond_to?(:total_refunded) ? order.total_refunded : order.refunds.sum(:amount),
+      total_refunded:     0,
       total_price:        order.total_price,
       customer_email:     order.customer_email,
       customer_name:      order.customer_name,
@@ -41,8 +41,7 @@ class OrderSerializer
       created_at:         order.created_at,
       updated_at:         order.updated_at,
       line_items:   include_line_items ? order.line_items.map { |li| OrderLineItemSerializer.call(li) } : nil,
-      fulfillments: include_line_items ? order.fulfillments.order(created_at: :asc).map { |f| FulfillmentSerializer.call(f) } : nil,
-      refunds:      include_line_items ? order.refunds.order(created_at: :asc).map { |r| RefundSerializer.call(r) } : nil
+      fulfillments: include_line_items ? order.fulfillments.order(created_at: :asc).map { |f| FulfillmentSerializer.call(f) } : nil
     }.compact
   end
 

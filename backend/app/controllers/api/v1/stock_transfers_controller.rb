@@ -70,7 +70,7 @@ module Api
         render json: { data: StockTransferSerializer.call(transfer, include_lines: true, include_movements: true) },
                status: :created
       rescue Inventory::PostStockTransfer::ReadOnlyOrigin => e
-        render_error(403, "read_only_shopify_resource", e.message)
+        render_error(423, "read_only_shopify_resource", e.message)
       rescue Inventory::PostStockTransfer::InsufficientStock => e
         render_error(422, "insufficient_stock", e.message,
                      code: { variant_id: e.variant_id, available: e.available, requested: e.requested })

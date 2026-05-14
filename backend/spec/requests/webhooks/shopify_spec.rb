@@ -95,7 +95,6 @@ RSpec.describe "Webhooks::Shopify", type: :request do
       inventory_levels/connect inventory_levels/disconnect inventory_levels/update
       fulfillments/cancelled
       customers/data_request customers/redact shop/redact app/uninstalled
-      refunds/create
     ].each do |topic|
       it "accepts #{topic} and enqueues the job" do
         expect {
@@ -106,6 +105,15 @@ RSpec.describe "Webhooks::Shopify", type: :request do
         expect(response).to have_http_status(:accepted)
         expect(WebhookEvent.last.topic).to eq(topic)
       end
+    end
+
+    it "ignores refunds/create in Phase 1" do
+      expect {
+        post_webhook(topic: "refunds/create")
+      }.not_to change(WebhookEvent, :count)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body["status"]).to eq("ignored")
     end
   end
 

@@ -89,23 +89,31 @@ module Inventory
     def stock_item_for(line_item, warehouse)
       variant = line_item.variant
       return nil unless variant
+      return nil if manual_stock_guard?(variant) && shopify_locked_variant?(variant)
+      return nil if manual_stock_guard?(variant) && warehouse&.shopify_origin?
 
       stock_item = StockItem.find_by(variant: variant, warehouse: warehouse) if warehouse
+      return nil if manual_stock_guard?(variant) && stock_item&.shopify_origin?
       return stock_item if stock_item
 
       if warehouse && !manual_stock_guard?(variant)
         return StockItem.create!(variant: variant, warehouse: warehouse, quantity_on_hand: 0)
       end
 
-      StockItem.where(variant: variant)
+      scope = StockItem.where(variant: variant)
                .joins(:warehouse)
                .where(warehouses: { active: true })
-               .order(Arel.sql("(stock_items.quantity_on_hand - stock_items.quantity_reserved - stock_items.quantity_unavailable) DESC"))
-               .first
+      scope = scope.where(warehouses: { shopify_location_id: nil }) if manual_stock_guard?(variant)
+      scope.order(Arel.sql("(stock_items.quantity_on_hand - stock_items.quantity_reserved - stock_items.quantity_unavailable) DESC"))
+           .first
     end
 
     def manual_stock_guard?(variant)
       @order.source != "shopify" && variant&.inventory_policy.to_s != "continue"
+    end
+
+    def shopify_locked_variant?(variant)
+      variant&.shopify_origin? || variant&.product&.shopify_origin?
     end
 
     def cancelled_quantity(line_item)

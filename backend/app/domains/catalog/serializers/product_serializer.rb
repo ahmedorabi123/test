@@ -7,7 +7,15 @@ class ProductSerializer
     all_stock_items = product.variants.flat_map(&:stock_items)
     inventory_total = all_stock_items.sum(&:quantity_on_hand)
     variants_in_stock = product.variants.count { |v| v.stock_items.any? { |s| s.quantity_on_hand > 0 } }
-    collections = product.collections.map { |c| { id: c.id, title: c.title, handle: c.handle } }
+    collections = product.collections.map do |c|
+      {
+        id: c.id,
+        title: c.title,
+        handle: c.handle,
+        source: c.source,
+        read_only_origin: c.shopify_origin?
+      }
+    end
 
     {
       id:                      product.id,

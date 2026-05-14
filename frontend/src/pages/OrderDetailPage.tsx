@@ -7,8 +7,6 @@ import {
   type OrderTimelineEntry,
 } from "../api/orders";
 import ManualFulfillmentButton from "../components/shipping/ManualFulfillmentButton";
-import ManualRefundButton from "../components/refunds/ManualRefundButton";
-import { isOrderRefundable } from "../components/refunds/refundability";
 import DeliveryActions from "../components/shipments/DeliveryActions";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -154,9 +152,9 @@ export default function OrderDetailPage() {
   const legalFinancial: Record<string, string[]> = {
     pending: ["authorized", "paid", "voided"],
     authorized: ["paid", "voided"],
-    paid: ["partially_paid", "refunded"],
-    partially_paid: ["paid", "refunded"],
-    partially_refunded: ["refunded"],
+    paid: ["partially_paid"],
+    partially_paid: ["paid"],
+    partially_refunded: [],
     refunded: [],
     voided: [],
   };
@@ -167,7 +165,6 @@ export default function OrderDetailPage() {
     authorized: "Mark as authorized",
     paid: "Mark as paid",
     partially_paid: "Mark partially paid",
-    refunded: "Mark as refunded",
     voided: "Void payment",
   };
 
@@ -180,17 +177,10 @@ export default function OrderDetailPage() {
     order.source === "shopify" ||
     order.shopify_order_id,
   );
-  const allowedShopifyTransitionTargets = new Set([
-    "paid",
-    "fulfilled",
-    "cancelled",
-  ]);
-  const statusTargets = (legalStatus[order.status] ?? []).filter(
-    (next) => !isReadOnly || allowedShopifyTransitionTargets.has(next),
-  );
-  const financialTargets = (
-    legalFinancial[order.financial_status] ?? []
-  ).filter((next) => !isReadOnly || allowedShopifyTransitionTargets.has(next));
+  const statusTargets = isReadOnly ? [] : (legalStatus[order.status] ?? []);
+  const financialTargets = isReadOnly
+    ? []
+    : (legalFinancial[order.financial_status] ?? []);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -277,47 +267,15 @@ export default function OrderDetailPage() {
             New order
           </Link>
           {!isReadOnly && (
-            <>
-              <ManualFulfillmentButton order={order} onCreated={reloadOrder} />
-              <ManualRefundButton
-                order={{
-                  id: order.id,
-                  order_number: order.order_number,
-                  total_price: String(order.total_price ?? "0"),
-                  currency: order.currency,
-                  customer_name: order.customer_name ?? undefined,
-                  status: order.status,
-                  financial_status: order.financial_status,
-                  line_items: (order.line_items ?? []).map((li) => ({
-                    id: li.id,
-                    title: li.title,
-                    variant_title: li.variant_title ?? undefined,
-                    sku: li.sku ?? undefined,
-                    quantity: li.quantity,
-                    price: String(li.price ?? "0"),
-                  })),
-                }}
-                onCreated={reloadOrder}
-                triggerLabel="Issue refund"
-                triggerClassName="px-3 py-2 text-sm border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isReadOnly || !isOrderRefundable(order)}
-                disabledReason={
-                  isReadOnly
-                    ? "Order is managed by Shopify"
-                    : isOrderRefundable(order)
-                      ? undefined
-                      : "Order is not in a refundable state"
-                }
-              />
-            </>
+            <ManualFulfillmentButton order={order} onCreated={reloadOrder} />
           )}
         </div>
       </div>
 
       {isReadOnly && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          This order is managed by Shopify. Customer, item, fulfillment, and
-          refund details are read-only in the ERP.
+          This order is managed by Shopify. Customer, item, and fulfillment
+          details are read-only in the ERP.
         </div>
       )}
 
@@ -359,12 +317,6 @@ export default function OrderDetailPage() {
               <span>
                 {formatMoney(order.total_outstanding, order.currency)}
               </span>
-            </div>
-          )}
-          {Number(order.total_refunded ?? 0) > 0 && (
-            <div className="flex justify-between text-xs text-rose-700 pt-1">
-              <span>Refunded</span>
-              <span>{formatMoney(order.total_refunded, order.currency)}</span>
             </div>
           )}
           {order.payment_gateway_names &&
@@ -662,34 +614,6 @@ export default function OrderDetailPage() {
                     size="sm"
                   />
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Refunds */}
-      {(order.refunds ?? []).length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-200">
-            <h2 className="text-sm font-semibold text-slate-900">Refunds</h2>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {(order.refunds ?? []).map((r) => (
-              <div key={r.id} className="px-4 py-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600">
-                    {formatMoney(r.amount, order.currency)}
-                  </span>
-                  <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset bg-rose-50 text-rose-700 ring-rose-600/20">
-                    {r.partial ? "partial" : "full"} refund
-                  </span>
-                </div>
-                {r.reason && (
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    {r.reason}
-                  </div>
-                )}
               </div>
             ))}
           </div>

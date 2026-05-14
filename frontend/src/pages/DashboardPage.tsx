@@ -379,7 +379,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           label={`Revenue (${windowDays}d)`}
           value={summary ? fmtCurrency(summary.kpis.revenue, currency) : "—"}
@@ -408,17 +408,6 @@ export default function DashboardPage() {
           value={summary ? fmtNumber(summary.kpis.pending_shipments) : "—"}
           hint="pending + in transit"
           accent="from-emerald-500 to-teal-600"
-          loading={loading}
-        />
-        <KpiCard
-          label="Pending refunds"
-          value={summary ? fmtNumber(summary.kpis.pending_refunds) : "—"}
-          hint={
-            summary
-              ? fmtCurrency(summary.kpis.pending_refund_amount, currency)
-              : ""
-          }
-          accent="from-rose-500 to-red-600"
           loading={loading}
         />
         <KpiCard

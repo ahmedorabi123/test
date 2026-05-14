@@ -90,7 +90,7 @@ namespace :bootstrap do
 
     force  = ENV["FORCE_BACKFILL"].to_s.downcase == "true"
     client = ::Shopify::Client.new
-    totals = { products: 0, customers: 0, orders: 0, inventory: nil, refunds: 0, fulfillments: 0 }
+    totals = { products: 0, customers: 0, orders: 0, inventory: nil, fulfillments: 0 }
 
     # Returns the remote count from Shopify's lightweight /count.json endpoint.
     # Returns nil on error so the caller can fall back to "always pull".
@@ -160,7 +160,7 @@ namespace :bootstrap do
       GC.start
     end
 
-    # ── Orders (includes line items, fulfillments, refunds inside payload) ──
+    # ── Orders (includes line items and fulfillments inside payload) ──
     local_orders  = Order.where.not(shopify_order_id: nil).count
     remote_orders = remote_count.call("orders/count.json", params: { status: "any" })
     if needs_pull.call("Orders", local_orders, remote_orders)
@@ -170,23 +170,14 @@ namespace :bootstrap do
           Sales::Shopify::OrderUpserter.call(o, from: :rest)
           totals[:orders] += 1
 
-          # Fulfillments and refunds are nested in the order payload — replay them
-          # through their dedicated upserters so all derived state lands in the DB.
+          # Fulfillments are nested in the order payload — replay them through
+          # their dedicated upserter so derived state lands in the DB.
           Array(o["fulfillments"]).each do |f|
             begin
               Shipping::Shopify::FulfillmentUpserter.call(f.merge("order_id" => o["id"]))
               totals[:fulfillments] += 1
             rescue => e
               warn "[bootstrap] fulfillment #{f["id"]} failed: #{e.class}: #{e.message}"
-            end
-          end
-
-          Array(o["refunds"]).each do |r|
-            begin
-              Sales::Shopify::RefundUpserter.call(r)
-              totals[:refunds] += 1
-            rescue => e
-              warn "[bootstrap] refund #{r["id"]} failed: #{e.class}: #{e.message}"
             end
           end
 
@@ -199,7 +190,7 @@ namespace :bootstrap do
       GC.start
     end
 
-    # ── Cleanup demo fulfillments/refunds that were incorrectly seeded for
+    # ── Cleanup demo fulfillments that were incorrectly seeded for
     #    real Shopify orders. The seeds.rb used to create BST-DEMO-* records
     #    for ALL fulfilled orders, blocking the real Shopify data from being
     #    pulled. This one-time cleanup removes those stale records so the
@@ -215,21 +206,8 @@ namespace :bootstrap do
       log.call "Removed #{fake_fulfillment_ids.size} stale demo fulfillments from Shopify orders"
     end
 
-    fake_refund_ids = Refund
-      .joins(:order)
-      .where(note: "Returned via Estebdal")
-      .where(shopify_refund_id: nil)
-      .where.not(orders: { shopify_order_id: nil })
-      .pluck(:id)
-    if fake_refund_ids.any?
-      RefundLineItem.where(refund_id: fake_refund_ids).delete_all
-      Refund.where(id: fake_refund_ids).delete_all
-      log.call "Removed #{fake_refund_ids.size} stale demo refunds from Shopify orders"
-    end
-
     child_totals = Shopify::Reconcile::MissingChildren.call(client: client, force: force, log: log, warn_prefix: "[bootstrap]")
     totals[:fulfillments] += child_totals[:fulfillments]
-    totals[:refunds] += child_totals[:refunds]
 
     # ── Collections (custom + smart + collects memberships) ──
     local_collections  = Collection.where.not(shopify_collection_id: nil).count
@@ -301,7 +279,7 @@ namespace :bootstrap do
     Rake::Task["bootstrap:catchup"].invoke
     ShopifySyncState.save(sync_started_at)
 
-    # ── Accounting backfill: post journals for orders/refunds/fulfillments missing them ──
+    # ── Accounting backfill: post journals for orders/fulfillments missing them ──
     # Idempotent — each handler checks its own idempotency key. Only triggers on first
     # run (when no sale journals exist) to avoid per-order DB probes on every restart.
     if JournalEntry.none? && Order.where(financial_status: %w[paid partially_refunded refunded]).exists?
@@ -352,7 +330,7 @@ namespace :bootstrap do
     log.call "Fetching records updated since #{since} ..."
 
     client  = ::Shopify::Client.new
-    totals  = { products: 0, customers: 0, orders: 0, fulfillments: 0, refunds: 0, inventory: nil }
+    totals  = { products: 0, customers: 0, orders: 0, fulfillments: 0, inventory: nil }
     sync_started_at = Time.current
 
     # ── Updated products ──
@@ -385,7 +363,7 @@ namespace :bootstrap do
     end
     GC.start
 
-    # ── Updated orders (+ nested fulfillments/refunds) ──
+    # ── Updated orders (+ nested fulfillments) ──
     begin
       client.paginated_each("orders.json", key: "orders",
                             params: { updated_at_min: since, status: "any", limit: 250 }) do |o|
@@ -399,18 +377,11 @@ namespace :bootstrap do
           warn "[catchup] fulfillment #{f["id"]} failed: #{e.class}: #{e.message}"
         end
 
-        Array(o["refunds"]).each do |r|
-          Sales::Shopify::RefundUpserter.call(r)
-          totals[:refunds] += 1
-        rescue => e
-          warn "[catchup] refund #{r["id"]} failed: #{e.class}: #{e.message}"
-        end
-
         GC.start if (totals[:orders] % 100).zero?
       rescue => e
         warn "[catchup] order #{o["id"]} failed: #{e.class}: #{e.message}"
       end
-      log.call "  orders: #{totals[:orders]} updated, #{totals[:fulfillments]} fulfillments, #{totals[:refunds]} refunds"
+      log.call "  orders: #{totals[:orders]} updated, #{totals[:fulfillments]} fulfillments"
     rescue => e
       warn "[catchup] orders fetch failed: #{e.class}: #{e.message}"
     end
@@ -418,7 +389,6 @@ namespace :bootstrap do
 
     child_totals = Shopify::Reconcile::MissingChildren.call(client: client, force: false, log: log, warn_prefix: "[catchup]")
     totals[:fulfillments] += child_totals[:fulfillments]
-    totals[:refunds] += child_totals[:refunds]
     GC.start
 
     if ShopifySyncState.inventory_due?
@@ -489,11 +459,11 @@ namespace :bootstrap do
 
   # ────────────────────────────────────────────────────────────────────────────
   # bootstrap:backfill_accounting
-  # Idempotent: posts sale / refund / COGS journal entries for every existing
-  # order, refund, and fulfillment that is still missing one.
+  # Idempotent: posts sale / COGS journal entries for every existing
+  # order and fulfillment that is still missing one.
   # Safe to run multiple times — each handler checks its own idempotency key.
   # ────────────────────────────────────────────────────────────────────────────
-  desc "Backfill accounting journal entries for all orders, refunds, and fulfillments."
+  desc "Backfill accounting journal entries for all orders and fulfillments."
   task backfill_accounting: :environment do
     log = ->(msg) { puts "[backfill_accounting] #{msg}" }
 
@@ -515,45 +485,7 @@ namespace :bootstrap do
     end
     log.call "  sale journals: #{posted_s} posted, #{skipped_s} skipped (zero-amount), #{errors_s} errors"
 
-    # ── 2. Refund reversal journals for fully-refunded orders ─────────────────
-    # Must run AFTER step 1 so the sale journal already exists to be reversed.
-    rev_scope = Order.where(financial_status: "refunded")
-    rev_total = rev_scope.count
-    log.call "Checking #{rev_total} refunded orders for missing reversal journals..."
-    posted_r = 0; skipped_r = 0; errors_r = 0
-    rev_scope.find_each(batch_size: 200) do |order|
-      next if JournalEntry.exists?(idempotency_key: "refund-reversal-#{order.id}")
-      begin
-        result = Accounting::RefundReversalHandler.call(order)
-        result ? (posted_r += 1) : (skipped_r += 1)
-      rescue => e
-        errors_r += 1
-        Rails.logger.warn "[backfill_accounting] reversal #{order.id}: #{e.message}"
-      end
-    end
-    log.call "  reversal journals: #{posted_r} posted, #{skipped_r} skipped, #{errors_r} errors"
-
-    # ── 3. Partial refund journals for individual Refund records ──────────────
-    # Skip refunds whose order is fully refunded (handled by reversal above).
-    partial_scope = Refund.where("amount > 0")
-                          .joins(:order)
-                          .where.not(orders: { financial_status: "refunded" })
-    partial_total = partial_scope.count
-    log.call "Checking #{partial_total} partial refunds for missing journals..."
-    posted_p = 0; skipped_p = 0; errors_p = 0
-    partial_scope.find_each(batch_size: 200) do |refund|
-      next if JournalEntry.exists?(idempotency_key: "refund-partial-#{refund.id}")
-      begin
-        result = Accounting::PartialRefundJournalHandler.call(refund)
-        result ? (posted_p += 1) : (skipped_p += 1)
-      rescue => e
-        errors_p += 1
-        Rails.logger.warn "[backfill_accounting] partial-refund #{refund.id}: #{e.message}"
-      end
-    end
-    log.call "  partial refund journals: #{posted_p} posted, #{skipped_p} skipped, #{errors_p} errors"
-
-    # ── 4. COGS journals for successful fulfillments ───────────────────────────
+    # ── 2. COGS journals for successful fulfillments ───────────────────────────
     # Only posts when variants have cost_per_item configured (total > 0).
     cogs_scope = Fulfillment.where(status: "success")
     cogs_total = cogs_scope.count
@@ -571,7 +503,7 @@ namespace :bootstrap do
     end
     log.call "  COGS journals: #{posted_c} posted, #{skipped_c} skipped (no cost data), #{errors_c} errors"
 
-    total_new = posted_s + posted_r + posted_p + posted_c
+    total_new = posted_s + posted_c
     log.call "Accounting backfill done. #{total_new} new journal entries created."
   end
 

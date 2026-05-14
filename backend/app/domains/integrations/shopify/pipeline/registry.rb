@@ -21,7 +21,6 @@ module Shopify
         shopify_order_edited: :order,
         shopify_order_fulfilled: :order,
         shopify_order_partially_fulfilled: :order,
-        shopify_refund_created: :refund,
         shopify_fulfillment_created: :fulfillment,
         shopify_fulfillment_updated: :fulfillment,
         shopify_fulfillment_cancelled: :fulfillment,

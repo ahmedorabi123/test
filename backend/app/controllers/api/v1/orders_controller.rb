@@ -94,7 +94,7 @@ module Api
       # GET /api/v1/orders/:id/timeline
       # Returns a unified, chronologically-sorted activity feed for one order:
       # domain events on the Order aggregate, fulfillment lifecycle, shipment
-      # events, and refunds. Read-only and lightweight; no pagination yet.
+      # events. Read-only and lightweight; no pagination yet.
       def timeline
         authorize @order, :show?
         render json: { data: build_timeline(@order) }
@@ -213,21 +213,6 @@ module Api
           end
         end
 
-        order.refunds.order(created_at: :asc).each do |r|
-          entries << {
-            kind:       "refund",
-            type:       "refund.#{r.status}",
-            occurred_at: r.processed_at || r.created_at,
-            payload: {
-              refund_id: r.id,
-              amount:    r.amount.to_s,
-              currency:  r.currency,
-              status:    r.status,
-              reason:    r.reason
-            }
-          }
-        end
-
         entries.sort_by { |e| e[:occurred_at] || Time.at(0) }
       end
 
@@ -246,7 +231,11 @@ module Api
         scope = scope.where(financial_status: params[:financial_status]) if params[:financial_status].present?
         scope = scope.where(source:           params[:source])           if params[:source].present?
         scope = scope.where(last_delivery_status: params[:delivery_status]) if params[:delivery_status].present?
-        scope = scope.where(location_id:     params[:warehouse_id])     if params[:warehouse_id].present?
+        if params[:warehouse_id].present?
+          scope = scope.joins(line_items: { stock_reservations: :stock_item })
+                       .where(stock_items: { warehouse_id: params[:warehouse_id] })
+                       .distinct
+        end
         scope = scope.where("placed_at >= ?", Time.zone.parse(params[:from])) if params[:from].present?
         scope = scope.where("placed_at <= ?", Time.zone.parse(params[:to]))   if params[:to].present?
         scope
@@ -272,6 +261,8 @@ module Api
       end
 
       def ensure_order_update_allowed!
+        return render_read_only_shopify_resource && false if @order.shopify_origin?
+
         disallowed_keys = requested_order_update_keys - %w[notes delivery_status]
         return true if disallowed_keys.empty?
 
@@ -281,9 +272,8 @@ module Api
 
       def ensure_order_transition_allowed!(target)
         return true unless @order.shopify_origin?
-        return true if %w[paid fulfilled cancelled].include?(target)
 
-        render_error(422, "read_only_shopify_resource", Shopify::Origin::READ_ONLY_MESSAGE)
+        render_read_only_shopify_resource
         false
       end
 

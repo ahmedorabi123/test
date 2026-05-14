@@ -46,6 +46,8 @@ export interface ProductCollectionSummary {
   id: string;
   title: string;
   handle: string;
+  source?: "manual" | "shopify";
+  read_only_origin?: boolean;
 }
 
 export interface ProductMetafield {
@@ -112,6 +114,7 @@ export interface Product {
   gift_card?: boolean;
   options?: ProductOption[];
   images?: ProductImage[];
+  uploaded_images?: UploadedImage[];
   collections?: ProductCollectionSummary[];
   collection_ids?: string[];
   primary_category?: string | null;

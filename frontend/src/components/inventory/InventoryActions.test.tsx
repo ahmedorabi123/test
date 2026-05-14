@@ -44,8 +44,19 @@ beforeEach(() => {
             sku: "SKU1",
             product_title: "Widget",
           },
+          {
+            id: "v-shopify",
+            title: "Default",
+            sku: "SHOP1",
+            product_title: "Shopify Widget",
+            shopify_variant_id: 123,
+            read_only_origin: true,
+            product_source: "shopify",
+            product_shopify_product_id: 456,
+            product_read_only_origin: true,
+          },
         ],
-        meta: { total: 1, page: 1, per_page: 100 },
+        meta: { total: 2, page: 1, per_page: 100 },
       }),
     ),
   );
@@ -111,6 +122,9 @@ describe("TransferStockButton", () => {
       if (!sel) throw new Error("variant select not ready");
       return sel;
     });
+    expect(
+      Array.from(variantSelect.options).map((option) => option.text).join("|"),
+    ).not.toContain("Shopify Widget");
     await userEvent.selectOptions(variantSelect, "v1");
     const qtyInput = within(dialog1).getByRole(
       "spinbutton",

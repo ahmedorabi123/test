@@ -77,8 +77,6 @@ module Shopify
            :shopify_order_cancelled, :shopify_order_edited,
            :shopify_order_fulfilled, :shopify_order_partially_fulfilled
         Sales::HandleShopifyOrderJob.perform_later(normalized[:data])
-      when :shopify_refund_created
-        Sales::HandleShopifyRefundJob.perform_later(normalized[:data])
       when :shopify_fulfillment_created, :shopify_fulfillment_updated,
            :shopify_fulfillment_cancelled
         Shipping::HandleShopifyFulfillmentJob.perform_later(normalized[:data])

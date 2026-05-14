@@ -7,6 +7,57 @@ import { renderWithProviders } from "../test/renderWithProviders";
 import ProductDetailPage from "./ProductDetailPage";
 
 describe("ProductDetailPage", () => {
+  it("renders uploaded local product images", async () => {
+    server.use(
+      http.get("*/api/v1/products/prod-uploaded", () =>
+        HttpResponse.json({
+          data: {
+            id: "prod-uploaded",
+            title: "Manual Tee",
+            handle: "manual-tee",
+            description: "",
+            status: "active",
+            vendor: "ACME",
+            product_type: "Apparel",
+            tags: [],
+            source: "manual",
+            shopify_product_id: null,
+            read_only_origin: false,
+            created_at: "2026-01-01T00:00:00Z",
+            updated_at: "2026-01-01T00:00:00Z",
+            variants_count: 0,
+            inventory_total: 0,
+            variants_in_stock_count: 0,
+            variants: [],
+            images: [],
+            uploaded_images: [
+              {
+                id: 1,
+                filename: "front.png",
+                url: "/rails/active_storage/blobs/front.png",
+              },
+            ],
+            collections: [],
+            collection_ids: [],
+            metafields: [],
+          },
+        }),
+      ),
+    );
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/products/:id" element={<ProductDetailPage />} />
+      </Routes>,
+      { route: "/products/prod-uploaded" },
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: /^media$/i }),
+    ).toBeInTheDocument();
+    expect(await screen.findByAltText("front.png")).toBeInTheDocument();
+  });
+
   it("renders Shopify-origin products as read-only", async () => {
     server.use(
       http.get("*/api/v1/products/prod-1", () =>

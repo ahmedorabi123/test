@@ -13,6 +13,11 @@ interface VariantOption {
   title: string;
   sku: string | null;
   product_title: string | null;
+  shopify_variant_id?: number | null;
+  read_only_origin?: boolean;
+  product_source?: "manual" | "shopify";
+  product_shopify_product_id?: number | null;
+  product_read_only_origin?: boolean;
 }
 
 interface VariantsResponse {
@@ -30,6 +35,24 @@ function variantLabel(variant: VariantOption) {
   return `${product} - ${variant.title}${sku}`;
 }
 
+function isWarehouseMutable(warehouse: Warehouse) {
+  return Boolean(
+    warehouse.active &&
+      !warehouse.read_only_origin &&
+      !warehouse.shopify_location_id,
+  );
+}
+
+function isVariantMutable(variant: VariantOption) {
+  return !(
+    variant.read_only_origin ||
+    variant.shopify_variant_id ||
+    variant.product_read_only_origin ||
+    variant.product_source === "shopify" ||
+    variant.product_shopify_product_id
+  );
+}
+
 async function fetchAllVariants() {
   const variants: VariantOption[] = [];
   let page = 1;
@@ -45,7 +68,7 @@ async function fetchAllVariants() {
     page += 1;
   } while (variants.length < total);
 
-  return variants;
+  return variants.filter(isVariantMutable);
 }
 
 interface TransferLine {
@@ -74,7 +97,7 @@ export function TransferStockButton({
 
   // Shopify-origin warehouses are read-only — exclude them from the source
   // and destination lists.
-  const eligible = warehouses.filter((w) => !w.read_only_origin && w.active);
+  const eligible = warehouses.filter(isWarehouseMutable);
   const noEligible = eligible.length < 2;
 
   useEffect(() => {
@@ -371,7 +394,9 @@ export function ShowroomReportButton({
     reversalId?: string;
   } | null>(null);
 
-  const showrooms = warehouses.filter((w) => w.kind === "consignment");
+  const showrooms = warehouses.filter(
+    (w) => w.kind === "consignment" && isWarehouseMutable(w),
+  );
   const noShowrooms = showrooms.length === 0;
 
   useEffect(() => {
@@ -386,7 +411,7 @@ export function ShowroomReportButton({
     e.preventDefault();
     setError("");
     // Quantities may be negative — those rows post an accounting-only sales
-    // reversal (no Refund, no inventory movement). Zero is rejected.
+    // reversal with no inventory movement. Zero is rejected.
     const valid = lines.filter(
       (l) =>
         l.variant_id &&

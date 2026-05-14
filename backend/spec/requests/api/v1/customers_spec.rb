@@ -165,7 +165,7 @@ RSpec.describe "Api::V1::Customers", type: :request do
             params: { customer: { first_name: "ERP" } },
             headers: auth_headers(admin)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:locked)
       expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
       expect(customer.reload.first_name).to eq("Shopify")
     end
@@ -210,7 +210,7 @@ RSpec.describe "Api::V1::Customers", type: :request do
            params: { ids: [customer.id], action_type: "add_tag", payload: { tag: "vip" } },
            headers: auth_headers(admin)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:locked)
       expect(customer.reload.tags).to be_empty
     end
   end

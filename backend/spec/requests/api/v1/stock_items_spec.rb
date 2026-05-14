@@ -123,6 +123,20 @@ RSpec.describe "Api::V1::StockItems", type: :request do
       expect(si.reload.quantity_on_hand).to eq(12)
       expect(si.low_stock_threshold).to eq(3)
     end
+
+    it "rejects creation for Shopify-origin variants and warehouses" do
+      variant = create(:variant, :from_shopify)
+      warehouse = create(:warehouse, shopify_location_id: 123456)
+
+      expect {
+        post "/api/v1/stock_items",
+             params: { variant_id: variant.id, warehouse_id: warehouse.id, quantity_on_hand: 20 },
+             headers: auth_headers(admin)
+      }.not_to change(StockItem, :count)
+
+      expect(response).to have_http_status(:locked)
+      expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
+    end
   end
 
   # ─── UPDATE ───────────────────────────────────────────────────────────────────
@@ -171,7 +185,7 @@ RSpec.describe "Api::V1::StockItems", type: :request do
               headers: auth_headers(admin)
       }.not_to change(StockMovement, :count)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:locked)
       expect(json_response.dig(:error, :type)).to eq("read_only_shopify_resource")
       expect(si.reload.quantity_on_hand).to eq(10)
     end
@@ -217,7 +231,7 @@ RSpec.describe "Api::V1::StockItems", type: :request do
            params: { ids: [si.id], action_type: "set_threshold", payload: { threshold: 10 } },
            headers: auth_headers(admin)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:locked)
       expect(si.reload.low_stock_threshold).to eq(5)
     end
   end

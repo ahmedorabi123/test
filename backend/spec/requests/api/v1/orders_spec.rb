@@ -157,11 +157,18 @@ RSpec.describe "Api::V1::Orders", type: :request do
   end
 
   describe "warehouse filter" do
-    it "filters by warehouse_id (Order#location_id)" do
+    it "filters by warehouse_id through stock reservations" do
       wh_a = create(:warehouse)
       wh_b = create(:warehouse)
-      o1 = create(:order, location_id: wh_a.id)
-      _o2 = create(:order, location_id: wh_b.id)
+      variant = create(:variant)
+      stock_a = create(:stock_item, warehouse: wh_a, variant: variant)
+      stock_b = create(:stock_item, warehouse: wh_b, variant: variant)
+      o1 = create(:order)
+      line_a = create(:order_line_item, order: o1, variant: variant)
+      o2 = create(:order)
+      line_b = create(:order_line_item, order: o2, variant: variant)
+      StockReservation.create!(order_line_item: line_a, stock_item: stock_a, quantity: 1, status: "active")
+      StockReservation.create!(order_line_item: line_b, stock_item: stock_b, quantity: 1, status: "active")
 
       get "/api/v1/orders", params: { warehouse_id: wh_a.id }, headers: auth_headers(admin)
       ids = json_response[:data].map { |r| r[:id] }

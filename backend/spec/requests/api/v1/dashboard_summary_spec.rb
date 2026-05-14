@@ -31,8 +31,9 @@ RSpec.describe "Api::V1::Dashboard summary", type: :request do
     body = json_response[:data]
     expect(body[:window_days]).to eq(30)
     expect(body[:kpis]).to include(:revenue, :orders_count, :ar_outstanding,
-                                   :pending_shipments, :pending_refunds,
-                                   :low_stock_count, :orders_pending)
+                                   :pending_shipments, :low_stock_count,
+                                   :orders_pending)
+    expect(body[:kpis]).not_to have_key(:pending_refunds)
     expect(body[:revenue_trend]).to be_an(Array)
     expect(body[:orders_by_status]).to be_a(Hash)
     expect(body[:delivery_breakdown]).to be_a(Hash)

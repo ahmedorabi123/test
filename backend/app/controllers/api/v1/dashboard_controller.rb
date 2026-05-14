@@ -35,7 +35,6 @@ module Api
       def kpis(since)
         non_cancelled = Order.where("placed_at >= ?", since).where.not(status: "cancelled")
         ar_balance = Account.find_by(code: "1100")&.balance || 0
-        pending_refunds = Refund.where(status: %w[draft approved])
 
         {
           revenue:             non_cancelled.sum(:total_price).to_f,
@@ -43,8 +42,6 @@ module Api
           ar_outstanding:      ar_balance.to_f,
           pending_shipments:   Fulfillment.where(delivery_status: %w[pending in_transit])
                                           .where("created_at >= ?", since).count,
-          pending_refunds:     pending_refunds.count,
-          pending_refund_amount: pending_refunds.sum(:amount).to_f,
           low_stock_count:     StockItem.low_stock.count,
           orders_pending:      Order.where(status: "pending").count
         }
@@ -144,17 +141,6 @@ module Api
             title: "Shipment #{f.tracking_company} #{f.tracking_number}",
             subtitle: "Order #{f.order&.order_number} · #{f.delivery_status || 'pending'}",
             link:  "/shipments/#{f.id}"
-          }
-        end
-        Refund.order(created_at: :desc).limit(5).each do |r|
-          items << {
-            kind: "refund",
-            at:   r.created_at,
-            title: "Refund #{r.kind || 'manual'}",
-            subtitle: "Order #{r.order&.order_number} · #{r.status}",
-            amount: r.amount.to_f,
-            currency: r.currency,
-            link:  "/refunds/#{r.id}"
           }
         end
         items.sort_by { |i| i[:at] || Time.at(0) }.reverse.first(10)

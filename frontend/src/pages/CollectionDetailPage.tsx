@@ -31,6 +31,14 @@ function toDraft(c: Collection): Draft {
   };
 }
 
+function canAddProductToManualCollection(product: Product) {
+  return !(
+    product.read_only_origin ||
+    product.source === "shopify" ||
+    product.shopify_product_id
+  );
+}
+
 export default function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -121,7 +129,11 @@ export default function CollectionDetailPage() {
       const existingIds = new Set(
         (collection?.products ?? []).map((p: CollectionProduct) => p.id),
       );
-      setProductResults(res.data.filter((p) => !existingIds.has(p.id)));
+      setProductResults(
+        res.data.filter(
+          (p) => !existingIds.has(p.id) && canAddProductToManualCollection(p),
+        ),
+      );
     } finally {
       setSearchLoading(false);
     }
@@ -129,6 +141,10 @@ export default function CollectionDetailPage() {
 
   const handleAddProduct = async (product: Product) => {
     if (!collection) return;
+    if (!canAddProductToManualCollection(product)) {
+      setError("Shopify-managed products cannot be added manually.");
+      return;
+    }
     try {
       const updated = await collectionsApi.addProduct(
         collection.id,

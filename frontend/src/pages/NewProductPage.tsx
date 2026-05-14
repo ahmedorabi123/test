@@ -149,11 +149,16 @@ export default function NewProductPage() {
       sort: "title",
       dir: "asc",
     });
-    return rows.data.map((collection) => ({
-      value: collection.id,
-      label: collection.title,
-      description: collection.handle ? `/${collection.handle}` : undefined,
-    }));
+    return rows.data
+      .filter(
+        (collection) =>
+          collection.source !== "shopify" && !collection.read_only_origin,
+      )
+      .map((collection) => ({
+        value: collection.id,
+        label: collection.title,
+        description: collection.handle ? `/${collection.handle}` : undefined,
+      }));
   }, []);
 
   const resolvedHandle = useMemo(

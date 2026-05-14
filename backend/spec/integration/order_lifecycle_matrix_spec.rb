@@ -10,7 +10,7 @@ require "rails_helper"
 #   • CRM       (Customer.orders_count, Customer.lifetime_value)
 #   • Audit     (AuditLog rows for transitions)
 RSpec.describe "Order lifecycle cross-module matrix", type: :model do
-  let!(:warehouse)  { create(:warehouse, code: "WH-MAIN", shopify_location_id: 9001, active: true) }
+  let!(:warehouse)  { create(:warehouse, code: "WH-MAIN", active: true) }
   let!(:product)    { create(:product) }
   let!(:variant)    { create(:variant, product: product, sku: "MTRX-1", price: "10.00") }
   let!(:stock_item) { create(:stock_item, variant: variant, warehouse: warehouse, quantity_on_hand: 20) }

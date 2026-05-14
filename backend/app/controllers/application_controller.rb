@@ -50,7 +50,7 @@ class ApplicationController < ActionController::API
   end
 
   def render_read_only_shopify_resource
-    render_error(403, "read_only_shopify_resource", Shopify::Origin::READ_ONLY_MESSAGE)
+    render_error(423, "read_only_shopify_resource", Shopify::Origin::READ_ONLY_MESSAGE)
   end
 
   def render_error(status, type, detail, code: nil)

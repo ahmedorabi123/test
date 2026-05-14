@@ -13,7 +13,7 @@ module Inventory
   #
   # Shopify-origin enforcement: either warehouse being Shopify-origin, or any
   # line resolving to a Shopify-origin StockItem on either side, raises
-  # +ReadOnlyOrigin+ and the controller surfaces 403
+  # +ReadOnlyOrigin+ and the controller surfaces 423
   # `read_only_shopify_resource`.
   class PostStockTransfer
     class InsufficientStock < StandardError
