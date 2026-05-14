@@ -75,13 +75,22 @@ function App() {
             <Route path="/refunds/:id" element={<RefundDetailPage />} />
             <Route path="/purchases" element={<PurchasesPage />} />
             <Route path="/purchases/new" element={<NewPurchaseOrderPage />} />
-            <Route path="/purchases/:id" element={<PurchaseOrderDetailPage />} />
+            <Route
+              path="/purchases/:id"
+              element={<PurchaseOrderDetailPage />}
+            />
             <Route path="/suppliers" element={<SuppliersPage />} />
             <Route path="/suppliers/new" element={<NewSupplierPage />} />
             <Route path="/suppliers/:id" element={<SupplierDetailPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/inventory/transfers" element={<StockTransfersPage />} />
-            <Route path="/inventory/transfers/:id" element={<StockTransferDetailPage />} />
+            <Route
+              path="/inventory/transfers"
+              element={<StockTransfersPage />}
+            />
+            <Route
+              path="/inventory/transfers/:id"
+              element={<StockTransferDetailPage />}
+            />
             <Route path="/warehouses" element={<WarehousesPage />} />
             <Route path="/accounting" element={<AccountingPage />} />
             <Route path="/production" element={<ProductionPage />} />

@@ -111,15 +111,13 @@ export default function PurchaseOrderDetailPage() {
       )}
 
       <div className="bg-white rounded shadow overflow-x-auto mb-4">
-        <table className="min-w-[760px] text-sm">
+        <table className="min-w-[640px] text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>
               <th className="px-3 py-2">Item</th>
               <th className="px-3 py-2 text-right">Ordered</th>
               <th className="px-3 py-2 text-right">Received</th>
               <th className="px-3 py-2 text-right">Remaining</th>
-              <th className="px-3 py-2 text-right">Unit cost</th>
-              <th className="px-3 py-2 text-right">Subtotal</th>
               {canReceive && (
                 <th className="px-3 py-2 text-right">Receive now</th>
               )}
@@ -132,12 +130,6 @@ export default function PurchaseOrderDetailPage() {
                 <td className="px-3 py-2 text-right">{li.quantity_ordered}</td>
                 <td className="px-3 py-2 text-right">{li.quantity_received}</td>
                 <td className="px-3 py-2 text-right">{li.remaining}</td>
-                <td className="px-3 py-2 text-right">
-                  {Number(li.unit_cost).toFixed(2)}
-                </td>
-                <td className="px-3 py-2 text-right">
-                  {Number(li.subtotal).toFixed(2)}
-                </td>
                 {canReceive && (
                   <td className="px-3 py-2 text-right">
                     <input
@@ -161,17 +153,6 @@ export default function PurchaseOrderDetailPage() {
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr className="border-t bg-gray-50">
-              <td colSpan={5} className="px-3 py-2 text-right font-medium">
-                Total
-              </td>
-              <td className="px-3 py-2 text-right font-semibold">
-                {po.currency} {Number(po.total).toFixed(2)}
-              </td>
-              {canReceive && <td />}
-            </tr>
-          </tfoot>
         </table>
       </div>
 

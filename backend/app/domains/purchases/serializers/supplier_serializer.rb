@@ -6,6 +6,7 @@ module Purchases
           id:            s.id,
           supplier_code: s.respond_to?(:supplier_code) ? s.supplier_code : nil,
           name:          s.name,
+          kind:          s.respond_to?(:kind) ? s.kind : nil,
           email:         s.email,
           phone:         s.phone,
           currency:      s.currency,

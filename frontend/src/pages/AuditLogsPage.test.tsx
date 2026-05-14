@@ -95,4 +95,31 @@ describe("AuditLogsPage", () => {
       expect(lastUrl).toMatch(/action_type=order\.create/);
     });
   });
+
+  it("sends q, actor_email and date filters", async () => {
+    let lastUrl = "";
+    server.use(
+      http.get("*/api/v1/audit_logs", ({ request }) => {
+        lastUrl = request.url;
+        return HttpResponse.json({
+          data: [],
+          meta: { page: 1, per_page: 50, total: 0 },
+        });
+      }),
+    );
+
+    renderWithProviders(<AuditLogsPage />, { route: "/audit-logs" });
+    await userEvent.type(screen.getByTestId("audit-q"), "supplier");
+    await userEvent.type(screen.getByTestId("audit-actor-email"), "ADMIN@ERP.LOCAL");
+    await userEvent.type(screen.getByTestId("audit-from-date"), "2026-05-01");
+    await userEvent.type(screen.getByTestId("audit-to-date"), "2026-05-31");
+
+    await waitFor(() => {
+      const params = new URL(lastUrl).searchParams;
+      expect(params.get("q")).toBe("supplier");
+      expect(params.get("actor_email")).toBe("ADMIN@ERP.LOCAL");
+      expect(params.get("from_date")).toBe("2026-05-01");
+      expect(params.get("to_date")).toBe("2026-05-31");
+    });
+  });
 });

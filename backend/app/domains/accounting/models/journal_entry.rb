@@ -28,7 +28,8 @@ class JournalEntry < ApplicationRecord
           side:        la.fetch(:side),
           amount:      la.fetch(:amount).to_d,
           currency:    la[:currency] || entry.currency,
-          description: la[:description]
+          description: la[:description],
+          supplier_id: la[:supplier_id]
         )
       end
       entry.save!

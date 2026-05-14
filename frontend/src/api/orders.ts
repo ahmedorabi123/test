@@ -126,6 +126,7 @@ export interface OrderListParams {
   financial_status?: FinancialStatus | "";
   source?: string;
   delivery_status?: string;
+  warehouse_id?: string;
   from?: string;
   to?: string;
   sort?: string;

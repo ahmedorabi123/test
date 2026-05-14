@@ -188,9 +188,9 @@ export default function OrderDetailPage() {
   const statusTargets = (legalStatus[order.status] ?? []).filter(
     (next) => !isReadOnly || allowedShopifyTransitionTargets.has(next),
   );
-  const financialTargets = (legalFinancial[order.financial_status] ?? []).filter(
-    (next) => !isReadOnly || allowedShopifyTransitionTargets.has(next),
-  );
+  const financialTargets = (
+    legalFinancial[order.financial_status] ?? []
+  ).filter((next) => !isReadOnly || allowedShopifyTransitionTargets.has(next));
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -316,7 +316,8 @@ export default function OrderDetailPage() {
 
       {isReadOnly && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          This order is managed by Shopify. Customer, item, fulfillment, and refund details are read-only in the ERP.
+          This order is managed by Shopify. Customer, item, fulfillment, and
+          refund details are read-only in the ERP.
         </div>
       )}
 

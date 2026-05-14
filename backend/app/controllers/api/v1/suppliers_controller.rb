@@ -38,6 +38,9 @@ module Api
         authorize Supplier
         s = Supplier.new(supplier_params)
         if s.save
+          AuditLog.record(user: current_user, action: "supplier.created",
+                          subject: s, request: request,
+                          diff: { kind: s.kind, name: s.name, status: s.status })
           render json: { data: SupplierSerializer.call(s) }, status: :created
         else
           render_error(422, "unprocessable_entity", s.errors.full_messages.join(", "))
@@ -46,7 +49,11 @@ module Api
 
       def update
         authorize @supplier
+        before = @supplier.attributes.slice("name", "status", "kind", "email", "phone")
         if @supplier.update(supplier_params)
+          AuditLog.record(user: current_user, action: "supplier.updated",
+                          subject: @supplier, request: request,
+                          diff: { before: before, after: @supplier.attributes.slice("name", "status", "kind", "email", "phone") })
           render json: { data: SupplierSerializer.call(@supplier) }
         else
           render_error(422, "unprocessable_entity", @supplier.errors.full_messages.join(", "))
@@ -56,6 +63,8 @@ module Api
       def destroy
         authorize @supplier
         @supplier.update!(status: "inactive")
+        AuditLog.record(user: current_user, action: "supplier.deactivated",
+                        subject: @supplier, request: request)
         head :no_content
       end
 
@@ -84,6 +93,7 @@ module Api
       def filtered_scope
         scope = policy_scope(Supplier)
         scope = scope.where(status: params[:status]) if params[:status].present?
+        scope = scope.where(kind:   params[:kind])   if params[:kind].present?
         if params[:search].present?
           q = "%#{params[:search]}%"
           scope = scope.where(
@@ -100,7 +110,7 @@ module Api
 
       def supplier_params
         params.require(:supplier).permit(:supplier_code, :name, :email, :phone, :tax_id, :currency, :status,
-                                         :lead_time_days, :notes,
+                                         :lead_time_days, :notes, :kind,
                                          address: {}, payment_terms: {})
       end
 

@@ -16,7 +16,10 @@ export default function StockTransfersPage() {
   const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    warehousesApi.list().then(setWarehouses).catch(() => undefined);
+    warehousesApi
+      .list()
+      .then(setWarehouses)
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -97,13 +100,19 @@ export default function StockTransfersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-slate-500">
+                <td
+                  colSpan={8}
+                  className="px-3 py-4 text-center text-slate-500"
+                >
                   Loading…
                 </td>
               </tr>
             ) : transfers.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-slate-500">
+                <td
+                  colSpan={8}
+                  className="px-3 py-4 text-center text-slate-500"
+                >
                   No stock transfers yet.
                 </td>
               </tr>

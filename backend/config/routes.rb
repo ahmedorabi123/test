@@ -168,7 +168,6 @@ Rails.application.routes.draw do
         get  "pnl",                        to: "accounting#pnl"
         get  "balance_sheet",              to: "accounting#balance_sheet"
         post "post_order/:order_id",       to: "accounting#post_order"
-        post "payroll_entries",            to: "accounting#payroll_entries"
       end
 
       # Ping (used for RBAC smoke tests)

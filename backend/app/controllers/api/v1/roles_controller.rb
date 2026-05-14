@@ -24,6 +24,9 @@ module Api
           permission_keys: Array(params.dig(:role, :permissions))
         )
         if result.success?
+          AuditLog.record(user: current_user, action: "role.created",
+                          subject: result.role, request: request,
+                          diff: { name: result.role.name, permissions: Array(params.dig(:role, :permissions)) })
           render json: { data: role_json(result.role) }, status: :created
         else
           render json: { error: result.error }, status: :unprocessable_entity
@@ -32,6 +35,7 @@ module Api
 
       def update
         authorize @role
+        before_perms = @role.permissions.map { |p| "#{p.resource}:#{p.action}" }
         result = Iam::UpdateRole.call(
           role:            @role,
           name:            params.dig(:role, :name),
@@ -39,6 +43,10 @@ module Api
           permission_keys: params[:role]&.key?(:permissions) ? Array(params.dig(:role, :permissions)) : nil
         )
         if result.success?
+          AuditLog.record(user: current_user, action: "role.updated",
+                          subject: result.role, request: request,
+                          diff: { before_permissions: before_perms,
+                                  after_permissions: result.role.permissions.reload.map { |p| "#{p.resource}:#{p.action}" } })
           render json: { data: role_json(result.role) }
         else
           render json: { error: result.error }, status: :unprocessable_entity
@@ -54,6 +62,9 @@ module Api
           return render json: { error: "Cannot delete a role that is assigned to users" }, status: :unprocessable_entity
         end
 
+        AuditLog.record(user: current_user, action: "role.deleted",
+                        subject: @role, request: request,
+                        diff: { name: @role.name })
         @role.destroy!
         render json: { message: "Role deleted" }
       end

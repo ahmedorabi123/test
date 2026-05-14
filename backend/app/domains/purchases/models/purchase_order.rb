@@ -13,6 +13,7 @@ class PurchaseOrder < ApplicationRecord
   validates :po_number, presence: true, uniqueness: { case_sensitive: false }
   validates :status, inclusion: { in: STATUSES }
   validates :currency, presence: true, length: { is: 3 }
+  validate :supplier_must_be_factory
 
   before_validation :assign_po_number, on: :create
 
@@ -33,5 +34,13 @@ class PurchaseOrder < ApplicationRecord
     return if po_number.present?
     ts = Time.current.strftime("%Y%m")
     self.po_number = "PO-#{ts}-#{SecureRandom.hex(3).upcase}"
+  end
+
+  # Phase 1: purchase orders are restricted to factory suppliers. Material
+  # suppliers (fabrics, etc.) are entered manually through accounting only.
+  def supplier_must_be_factory
+    return if supplier.nil?
+    return if supplier.kind == "factory"
+    errors.add(:supplier, "must be a factory supplier (got '#{supplier.kind}')")
   end
 end

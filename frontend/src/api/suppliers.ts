@@ -12,6 +12,7 @@ export interface Supplier {
   id: string;
   supplier_code?: string | null;
   name: string;
+  kind?: "factory" | "material";
   email: string | null;
   phone: string | null;
   currency: string;
@@ -33,6 +34,7 @@ export const suppliersApi = {
       per_page?: number;
       search?: string;
       status?: string;
+      kind?: "factory" | "material";
       sort?: string;
       dir?: "asc" | "desc";
     } = {},

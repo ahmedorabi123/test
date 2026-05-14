@@ -7,6 +7,7 @@ import {
   type Pnl,
   type BalanceSheet,
 } from "../api/accounting";
+import { suppliersApi, type Supplier } from "../api/suppliers";
 import { MobileRowCard } from "../components/table/MobileRowCard";
 import { PageContainer } from "../components/ui/PageContainer";
 import { Tabs } from "../components/ui/Tabs";
@@ -1071,157 +1072,6 @@ function BalanceSheetTab() {
   );
 }
 
-// ── Salaries tab ──────────────────────────────────────────────────────────────
-
-function SalariesTab() {
-  const today = new Date();
-  const defaultPeriod = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const [period, setPeriod] = useState(defaultPeriod);
-  const [totalAmount, setTotalAmount] = useState("");
-  const [creditAccount, setCreditAccount] = useState("1000");
-  const [currency, setCurrency] = useState("USD");
-  const [description, setDescription] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<{
-    type: "ok" | "err";
-    text: string;
-  } | null>(null);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage(null);
-    if (!period.match(/^\d{4}-\d{2}$/)) {
-      setMessage({ type: "err", text: "Period must be YYYY-MM" });
-      return;
-    }
-    if (!totalAmount || Number(totalAmount) <= 0) {
-      setMessage({ type: "err", text: "Total amount must be greater than 0" });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await accountingApi.postPayroll({
-        period,
-        total_amount: totalAmount,
-        credit_account_code: creditAccount,
-        currency,
-        description: description || undefined,
-      });
-      setMessage({
-        type: "ok",
-        text: `Posted journal entry #${res.data.id.slice(0, 8)} for ${currency} ${totalAmount}`,
-      });
-      setTotalAmount("");
-      setDescription("");
-    } catch (err) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data
-          ?.error || "Failed to post payroll entry";
-      setMessage({ type: "err", text: msg });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="w-full max-w-2xl rounded bg-white p-4 shadow sm:p-6">
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-slate-800">
-          Post monthly salaries
-        </h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Records a single balanced journal entry:{" "}
-          <strong>DR 6000 Payroll Expense</strong> /<strong> CR</strong> the
-          selected cash or liability account for the full month total.
-        </p>
-      </div>
-
-      <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="text-sm">
-            <span className="block text-slate-600 mb-1">Month</span>
-            <input
-              type="month"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-              required
-            />
-          </label>
-          <label className="text-sm">
-            <span className="block text-slate-600 mb-1">Total amount</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={totalAmount}
-              onChange={(e) => setTotalAmount(e.target.value)}
-              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-              placeholder="0.00"
-              required
-            />
-          </label>
-          <label className="text-sm">
-            <span className="block text-slate-600 mb-1">Credit account</span>
-            <select
-              value={creditAccount}
-              onChange={(e) => setCreditAccount(e.target.value)}
-              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-            >
-              <option value="1000">1000 — Cash</option>
-              <option value="2000">2000 — Accounts Payable</option>
-              <option value="2100">2100 — Accrued Liabilities</option>
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="block text-slate-600 mb-1">Currency</span>
-            <input
-              type="text"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-              maxLength={3}
-              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 uppercase"
-            />
-          </label>
-        </div>
-
-        <label className="block text-sm">
-          <span className="block text-slate-600 mb-1">
-            Description (optional)
-          </span>
-          <input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Salaries — January 2025"
-            className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-          />
-        </label>
-
-        {message && (
-          <div
-            className={`text-sm p-2 rounded ${
-              message.type === "ok"
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-red-50 text-red-700"
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="min-h-11 rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-slate-400"
-        >
-          {submitting ? "Posting…" : "Post salaries"}
-        </button>
-      </form>
-    </div>
-  );
-}
-
 // ── Manual entry tab ──────────────────────────────────────────────────────────
 
 interface ManualLine {
@@ -1229,27 +1079,53 @@ interface ManualLine {
   side: "debit" | "credit";
   amount: string;
   description: string;
+  supplier_id: string;
 }
 
 function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountQuery, setAccountQuery] = useState("");
+  const [materialSuppliers, setMaterialSuppliers] = useState<Supplier[]>([]);
   const [entryDate, setEntryDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
   const [description, setDescription] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("EGP");
   const [lines, setLines] = useState<ManualLine[]>([
-    { account_code: "", side: "debit", amount: "", description: "" },
-    { account_code: "", side: "credit", amount: "", description: "" },
+    {
+      account_code: "",
+      side: "debit",
+      amount: "",
+      description: "",
+      supplier_id: "",
+    },
+    {
+      account_code: "",
+      side: "credit",
+      amount: "",
+      description: "",
+      supplier_id: "",
+    },
   ]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Debounced search across the chart of accounts.
   useEffect(() => {
-    accountingApi
-      .accounts()
-      .then((r) => setAccounts(r.data))
+    const t = setTimeout(() => {
+      accountingApi
+        .accounts(accountQuery ? { q: accountQuery } : undefined)
+        .then((r) => setAccounts(r.data))
+        .catch(() => undefined);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [accountQuery]);
+
+  useEffect(() => {
+    suppliersApi
+      .list({ per_page: 200, kind: "material" })
+      .then((r) => setMaterialSuppliers(r.data))
       .catch(() => undefined);
   }, []);
 
@@ -1286,13 +1162,26 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
           side: l.side,
           amount: Number(l.amount).toFixed(2),
           description: l.description || undefined,
+          supplier_id: l.supplier_id || undefined,
         })),
       });
       setSuccess("Posted ✔");
       setDescription("");
       setLines([
-        { account_code: "", side: "debit", amount: "", description: "" },
-        { account_code: "", side: "credit", amount: "", description: "" },
+        {
+          account_code: "",
+          side: "debit",
+          amount: "",
+          description: "",
+          supplier_id: "",
+        },
+        {
+          account_code: "",
+          side: "credit",
+          amount: "",
+          description: "",
+          supplier_id: "",
+        },
       ]);
       setTimeout(() => {
         onPosted();
@@ -1350,13 +1239,25 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
         </label>
 
         <div className="rounded border border-slate-200">
+          <div className="px-2 py-2 border-b border-slate-200 bg-slate-50">
+            <input
+              type="search"
+              value={accountQuery}
+              onChange={(e) => setAccountQuery(e.target.value)}
+              placeholder="Filter accounts by code or name…"
+              className="w-full max-w-xs rounded border border-slate-300 px-2 py-1 text-sm"
+            />
+          </div>
           <div className="overflow-x-auto">
-            <table className="min-w-[760px] text-sm">
+            <table className="min-w-[820px] text-sm">
               <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
                 <tr>
                   <th className="px-2 py-2 text-left">Account</th>
                   <th className="px-2 py-2 text-left w-24">Side</th>
                   <th className="px-2 py-2 text-right w-32">Amount</th>
+                  <th className="px-2 py-2 text-left w-48">
+                    Supplier (material)
+                  </th>
                   <th className="px-2 py-2 text-left">Memo</th>
                   <th className="w-8"></th>
                 </tr>
@@ -1422,6 +1323,29 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
                         }
                         className="w-full border border-slate-200 rounded px-2 py-1 text-right"
                       />
+                    </td>
+                    <td className="px-2 py-1">
+                      <select
+                        value={l.supplier_id}
+                        onChange={(e) =>
+                          setLines((arr) =>
+                            arr.map((x, i) =>
+                              i === idx
+                                ? { ...x, supplier_id: e.target.value }
+                                : x,
+                            ),
+                          )
+                        }
+                        className="w-full border border-slate-200 rounded px-2 py-1"
+                      >
+                        <option value="">—</option>
+                        {materialSuppliers.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.supplier_code ? `${s.supplier_code} - ` : ""}
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-2 py-1">
                       <input
@@ -1495,6 +1419,7 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
                   side: "debit",
                   amount: "",
                   description: "",
+                  supplier_id: "",
                 },
               ])
             }
@@ -1537,8 +1462,7 @@ type Tab =
   | "coa"
   | "trial_balance"
   | "pnl"
-  | "balance_sheet"
-  | "salaries";
+  | "balance_sheet";
 
 export default function AccountingPage() {
   const [tab, setTab] = useState<Tab>("journal");
@@ -1546,7 +1470,6 @@ export default function AccountingPage() {
   const tabs: { id: Tab; label: string }[] = [
     { id: "journal", label: "Journal Entries" },
     { id: "manual_entry", label: "+ Manual Entry" },
-    { id: "salaries", label: "Salaries" },
     { id: "coa", label: "Chart of Accounts" },
     { id: "trial_balance", label: "Trial Balance" },
     { id: "pnl", label: "P & L" },
@@ -1569,7 +1492,6 @@ export default function AccountingPage() {
       {tab === "manual_entry" && (
         <ManualEntryTab onPosted={() => setTab("journal")} />
       )}
-      {tab === "salaries" && <SalariesTab />}
       {tab === "coa" && <AccountsTab />}
       {tab === "trial_balance" && <TrialBalanceTab />}
       {tab === "pnl" && <PnlTab />}

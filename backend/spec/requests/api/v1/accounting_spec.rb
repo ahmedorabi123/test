@@ -183,4 +183,60 @@ RSpec.describe "Api::V1::Accounting", type: :request do
       expect(response).to have_http_status(:ok)
     end
   end
+
+  describe "accounts search (q)" do
+    before do
+      create(:account, code: "1200", name: "Inventory",         account_type: "asset",     normal_side: "debit")
+      create(:account, code: "6000", name: "Salaries Expense",  account_type: "expense",   normal_side: "debit")
+      create(:account, code: "2000", name: "Accounts Payable",  account_type: "liability", normal_side: "credit")
+    end
+
+    it "matches by code prefix" do
+      get "/api/v1/accounting/accounts", params: { q: "12" }, headers: auth_headers(admin)
+      codes = json_response[:data].map { |a| a[:code] }
+      expect(codes).to include("1200")
+      expect(codes).not_to include("6000")
+    end
+
+    it "matches by name substring (case-insensitive)" do
+      get "/api/v1/accounting/accounts", params: { q: "PAYABLE" }, headers: auth_headers(admin)
+      codes = json_response[:data].map { |a| a[:code] }
+      expect(codes).to include("2000")
+      expect(codes).not_to include("1200", "6000")
+    end
+  end
+
+  describe "POST /journal_entries with supplier_id" do
+    it "links material-supplier lines to the supplier" do
+      create(:account, code: "1500", name: "Materials",        account_type: "asset",     normal_side: "debit")
+      create(:account, code: "2100", name: "Materials Payable", account_type: "liability", normal_side: "credit")
+      supplier = create(:supplier, kind: "material")
+
+      post "/api/v1/accounting/journal_entries",
+        params: {
+          entry_date: Date.current.iso8601,
+          description: "Fabric purchase",
+          currency: "EGP",
+          lines: [
+            { account_code: "1500", side: "debit",  amount: "100.00", supplier_id: supplier.id, description: "Cotton 10m" },
+            { account_code: "2100", side: "credit", amount: "100.00", supplier_id: supplier.id, description: "AP - fabric" }
+          ]
+        }.to_json,
+        headers: auth_headers(admin).merge("Content-Type" => "application/json")
+
+      expect(response).to have_http_status(:created)
+      lines = json_response[:data][:lines]
+      expect(lines.map { |l| l[:supplier_id] }.uniq).to eq([ supplier.id ])
+      expect(lines.first[:supplier_name]).to eq(supplier.name)
+    end
+  end
+
+  describe "payroll_entries route is removed" do
+    it "returns 404" do
+      post "/api/v1/accounting/payroll_entries",
+        params: { period: "2025-04", total_amount: "100" }.to_json,
+        headers: auth_headers(admin).merge("Content-Type" => "application/json")
+      expect(response).to have_http_status(:not_found)
+    end
+  end
 end

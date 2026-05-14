@@ -10,22 +10,6 @@ interface Line {
   title: string;
   sku: string;
   quantity_ordered: number;
-  unit_cost: number;
-  cost_source: string;
-}
-
-function defaultUnitCost(variant: Variant) {
-  const configuredCost = Number(variant.cost ?? 0);
-  if (configuredCost > 0) {
-    return { value: configuredCost, source: "from variant cost" };
-  }
-
-  const lastPurchaseCost = Number(variant.last_purchase_cost ?? 0);
-  if (lastPurchaseCost > 0) {
-    return { value: lastPurchaseCost, source: "from last PO" };
-  }
-
-  return { value: 0, source: "manual" };
 }
 
 export default function NewPurchaseOrderPage() {
@@ -47,7 +31,7 @@ export default function NewPurchaseOrderPage() {
   useEffect(() => {
     (async () => {
       const [s, w, p] = await Promise.all([
-        suppliersApi.list({ per_page: 100 }),
+        suppliersApi.list({ per_page: 100, kind: "factory" }),
         warehousesApi.list(),
         productsApi.list({ per_page: 100, status: "active" }),
       ]);
@@ -64,15 +48,14 @@ export default function NewPurchaseOrderPage() {
     })().catch((e) => setError((e as Error).message));
   }, []);
 
-  const total = useMemo(
-    () => lines.reduce((s, l) => s + l.quantity_ordered * l.unit_cost, 0),
+  const totalQty = useMemo(
+    () => lines.reduce((s, l) => s + Number(l.quantity_ordered || 0), 0),
     [lines],
   );
 
   const addLine = () => {
     const v = variants.find((x) => x.id === selectedVariant);
     if (!v) return;
-    const cost = defaultUnitCost(v);
     setLines((ls) => [
       ...ls,
       {
@@ -80,8 +63,6 @@ export default function NewPurchaseOrderPage() {
         title: `${v.product_title} – ${v.title}`,
         sku: v.sku || "",
         quantity_ordered: 1,
-        unit_cost: cost.value,
-        cost_source: cost.source,
       },
     ]);
     setSelectedVariant("");
@@ -103,7 +84,6 @@ export default function NewPurchaseOrderPage() {
           sku: l.sku,
           title: l.title,
           quantity_ordered: Number(l.quantity_ordered),
-          unit_cost: Number(l.unit_cost),
         })),
       });
       navigate(`/purchases/${po.id}`);
@@ -211,13 +191,11 @@ export default function NewPurchaseOrderPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-[680px] text-sm">
+          <table className="min-w-[480px] text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
                 <th className="px-2 py-1">Item</th>
                 <th className="px-2 py-1 text-right">Qty</th>
-                <th className="px-2 py-1 text-right">Unit cost</th>
-                <th className="px-2 py-1 text-right">Subtotal</th>
                 <th></th>
               </tr>
             </thead>
@@ -246,34 +224,6 @@ export default function NewPurchaseOrderPage() {
                     />
                   </td>
                   <td className="px-2 py-1 text-right">
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={l.unit_cost}
-                      onChange={(e) =>
-                        setLines((ls) =>
-                          ls.map((x, j) =>
-                            j === i
-                              ? {
-                                  ...x,
-                                  unit_cost: Number(e.target.value),
-                                  cost_source: "manual",
-                                }
-                              : x,
-                          ),
-                        )
-                      }
-                      className="w-24 border rounded px-1 py-0.5 text-right"
-                    />
-                    <div className="mt-1 text-[11px] text-slate-500">
-                      {l.cost_source}
-                    </div>
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    {(l.quantity_ordered * l.unit_cost).toFixed(2)}
-                  </td>
-                  <td className="px-2 py-1 text-right">
                     <button
                       onClick={() =>
                         setLines((ls) => ls.filter((_, j) => j !== i))
@@ -288,7 +238,7 @@ export default function NewPurchaseOrderPage() {
               {lines.length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={3}
                     className="px-2 py-4 text-center text-gray-500"
                   >
                     No line items
@@ -298,10 +248,8 @@ export default function NewPurchaseOrderPage() {
             </tbody>
             <tfoot>
               <tr className="border-t font-semibold bg-gray-50">
-                <td colSpan={3} className="px-2 py-2 text-right">
-                  Total
-                </td>
-                <td className="px-2 py-2 text-right">{total.toFixed(2)}</td>
+                <td className="px-2 py-2 text-right">Total qty</td>
+                <td className="px-2 py-2 text-right">{totalQty}</td>
                 <td />
               </tr>
             </tfoot>

@@ -37,6 +37,8 @@ describe("DeliveryActions", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /mark in transit/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /mark in transit/i }),
+    ).toBeInTheDocument();
   });
 });

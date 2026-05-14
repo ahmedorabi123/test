@@ -1,5 +1,6 @@
 class Supplier < ApplicationRecord
   STATUSES = %w[active on_hold inactive].freeze
+  KINDS    = %w[factory material].freeze
 
   has_many :purchase_orders, dependent: :restrict_with_error
 
@@ -8,12 +9,15 @@ class Supplier < ApplicationRecord
   validates :lead_time_days,
             numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
   validates :status, inclusion: { in: STATUSES }
+  validates :kind,   inclusion: { in: KINDS }
   validates :currency, presence: true, length: { is: 3 }
 
   before_validation :assign_supplier_code, if: -> { supplier_code.blank? && name.present? }
 
-  scope :active, -> { where(status: "active") }
-  scope :recent, -> { order(created_at: :desc) }
+  scope :active,    -> { where(status: "active") }
+  scope :recent,    -> { order(created_at: :desc) }
+  scope :factories, -> { where(kind: "factory") }
+  scope :materials, -> { where(kind: "material") }
 
   private
 

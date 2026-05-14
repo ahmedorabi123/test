@@ -133,4 +133,70 @@ describe("AccountingPage", () => {
       expect(lastUrl).toMatch(/sort=description/);
     });
   });
+
+  it("removes the salaries tab", () => {
+    mockBaseEndpoints();
+    renderWithProviders(<AccountingPage />, { route: "/accounting" });
+
+    expect(
+      screen.queryByRole("tab", { name: /salaries/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("defaults manual entries to EGP and searches accounts by q", async () => {
+    let accountsUrl = "";
+    let suppliersUrl = "";
+    server.use(
+      http.get("*/api/v1/accounting/accounts", ({ request }) => {
+        accountsUrl = request.url;
+        return HttpResponse.json({ data: ACCOUNTS });
+      }),
+      http.get("*/api/v1/accounting/journal_entries", () =>
+        HttpResponse.json({
+          data: [],
+          meta: { page: 1, per_page: 25, total: 0 },
+        }),
+      ),
+      http.get("*/api/v1/suppliers", ({ request }) => {
+        suppliersUrl = request.url;
+        return HttpResponse.json({
+          data: [
+            {
+              id: "sup-1",
+              supplier_code: "MAT-1",
+              name: "Fabric Co",
+              kind: "material",
+              email: null,
+              phone: null,
+              currency: "EGP",
+              status: "active",
+              created_at: "2026-04-01T10:00:00Z",
+              updated_at: "2026-04-01T10:00:00Z",
+            },
+          ],
+          meta: { page: 1, per_page: 200, total: 1 },
+        });
+      }),
+    );
+
+    renderWithProviders(<AccountingPage />, { route: "/accounting" });
+    await userEvent.click(screen.getByRole("tab", { name: /manual entry/i }));
+
+    expect(await screen.findByDisplayValue("EGP")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(new URL(suppliersUrl).searchParams.get("kind")).toBe("material");
+    });
+    expect(await screen.findAllByText(/MAT-1 - Fabric Co/i)).not.toHaveLength(
+      0,
+    );
+
+    await userEvent.type(
+      screen.getByPlaceholderText(/filter accounts by code or name/i),
+      "cash",
+    );
+
+    await waitFor(() => {
+      expect(new URL(accountsUrl).searchParams.get("q")).toBe("cash");
+    });
+  });
 });

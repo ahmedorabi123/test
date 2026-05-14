@@ -144,6 +144,10 @@ module Api
               note:              adjustment_note,
               actor:             current_user
             )
+            AuditLog.record(user: current_user, action: "stock_item.adjusted",
+                            subject: @stock_item, request: request,
+                            diff: { delta: delta, before: before, after: new_qty,
+                                    reason: adjustment_reason, note: adjustment_note })
           end
         end
 

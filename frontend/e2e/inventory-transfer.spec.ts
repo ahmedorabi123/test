@@ -13,11 +13,16 @@ import { loginAsAdmin } from "./helpers";
  * already exercised by spec/requests/api/v1/stock_transfers_spec.rb.
  */
 test.describe("Inventory transfers", () => {
-  test("admin can open the Transfer dialog from /inventory", async ({ page }) => {
+  test("admin can open the Transfer dialog from /inventory", async ({
+    page,
+  }) => {
     await loginAsAdmin(page);
     await page.goto("/inventory");
 
-    await page.getByRole("button", { name: /^transfer$/i }).first().click();
+    await page
+      .getByRole("button", { name: /^transfer$/i })
+      .first()
+      .click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(
@@ -29,7 +34,11 @@ test.describe("Inventory transfers", () => {
     const guard = dialog.getByText(
       /At least two non-Shopify warehouses are required/i,
     );
-    await expect(addLine.or(guard)).toBeVisible();
+    await expect(async () => {
+      const addLineVisible = await addLine.isVisible();
+      const guardVisible = await guard.isVisible();
+      expect(addLineVisible || guardVisible).toBeTruthy();
+    }).toPass();
   });
 
   test("transfer history page is reachable", async ({ page }) => {

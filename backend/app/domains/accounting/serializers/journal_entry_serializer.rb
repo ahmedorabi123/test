@@ -16,13 +16,16 @@ class JournalEntrySerializer
     if include_lines
       h[:lines] = entry.journal_lines.map do |l|
         {
-          id:           l.id,
-          account_code: l.account.code,
-          account_name: l.account.name,
-          side:         l.side,
-          amount:       l.amount.to_f,
-          currency:     l.currency,
-          description:  l.description
+          id:            l.id,
+          account_code:  l.account.code,
+          account_name:  l.account.name,
+          side:          l.side,
+          amount:        l.amount.to_f,
+          currency:      l.currency,
+          description:   l.description,
+          supplier_id:   l.supplier_id,
+          supplier_code: l.supplier&.supplier_code,
+          supplier_name: l.supplier&.name
         }
       end
     end

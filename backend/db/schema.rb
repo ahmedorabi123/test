@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_14_130200) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_14_200200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -232,10 +232,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_14_130200) do
     t.text "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "supplier_id"
     t.index ["account_id", "side"], name: "index_journal_lines_on_account_id_and_side"
     t.index ["account_id"], name: "index_journal_lines_on_account_id"
     t.index ["journal_entry_id"], name: "index_journal_lines_on_journal_entry_id"
     t.index ["side"], name: "index_journal_lines_on_side"
+    t.index ["supplier_id"], name: "index_journal_lines_on_supplier_id"
   end
 
   create_table "order_line_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -687,9 +689,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_14_130200) do
     t.datetime "updated_at", null: false
     t.string "supplier_code"
     t.integer "lead_time_days"
+    t.string "kind", default: "factory", null: false
+    t.index ["kind"], name: "index_suppliers_on_kind"
     t.index ["name"], name: "index_suppliers_on_name"
     t.index ["status"], name: "index_suppliers_on_status"
     t.index ["supplier_code"], name: "index_suppliers_on_supplier_code", unique: true, where: "(supplier_code IS NOT NULL)"
+    t.check_constraint "kind::text = ANY (ARRAY['factory'::character varying, 'material'::character varying]::text[])", name: "suppliers_kind_check"
   end
 
   create_table "sync_cursors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -812,6 +817,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_14_130200) do
   add_foreign_key "journal_entries", "journal_entries", column: "reversal_of_id"
   add_foreign_key "journal_lines", "accounts"
   add_foreign_key "journal_lines", "journal_entries"
+  add_foreign_key "journal_lines", "suppliers"
   add_foreign_key "order_line_items", "orders"
   add_foreign_key "order_line_items", "variants"
   add_foreign_key "orders", "customers"

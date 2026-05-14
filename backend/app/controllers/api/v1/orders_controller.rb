@@ -246,6 +246,7 @@ module Api
         scope = scope.where(financial_status: params[:financial_status]) if params[:financial_status].present?
         scope = scope.where(source:           params[:source])           if params[:source].present?
         scope = scope.where(last_delivery_status: params[:delivery_status]) if params[:delivery_status].present?
+        scope = scope.where(location_id:     params[:warehouse_id])     if params[:warehouse_id].present?
         scope = scope.where("placed_at >= ?", Time.zone.parse(params[:from])) if params[:from].present?
         scope = scope.where("placed_at <= ?", Time.zone.parse(params[:to]))   if params[:to].present?
         scope

@@ -533,9 +533,7 @@ export default function NewProductPage() {
                     key={`${file.name}-${file.size}-${index}`}
                     className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
                   >
-                    <span className="truncate text-slate-700">
-                      {file.name}
-                    </span>
+                    <span className="truncate text-slate-700">{file.name}</span>
                     <button
                       type="button"
                       onClick={() =>

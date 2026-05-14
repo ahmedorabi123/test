@@ -99,6 +99,9 @@ export default function SupplierDetailPage() {
               {supplier.status.replace("_", " ")}
             </span>
             <span className="text-xs text-slate-500">{supplier.currency}</span>
+            <span className="rounded bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-600">
+              {supplier.kind ?? "factory"}
+            </span>
           </div>
         </div>
         <Link

@@ -1,4 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { server } from "../test/server";
@@ -99,5 +100,39 @@ describe("OrdersPage", () => {
     expect(deliveryIdx).toBeGreaterThanOrEqual(0);
     expect(methodIdx).toBeGreaterThanOrEqual(0);
     expect(deliveryIdx).toBeLessThan(methodIdx);
+  });
+
+  it("sends warehouse_id when filtering by warehouse", async () => {
+    let lastUrl = "";
+    server.use(
+      http.get("*/api/v1/warehouses", () =>
+        HttpResponse.json({
+          data: [{ id: "w-1", name: "Main", code: "MAIN", active: true }],
+        }),
+      ),
+      http.get("*/api/v1/orders", ({ request }) => {
+        lastUrl = request.url;
+        return HttpResponse.json({
+          data: [],
+          meta: {
+            total: 0,
+            page: 1,
+            per_page: 25,
+            summary: { total_value: "0" },
+          },
+        });
+      }),
+    );
+
+    renderWithProviders(<OrdersPage />, { route: "/orders" });
+    await screen.findByRole("option", { name: "Main" });
+    await userEvent.selectOptions(
+      screen.getByTestId("orders-warehouse-filter"),
+      "w-1",
+    );
+
+    await waitFor(() => {
+      expect(new URL(lastUrl).searchParams.get("warehouse_id")).toBe("w-1");
+    });
   });
 });

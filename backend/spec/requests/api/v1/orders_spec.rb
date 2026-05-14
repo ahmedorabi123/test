@@ -155,4 +155,17 @@ RSpec.describe "Api::V1::Orders", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
   end
+
+  describe "warehouse filter" do
+    it "filters by warehouse_id (Order#location_id)" do
+      wh_a = create(:warehouse)
+      wh_b = create(:warehouse)
+      o1 = create(:order, location_id: wh_a.id)
+      _o2 = create(:order, location_id: wh_b.id)
+
+      get "/api/v1/orders", params: { warehouse_id: wh_a.id }, headers: auth_headers(admin)
+      ids = json_response[:data].map { |r| r[:id] }
+      expect(ids).to eq([ o1.id ])
+    end
+  end
 end

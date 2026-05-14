@@ -20,6 +20,9 @@ export interface JournalLine {
   amount: number;
   currency: string;
   description?: string;
+  supplier_id?: string | null;
+  supplier_code?: string | null;
+  supplier_name?: string | null;
 }
 
 export interface JournalEntry {
@@ -94,9 +97,9 @@ export interface BalanceSheet {
 const BASE = "/accounting";
 
 export const accountingApi = {
-  accounts: (): Promise<{ data: Account[] }> =>
+  accounts: (params?: { q?: string }): Promise<{ data: Account[] }> =>
     api
-      .get<{ data: Account[] }>(`${BASE}/accounts`)
+      .get<{ data: Account[] }>(`${BASE}/accounts`, { params })
       .then((r: AxiosResponse<{ data: Account[] }>) => r.data),
 
   journalEntries: (params?: {
@@ -149,18 +152,6 @@ export const accountingApi = {
       .post<{ data: JournalEntry }>(`${BASE}/post_order/${orderId}`)
       .then((r: AxiosResponse<{ data: JournalEntry }>) => r.data),
 
-  postPayroll: (payload: {
-    period: string; // "YYYY-MM"
-    total_amount: string;
-    credit_account_code?: string;
-    currency?: string;
-    description?: string;
-    entry_date?: string;
-  }): Promise<{ data: JournalEntry }> =>
-    api
-      .post<{ data: JournalEntry }>(`${BASE}/payroll_entries`, payload)
-      .then((r: AxiosResponse<{ data: JournalEntry }>) => r.data),
-
   createJournalEntry: (payload: {
     entry_date: string;
     description: string;
@@ -173,6 +164,7 @@ export const accountingApi = {
       side: "debit" | "credit";
       amount: string;
       description?: string;
+      supplier_id?: string;
     }>;
   }): Promise<{ data: JournalEntry }> =>
     api

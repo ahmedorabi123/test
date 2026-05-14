@@ -6,6 +6,7 @@ import {
   type Order,
   type OrderStatus,
 } from "../api/orders";
+import { warehousesApi, type Warehouse } from "../api/inventory";
 import DataTable, {
   type BulkAction,
   type Column,
@@ -69,6 +70,15 @@ export default function OrdersPage() {
     | "";
   const source = searchParams.get("source") || "";
   const deliveryStatus = searchParams.get("delivery_status") || "";
+  const warehouseId = searchParams.get("warehouse_id") || "";
+
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  useEffect(() => {
+    warehousesApi
+      .list()
+      .then((w) => setWarehouses(w))
+      .catch(() => undefined);
+  }, []);
 
   const [rows, setRows] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
@@ -111,6 +121,7 @@ export default function OrdersPage() {
         financial_status: financialStatus || undefined,
         source: source || undefined,
         delivery_status: deliveryStatus || undefined,
+        warehouse_id: warehouseId || undefined,
         sort: sortKey,
         dir: sortDir,
       });
@@ -130,6 +141,7 @@ export default function OrdersPage() {
     financialStatus,
     source,
     deliveryStatus,
+    warehouseId,
     sortKey,
     sortDir,
   ]);
@@ -359,6 +371,22 @@ export default function OrdersPage() {
             <option value="shopify">Shopify</option>
             <option value="manual">Manual</option>
             <option value="showroom">Showroom</option>
+          </select>
+          <select
+            value={warehouseId}
+            onChange={(e) => {
+              setParam("page", "1");
+              setParam("warehouse_id", e.target.value);
+            }}
+            className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            data-testid="orders-warehouse-filter"
+          >
+            <option value="">All warehouses</option>
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
           </select>
           <ImportExportBar
             resource="orders"

@@ -4,6 +4,7 @@ FactoryBot.define do
     email           { "orders@supplier.test" }
     currency        { "USD" }
     status          { "active" }
+    kind            { "factory" }
   end
 
   factory :purchase_order do

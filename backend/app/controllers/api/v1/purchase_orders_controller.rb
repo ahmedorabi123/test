@@ -31,9 +31,15 @@ module Api
       def create
         authorize PurchaseOrder
         po = Purchases::PurchaseOrderCreator.call(po_params.merge(created_by_id: current_user.id))
+        AuditLog.record(user: current_user, action: "purchase_order.created",
+                        subject: po, request: request,
+                        diff: { supplier_id: po.supplier_id, warehouse_id: po.warehouse_id,
+                                line_items_count: po.line_items.size })
         render json: { data: PurchaseOrderSerializer.call(po) }, status: :created
       rescue Purchases::PurchaseOrderCreator::InvalidInput, ActiveRecord::RecordNotFound => e
         render_error(422, "unprocessable_entity", e.message)
+      rescue ActiveRecord::RecordInvalid => e
+        render_error(422, "unprocessable_entity", e.record.errors.full_messages.join(", "))
       end
 
       def update
@@ -57,6 +63,9 @@ module Api
         po = Purchases::ReceiveService.call(purchase_order: @po,
                                             receipts: params[:receipts] || [],
                                             warehouse: warehouse)
+        AuditLog.record(user: current_user, action: "purchase_order.received",
+                        subject: po, request: request,
+                        diff: { warehouse_id: warehouse&.id, receipts: Array(params[:receipts]).map { |r| { line_item_id: r[:line_item_id], quantity: r[:quantity] } } })
         render json: { data: PurchaseOrderSerializer.call(po) }
       rescue Purchases::ReceiveService::InvalidInput,
              Purchases::ReceiveService::MissingWarehouse,
@@ -68,6 +77,8 @@ module Api
       def cancel
         authorize @po, :update?
         @po.update!(status: "cancelled")
+        AuditLog.record(user: current_user, action: "purchase_order.cancelled",
+                        subject: @po, request: request)
         render json: { data: PurchaseOrderSerializer.call(@po) }
       end
 
@@ -112,8 +123,8 @@ module Api
       def po_params
         params.require(:purchase_order).permit(
           :supplier_id, :warehouse_id, :currency, :expected_at,
-          :total_tax, :total_shipping, :notes,
-          line_items: %i[variant_id sku title quantity_ordered unit_cost]
+          :notes,
+          line_items: %i[variant_id sku title quantity_ordered]
         )
       end
 

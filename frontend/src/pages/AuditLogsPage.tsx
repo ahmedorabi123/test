@@ -15,6 +15,10 @@ export default function AuditLogsPage() {
   const action = searchParams.get("action_type") || "";
   const subjectType = searchParams.get("subject_type") || "";
   const userId = searchParams.get("user_id") || "";
+  const q = searchParams.get("q") || "";
+  const actorEmail = searchParams.get("actor_email") || "";
+  const fromDate = searchParams.get("from_date") || "";
+  const toDate = searchParams.get("to_date") || "";
 
   const [rows, setRows] = useState<AuditLogEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -39,6 +43,10 @@ export default function AuditLogsPage() {
         action_type: action || undefined,
         subject_type: subjectType || undefined,
         user_id: userId || undefined,
+        q: q || undefined,
+        actor_email: actorEmail || undefined,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
       });
       setRows(res.data);
       setTotal(res.meta.total);
@@ -52,7 +60,17 @@ export default function AuditLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, action, subjectType, userId]);
+  }, [
+    page,
+    perPage,
+    action,
+    subjectType,
+    userId,
+    q,
+    actorEmail,
+    fromDate,
+    toDate,
+  ]);
 
   useEffect(() => {
     load();
@@ -89,6 +107,48 @@ export default function AuditLogsPage() {
             setParam("subject_type", e.target.value);
           }}
           className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-64"
+        />
+        <input
+          type="search"
+          placeholder="Search action or diff…"
+          value={q}
+          onChange={(e) => {
+            setParam("page", "1");
+            setParam("q", e.target.value);
+          }}
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-64"
+          data-testid="audit-q"
+        />
+        <input
+          type="email"
+          placeholder="Actor email"
+          value={actorEmail}
+          onChange={(e) => {
+            setParam("page", "1");
+            setParam("actor_email", e.target.value);
+          }}
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-56"
+          data-testid="audit-actor-email"
+        />
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(e) => {
+            setParam("page", "1");
+            setParam("from_date", e.target.value);
+          }}
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-40"
+          data-testid="audit-from-date"
+        />
+        <input
+          type="date"
+          value={toDate}
+          onChange={(e) => {
+            setParam("page", "1");
+            setParam("to_date", e.target.value);
+          }}
+          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-40"
+          data-testid="audit-to-date"
         />
       </div>
 

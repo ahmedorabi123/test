@@ -53,4 +53,24 @@ RSpec.describe "Api::V1::Suppliers", type: :request do
     expect(response).to have_http_status(:ok)
     expect(json_response[:data].map { |row| row[:id] }).to eq([ po.id ])
   end
+
+  it "filters by kind=material" do
+    factory  = create(:supplier, kind: "factory", name: "Factory A")
+    material = create(:supplier, kind: "material", name: "Fabric B")
+
+    get "/api/v1/suppliers", params: { kind: "material" }, headers: auth_headers(admin)
+    ids = json_response[:data].map { |r| r[:id] }
+    expect(ids).to include(material.id)
+    expect(ids).not_to include(factory.id)
+  end
+
+  it "accepts kind on create and records an audit log" do
+    expect {
+      post "/api/v1/suppliers",
+        params: { supplier: { name: "Fabric Co", currency: "EGP", kind: "material" } }.to_json,
+        headers: auth_headers(admin).merge("Content-Type" => "application/json")
+    }.to change { AuditLog.where(action: "supplier.created").count }.by(1)
+    expect(response).to have_http_status(:created)
+    expect(Supplier.last.kind).to eq("material")
+  end
 end

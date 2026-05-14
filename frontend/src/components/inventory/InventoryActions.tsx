@@ -97,9 +97,7 @@ export function TransferStockButton({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const valid = lines.filter(
-      (l) => l.variant_id && Number(l.quantity) > 0,
-    );
+    const valid = lines.filter((l) => l.variant_id && Number(l.quantity) > 0);
     if (valid.length === 0) {
       setError("Add at least one line with a variant and a positive quantity");
       return;
@@ -127,8 +125,11 @@ export function TransferStockButton({
       reset();
       onDone();
     } catch (e) {
-      const resp = (e as { response?: { data?: { error?: { detail?: string; type?: string } } } })
-        ?.response?.data?.error;
+      const resp = (
+        e as {
+          response?: { data?: { error?: { detail?: string; type?: string } } };
+        }
+      )?.response?.data?.error;
       setError(resp?.detail || (e as Error).message);
     } finally {
       setSubmitting(false);
@@ -206,7 +207,8 @@ export function TransferStockButton({
 
           {noEligible && (
             <div className="bg-amber-50 text-amber-800 text-sm p-2 rounded">
-              At least two non-Shopify warehouses are required to transfer stock.
+              At least two non-Shopify warehouses are required to transfer
+              stock.
             </div>
           )}
 
@@ -387,7 +389,10 @@ export function ShowroomReportButton({
     // reversal (no Refund, no inventory movement). Zero is rejected.
     const valid = lines.filter(
       (l) =>
-        l.variant_id && Number(l.quantity) !== 0 && l.unit_price !== "" && Number(l.unit_price) >= 0,
+        l.variant_id &&
+        Number(l.quantity) !== 0 &&
+        l.unit_price !== "" &&
+        Number(l.unit_price) >= 0,
     );
     if (valid.length === 0) {
       setError("Add at least one line with a non-zero quantity and a price");
@@ -418,8 +423,9 @@ export function ShowroomReportButton({
       setNotes("");
       onDone();
     } catch (e) {
-      const resp = (e as { response?: { data?: { error?: { detail?: string } } } })
-        ?.response?.data?.error;
+      const resp = (
+        e as { response?: { data?: { error?: { detail?: string } } } }
+      )?.response?.data?.error;
       setError(resp?.detail || (e as Error).message);
     } finally {
       setSubmitting(false);

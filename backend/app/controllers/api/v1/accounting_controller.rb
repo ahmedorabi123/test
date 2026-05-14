@@ -3,9 +3,15 @@ module Api
     class AccountingController < ApplicationController
       before_action :authorize_accounting
 
-      # GET /api/v1/accounting/accounts
+      # GET /api/v1/accounting/accounts?q=
+      # Substring search across code and name; falls back to active list.
       def accounts
-        accounts = Account.active.order(:code)
+        scope = Account.active
+        if params[:q].present?
+          term = "%#{ActiveRecord::Base.sanitize_sql_like(params[:q].to_s.downcase)}%"
+          scope = scope.where("LOWER(code) LIKE :q OR LOWER(name) LIKE :q", q: term)
+        end
+        accounts = scope.order(:code).limit(100)
         render json: { data: accounts.map { |a| AccountSerializer.call(a) } }
       end
 
@@ -128,64 +134,17 @@ module Api
         end
       end
 
-      # POST /api/v1/accounting/payroll_entries
-      # Body: { period: "2025-04", total_amount: "12000.00", currency: "USD",
-      #         credit_account_code: "1000", description?: "April salaries",
-      #         entry_date?: "2025-04-30" }
-      def payroll_entries
-        period_str  = params[:period].to_s
-        total       = params[:total_amount].to_s.to_d
-        credit_code = (params[:credit_account_code].presence || "1000").to_s
-        currency    = (params[:currency].presence || "EGP").upcase
-
-        return render json: { error: { type: "invalid", detail: "period (YYYY-MM) required" } }, status: :unprocessable_entity \
-          if period_str !~ /\A\d{4}-\d{2}\z/
-        return render json: { error: { type: "invalid", detail: "total_amount must be > 0" } }, status: :unprocessable_entity \
-          if total <= 0
-
-        year, month = period_str.split("-").map(&:to_i)
-        entry_date = params[:entry_date].present? ? Date.parse(params[:entry_date].to_s) : Date.new(year, month, -1)
-        description = params[:description].presence || "Salaries — #{Date::MONTHNAMES[month]} #{year}"
-
-        # Verify the credit account exists (Cash, AP, Accrued Liabilities…)
-        unless Account.find_by(code: credit_code)
-          return render json: { error: { type: "invalid", detail: "Unknown credit account #{credit_code}" } }, status: :unprocessable_entity
-        end
-
-        entry = JournalEntry.post!(
-          {
-            entry_date:  entry_date,
-            description: description,
-            currency:    currency,
-            entry_type:  "manual",
-            source_type: "Payroll",
-            source_id:   period_str
-          },
-          [
-            { account_code: "6000",       side: "debit",  amount: total, description: "Payroll expense #{period_str}" },
-            { account_code: credit_code,  side: "credit", amount: total, description: "Payroll payment #{period_str}" }
-          ]
-        )
-
-        AuditLog.record(user: current_user, action: "accounting.payroll.post",
-                        subject: entry, request: request,
-                        diff: { period: period_str, amount: total.to_s, credit: credit_code })
-
-        render json: { data: JournalEntrySerializer.call(entry.reload, include_lines: true) }, status: :created
-      rescue ActiveRecord::RecordInvalid => e
-        render json: { error: { type: "invalid", detail: e.message } }, status: :unprocessable_entity
-      end
-
       # POST /api/v1/accounting/journal_entries
-      # Body: { entry_date:, description:, currency?: "USD", entry_type?: "manual",
-      #         lines: [{ account_code:, side: "debit"|"credit", amount:, description? }, ...] }
+      # Body: { entry_date:, description:, currency?: "EGP", entry_type?: "manual",
+      #         lines: [{ account_code:, side: "debit"|"credit", amount:, description?, supplier_id? }, ...] }
       def create_journal_entry
         lines_attrs = Array(params[:lines]).map do |l|
           {
             account_code: l[:account_code],
             side:         l[:side],
             amount:       l[:amount].to_s.to_d,
-            description:  l[:description]
+            description:  l[:description],
+            supplier_id:  l[:supplier_id]
           }
         end
 

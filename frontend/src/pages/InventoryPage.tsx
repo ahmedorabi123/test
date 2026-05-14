@@ -11,6 +11,7 @@ import {
   TransferStockButton,
   ShowroomReportButton,
 } from "../components/inventory/InventoryActions";
+import { RecentWarehouseOrders } from "../components/orders/RecentWarehouseOrders";
 import DataTable, {
   type BulkAction,
   type Column,
@@ -774,6 +775,7 @@ export default function InventoryPage() {
   );
 
   const lowCount = rows.filter((r) => r.low_stock).length;
+  const selectedWarehouse = warehouses.find((w) => w.id === warehouseId);
 
   return (
     <PageContainer className="space-y-6">
@@ -874,6 +876,13 @@ export default function InventoryPage() {
           Has unavailable
         </label>
       </div>
+
+      {warehouseId && (
+        <RecentWarehouseOrders
+          warehouseId={warehouseId}
+          warehouseName={selectedWarehouse?.name}
+        />
+      )}
 
       {adjustState && (
         <AdjustModal

@@ -16,7 +16,7 @@ test.describe("Manual order page", () => {
     await loginAsAdmin(page);
     await page.goto("/orders/new");
     await expect(
-      page.getByRole("heading", { name: /new (manual )?order|create order/i })
+      page.getByRole("heading", { name: /new (manual )?order|create order/i }),
     ).toBeVisible();
   });
 });

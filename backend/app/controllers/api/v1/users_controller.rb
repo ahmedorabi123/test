@@ -21,18 +21,27 @@ module Api
         @user = User.new(user_params)
         @user.password = SecureRandom.hex(16) if @user.password.blank?
         @user.save!
+        AuditLog.record(user: current_user, action: "user.created",
+                        subject: @user, request: request,
+                        diff: { email: @user.email })
         render json: { data: user_json(@user) }, status: :created
       end
 
       def update
         authorize @user
+        before = @user.attributes.slice("email", "first_name", "last_name", "active")
         @user.update!(user_update_params)
+        AuditLog.record(user: current_user, action: "user.updated",
+                        subject: @user, request: request,
+                        diff: { before: before, after: @user.attributes.slice("email", "first_name", "last_name", "active") })
         render json: { data: user_json(@user) }
       end
 
       def destroy
         authorize @user
         @user.update!(active: false)
+        AuditLog.record(user: current_user, action: "user.deactivated",
+                        subject: @user, request: request)
         render json: { message: "User deactivated" }
       end
 
@@ -43,6 +52,9 @@ module Api
           role: role,
           warehouse_id: params[:warehouse_id]
         )
+        AuditLog.record(user: current_user, action: "user.role_assigned",
+                        subject: @user, request: request,
+                        diff: { role_id: role.id, role_name: role.name, warehouse_id: params[:warehouse_id] })
         render json: { data: user_json(@user.reload) }
       end
 
@@ -50,6 +62,9 @@ module Api
         authorize @user, :update?
         role = Role.find(params[:role_id])
         @user.user_roles.where(role: role).destroy_all
+        AuditLog.record(user: current_user, action: "user.role_removed",
+                        subject: @user, request: request,
+                        diff: { role_id: role.id, role_name: role.name })
         render json: { data: user_json(@user.reload) }
       end
 

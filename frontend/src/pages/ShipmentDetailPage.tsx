@@ -104,7 +104,8 @@ export default function ShipmentDetailPage() {
 
       {isReadOnly && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          This shipment is managed by Shopify. Notes and tags are read-only in the ERP.
+          This shipment is managed by Shopify. Notes and tags are read-only in
+          the ERP.
         </div>
       )}
 

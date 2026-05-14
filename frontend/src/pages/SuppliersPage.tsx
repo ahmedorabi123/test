@@ -21,6 +21,7 @@ export default function SuppliersPage() {
   const sortDir = (searchParams.get("dir") || "asc") as SortDir;
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "";
+  const kind = (searchParams.get("kind") || "") as "" | "factory" | "material";
 
   const [rows, setRows] = useState<Supplier[]>([]);
   const [total, setTotal] = useState(0);
@@ -56,6 +57,7 @@ export default function SuppliersPage() {
         per_page: perPage,
         search: search || undefined,
         status: status || undefined,
+        kind: kind || undefined,
         sort: sortKey,
         dir: sortDir,
       });
@@ -66,7 +68,7 @@ export default function SuppliersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, search, status, sortKey, sortDir]);
+  }, [page, perPage, search, status, kind, sortKey, sortDir]);
 
   useEffect(() => {
     load();
@@ -94,6 +96,15 @@ export default function SuppliersPage() {
         render: (s) => (
           <span className="font-mono text-xs text-slate-600">
             {s.supplier_code || "-"}
+          </span>
+        ),
+      },
+      {
+        id: "kind",
+        header: "Kind",
+        render: (s) => (
+          <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+            {s.kind ?? "factory"}
           </span>
         ),
       },
@@ -186,6 +197,19 @@ export default function SuppliersPage() {
             <option value="active">Active</option>
             <option value="on_hold">On hold</option>
             <option value="inactive">Inactive</option>
+          </select>
+          <select
+            value={kind}
+            onChange={(e) => {
+              setParam("page", "1");
+              setParam("kind", e.target.value);
+            }}
+            className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            data-testid="suppliers-kind-filter"
+          >
+            <option value="">All kinds</option>
+            <option value="factory">Factory</option>
+            <option value="material">Material</option>
           </select>
           <Link
             to="/suppliers/new"

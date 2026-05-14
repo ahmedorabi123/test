@@ -20,9 +20,7 @@ export default function StockTransferDetailPage() {
 
   if (loading) return <div className="p-4">Loading…</div>;
   if (error)
-    return (
-      <div className="p-4 bg-red-50 text-red-700 rounded">{error}</div>
-    );
+    return <div className="p-4 bg-red-50 text-red-700 rounded">{error}</div>;
   if (!transfer) return <div className="p-4">Not found</div>;
 
   return (
@@ -66,7 +64,10 @@ export default function StockTransferDetailPage() {
             </thead>
             <tbody>
               {(transfer.lines || []).map((l) => (
-                <tr key={l.id || l.variant_id} className="border-t border-slate-100">
+                <tr
+                  key={l.id || l.variant_id}
+                  className="border-t border-slate-100"
+                >
                   <td className="px-3 py-2">{l.sku || "—"}</td>
                   <td className="px-3 py-2">
                     {l.product_title} — {l.variant_title}

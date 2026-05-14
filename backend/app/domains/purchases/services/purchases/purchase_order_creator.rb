@@ -31,15 +31,16 @@ module Purchases
       items.each do |li|
         variant = li[:variant_id].present? ? Variant.find(li[:variant_id]) : nil
         qty     = li[:quantity_ordered].to_i
-        cost    = unit_cost_for(li, variant)
 
+        # Phase 1: factory POs are inventory-only; costs are not captured on
+        # the PO. Store zeroed monetary fields to keep the schema dormant.
         po.line_items.build(
           variant:           variant,
           sku:               li[:sku] || variant&.sku,
           title:             li[:title] || variant&.title || variant&.product&.title,
           quantity_ordered:  qty,
-          unit_cost:         cost,
-          subtotal:          (cost * qty).round(2)
+          unit_cost:         0.to_d,
+          subtotal:          0.to_d
         )
       end
 
@@ -50,20 +51,11 @@ module Purchases
 
     private
 
-    def unit_cost_for(line_item_attrs, variant)
-      return line_item_attrs[:unit_cost].to_d if line_item_attrs[:unit_cost].present?
-
-      variant&.cost.presence || variant&.last_purchase_cost.presence || 0.to_d
-    end
-
     def compute_totals(po)
-      subtotal = po.line_items.sum { |li| li.subtotal.to_d }
-      tax      = @attrs[:total_tax].to_d
-      ship     = @attrs[:total_shipping].to_d
-      po.subtotal        = subtotal
-      po.total_tax       = tax
-      po.total_shipping  = ship
-      po.total           = subtotal + tax + ship
+      po.subtotal        = 0.to_d
+      po.total_tax       = 0.to_d
+      po.total_shipping  = 0.to_d
+      po.total           = 0.to_d
     end
   end
 end

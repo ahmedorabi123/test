@@ -4,10 +4,7 @@ import { screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../../test/renderWithProviders";
 import { server } from "../../test/server";
-import {
-  TransferStockButton,
-  ShowroomReportButton,
-} from "./InventoryActions";
+import { TransferStockButton, ShowroomReportButton } from "./InventoryActions";
 import type { Warehouse } from "../../api/inventory";
 
 const wh = (over: Partial<Warehouse> = {}): Warehouse => ({
@@ -23,7 +20,12 @@ const wh = (over: Partial<Warehouse> = {}): Warehouse => ({
   ...over,
 });
 
-const wh2 = wh({ id: "w2", name: "Showroom", code: "CAIRO", kind: "consignment" });
+const wh2 = wh({
+  id: "w2",
+  name: "Showroom",
+  code: "CAIRO",
+  kind: "consignment",
+});
 const shopifyWh = wh({
   id: "w3",
   name: "Shopify",
@@ -75,19 +77,27 @@ describe("TransferStockButton", () => {
     );
 
     renderWithProviders(
-      <TransferStockButton warehouses={[wh(), wh2, shopifyWh]} onDone={onDone} />,
+      <TransferStockButton
+        warehouses={[wh(), wh2, shopifyWh]}
+        onDone={onDone}
+      />,
     );
 
     await userEvent.click(screen.getByRole("button", { name: /transfer/i }));
     const dialog1 = await screen.findByRole("dialog");
 
     // Shopify-origin warehouse must NOT appear in the From select.
-    const fromSelect = within(dialog1).getByLabelText(/from \*/i) as HTMLSelectElement;
+    const fromSelect = within(dialog1).getByLabelText(
+      /from \*/i,
+    ) as HTMLSelectElement;
     const fromOptions = Array.from(fromSelect.options).map((o) => o.text);
     expect(fromOptions.join("|")).not.toContain("Shopify");
 
     await userEvent.selectOptions(fromSelect, "w1");
-    await userEvent.selectOptions(within(dialog1).getByLabelText(/to \*/i), "w2");
+    await userEvent.selectOptions(
+      within(dialog1).getByLabelText(/to \*/i),
+      "w2",
+    );
 
     // Wait for variants to load
     const variantSelect = await waitFor(() => {
@@ -102,7 +112,9 @@ describe("TransferStockButton", () => {
       return sel;
     });
     await userEvent.selectOptions(variantSelect, "v1");
-    const qtyInput = within(dialog1).getByRole("spinbutton") as HTMLInputElement;
+    const qtyInput = within(dialog1).getByRole(
+      "spinbutton",
+    ) as HTMLInputElement;
     fireEvent.change(qtyInput, { target: { value: "5" } });
 
     await userEvent.click(
@@ -129,7 +141,8 @@ describe("TransferStockButton", () => {
             error: {
               status: 422,
               type: "insufficient_stock",
-              detail: "Insufficient stock for variant v1 at MAIN: requested 5, available 0",
+              detail:
+                "Insufficient stock for variant v1 at MAIN: requested 5, available 0",
               code: { variant_id: "v1", available: 0, requested: 5 },
             },
           },
@@ -165,16 +178,16 @@ describe("TransferStockButton", () => {
       return sel;
     });
     await userEvent.selectOptions(variantSelect, "v1");
-    const qtyInput = within(dialog2).getByRole("spinbutton") as HTMLInputElement;
+    const qtyInput = within(dialog2).getByRole(
+      "spinbutton",
+    ) as HTMLInputElement;
     fireEvent.change(qtyInput, { target: { value: "5" } });
 
     await userEvent.click(
       within(dialog2).getByRole("button", { name: /^transfer$/i }),
     );
 
-    expect(
-      await screen.findByText(/Insufficient stock/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Insufficient stock/i)).toBeInTheDocument();
   });
 });
 
@@ -212,7 +225,9 @@ describe("ShowroomReportButton", () => {
       <ShowroomReportButton warehouses={[wh2]} onDone={vi.fn()} />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /showroom report/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /showroom report/i }),
+    );
     const dialog = await screen.findByRole("dialog");
 
     await userEvent.selectOptions(
@@ -245,9 +260,9 @@ describe("ShowroomReportButton", () => {
     );
 
     await waitFor(() => {
-      expect(
-        (received as { line_items: unknown[] }).line_items,
-      ).toEqual([{ variant_id: "v1", quantity: -1, unit_price: "50" }]);
+      expect((received as { line_items: unknown[] }).line_items).toEqual([
+        { variant_id: "v1", quantity: -1, unit_price: "50" },
+      ]);
     });
 
     expect(

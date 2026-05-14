@@ -18,6 +18,10 @@ export interface AuditLogListParams {
   action_type?: string;
   subject_type?: string;
   user_id?: string;
+  q?: string;
+  actor_email?: string;
+  from_date?: string;
+  to_date?: string;
 }
 
 export const auditLogsApi = {

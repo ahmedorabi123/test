@@ -57,6 +57,15 @@ export default function ShipmentsPage() {
     setSearchParams(sp, { replace: true });
   };
 
+  const setParams = (updates: Record<string, string | null>) => {
+    const sp = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (!value) sp.delete(key);
+      else sp.set(key, value);
+    });
+    setSearchParams(sp, { replace: true });
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -231,32 +240,30 @@ export default function ShipmentsPage() {
           label="In transit"
           active={deliveryStatus === "in_transit"}
           onClick={() => {
-            setParam(
-              "delivery_status",
-              deliveryStatus === "in_transit" ? null : "in_transit",
-            );
-            setParam("page", "1");
+            setParams({
+              delivery_status:
+                deliveryStatus === "in_transit" ? null : "in_transit",
+              page: "1",
+            });
           }}
         />
         <QuickChip
           label="Delivered"
           active={deliveryStatus === "delivered"}
           onClick={() => {
-            setParam(
-              "delivery_status",
-              deliveryStatus === "delivered" ? null : "delivered",
-            );
-            setParam("page", "1");
+            setParams({
+              delivery_status:
+                deliveryStatus === "delivered" ? null : "delivered",
+              page: "1",
+            });
           }}
         />
         <QuickChip
           label="Failed"
-          active={deliveryStatus === "failed" || status === "failure"}
+          active={deliveryStatus === "failed"}
           onClick={() => {
-            const isOn = deliveryStatus === "failed" || status === "failure";
-            setParam("delivery_status", isOn ? null : "failed");
-            setParam("status", null);
-            setParam("page", "1");
+            const isOn = deliveryStatus === "failed";
+            setParams({ delivery_status: isOn ? null : "failed", page: "1" });
           }}
         />
         {(carrier || status || deliveryStatus || source || search) && (
@@ -283,8 +290,7 @@ export default function ShipmentsPage() {
         <select
           value={carrier}
           onChange={(e) => {
-            setParam("carrier", e.target.value);
-            setParam("page", "1");
+            setParams({ carrier: e.target.value, page: "1" });
           }}
           className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
@@ -297,8 +303,7 @@ export default function ShipmentsPage() {
         <select
           value={status}
           onChange={(e) => {
-            setParam("status", e.target.value);
-            setParam("page", "1");
+            setParams({ status: e.target.value, page: "1" });
           }}
           className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
@@ -312,8 +317,7 @@ export default function ShipmentsPage() {
         <select
           value={source}
           onChange={(e) => {
-            setParam("source", e.target.value);
-            setParam("page", "1");
+            setParams({ source: e.target.value, page: "1" });
           }}
           className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         >
@@ -325,8 +329,7 @@ export default function ShipmentsPage() {
         <input
           value={deliveryStatus}
           onChange={(e) => {
-            setParam("delivery_status", e.target.value);
-            setParam("page", "1");
+            setParams({ delivery_status: e.target.value, page: "1" });
           }}
           placeholder="Delivery status"
           className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm lg:w-40"

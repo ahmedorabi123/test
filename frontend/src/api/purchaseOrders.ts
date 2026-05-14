@@ -41,14 +41,11 @@ export interface CreatePOPayload {
   currency?: string;
   expected_at?: string;
   notes?: string;
-  total_tax?: number;
-  total_shipping?: number;
   line_items: Array<{
     variant_id?: string;
     sku?: string;
     title?: string;
     quantity_ordered: number;
-    unit_cost: number;
   }>;
 }
 

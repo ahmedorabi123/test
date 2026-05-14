@@ -6,27 +6,23 @@ RSpec.describe Purchases::ReceiveService do
   let(:product)   { create(:product) }
   let(:variant)   { create(:variant, product: product, price: "10.00") }
 
-  before do
-    create(:account, code: "1200", name: "Inventory", account_type: "asset", normal_side: "debit")
-    create(:account, code: "1300", name: "Recoverable VAT", account_type: "asset", normal_side: "debit")
-    create(:account, code: "2000", name: "Accounts Payable", account_type: "liability", normal_side: "credit")
-  end
-
-  it "receives inventory and bumps stock" do
+  it "receives inventory and bumps stock (Phase 1: no accounting / no cost layer)" do
     po = Purchases::PurchaseOrderCreator.call(
       supplier_id: supplier.id,
       warehouse_id: warehouse.id,
       line_items: [
-        { variant_id: variant.id, quantity_ordered: 20, unit_cost: "6.00" }
+        { variant_id: variant.id, quantity_ordered: 20 }
       ]
     )
     li = po.line_items.first
 
-    Purchases::ReceiveService.call(
-      purchase_order: po,
-      receipts: [{ line_item_id: li.id, quantity: 20 }],
-      warehouse: warehouse
-    )
+    expect {
+      Purchases::ReceiveService.call(
+        purchase_order: po,
+        receipts: [{ line_item_id: li.id, quantity: 20 }],
+        warehouse: warehouse
+      )
+    }.not_to change(JournalEntry, :count)
 
     po.reload
     expect(po.status).to eq("received")
@@ -35,7 +31,8 @@ RSpec.describe Purchases::ReceiveService do
     si = StockItem.find_by(variant: variant, warehouse: warehouse)
     expect(si.quantity_on_hand).to eq(20)
     expect(StockMovement.where(stock_item: si, reason: "received").count).to eq(1)
-    expect(StockCostLayer.where(stock_item: si, qty_remaining: 20).first.unit_cost).to eq(6.0)
+    expect(StockCostLayer.where(stock_item: si).count).to eq(0)
+    expect(variant.reload.last_purchase_cost.to_d).to eq(0.to_d)
   end
 
   it "marks partial when only some received" do
@@ -43,7 +40,7 @@ RSpec.describe Purchases::ReceiveService do
       supplier_id: supplier.id,
       warehouse_id: warehouse.id,
       line_items: [
-        { variant_id: variant.id, quantity_ordered: 10, unit_cost: "6.00" }
+        { variant_id: variant.id, quantity_ordered: 10 }
       ]
     )
     li = po.line_items.first
@@ -56,4 +53,16 @@ RSpec.describe Purchases::ReceiveService do
 
     expect(po.reload.status).to eq("partial")
   end
+
+  it "rejects purchase orders against non-factory suppliers" do
+    material_supplier = create(:supplier, kind: "material")
+    expect {
+      Purchases::PurchaseOrderCreator.call(
+        supplier_id: material_supplier.id,
+        warehouse_id: warehouse.id,
+        line_items: [{ variant_id: variant.id, quantity_ordered: 5 }]
+      )
+    }.to raise_error(ActiveRecord::RecordInvalid, /factory supplier/)
+  end
 end
+

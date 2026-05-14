@@ -14,11 +14,51 @@ RSpec.describe "Api::V1::PurchaseOrders", type: :request do
     expect(response).to have_http_status(:unauthorized)
   end
 
-  it "creates + receives a PO end-to-end" do
+  it "creates + receives a PO end-to-end (Phase 1: inventory-only)" do
     warehouse = create(:warehouse)
     supplier  = create(:supplier)
     product   = create(:product)
     variant   = create(:variant, product: product, price: "10.00")
+
+    expect {
+      post "/api/v1/purchase_orders",
+        params: {
+          purchase_order: {
+            supplier_id: supplier.id,
+            warehouse_id: warehouse.id,
+            currency: "USD",
+            line_items: [
+              { variant_id: variant.id, quantity_ordered: 5, title: "Item" }
+            ]
+          }
+        }.to_json,
+        headers: auth_headers(admin).merge("Content-Type" => "application/json")
+    }.to change { AuditLog.where(action: "purchase_order.created").count }.by(1)
+
+    expect(response).to have_http_status(:created)
+    po_id = json_response[:data][:id]
+    li_id = json_response[:data][:line_items].first[:id]
+
+    expect {
+      post "/api/v1/purchase_orders/#{po_id}/receive",
+        params: {
+          receipts: [ { line_item_id: li_id, quantity: 5 } ]
+        }.to_json,
+        headers: auth_headers(admin).merge("Content-Type" => "application/json")
+    }.to change { AuditLog.where(action: "purchase_order.received").count }.by(1)
+      .and(change { JournalEntry.count }.by(0))
+
+    expect(response).to have_http_status(:ok)
+    expect(json_response[:data][:status]).to eq("received")
+    expect(StockItem.find_by(variant: variant, warehouse: warehouse).quantity_on_hand).to eq(5)
+    # Phase 1: variant.last_purchase_cost is intentionally NOT updated by receives.
+    expect(variant.reload.last_purchase_cost).to be_nil
+  end
+
+  it "rejects POs against non-factory suppliers" do
+    warehouse = create(:warehouse)
+    supplier  = create(:supplier, kind: "material")
+    variant   = create(:variant, price: "10.00")
 
     post "/api/v1/purchase_orders",
       params: {
@@ -26,30 +66,16 @@ RSpec.describe "Api::V1::PurchaseOrders", type: :request do
           supplier_id: supplier.id,
           warehouse_id: warehouse.id,
           currency: "USD",
-          line_items: [
-            { variant_id: variant.id, quantity_ordered: 5, unit_cost: "4.00", title: "Item" }
-          ]
+          line_items: [ { variant_id: variant.id, quantity_ordered: 1, title: "Item" } ]
         }
       }.to_json,
       headers: auth_headers(admin).merge("Content-Type" => "application/json")
 
-    expect(response).to have_http_status(:created)
-    po_id = json_response[:data][:id]
-    li_id = json_response[:data][:line_items].first[:id]
-
-    post "/api/v1/purchase_orders/#{po_id}/receive",
-      params: {
-        receipts: [ { line_item_id: li_id, quantity: 5 } ]
-      }.to_json,
-      headers: auth_headers(admin).merge("Content-Type" => "application/json")
-
-    expect(response).to have_http_status(:ok)
-    expect(json_response[:data][:status]).to eq("received")
-    expect(StockItem.find_by(variant: variant, warehouse: warehouse).quantity_on_hand).to eq(5)
-    expect(variant.reload.last_purchase_cost).to eq(4.to_d)
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.body).to include("factory supplier")
   end
 
-  it "defaults line unit cost from variant cost when omitted" do
+  it "ignores unit_cost in payload and stores zeros on the line" do
     warehouse = create(:warehouse)
     supplier  = create(:supplier)
     variant   = create(:variant, cost: "7.25", last_purchase_cost: "5.00", price: "99.00")
@@ -61,7 +87,7 @@ RSpec.describe "Api::V1::PurchaseOrders", type: :request do
           warehouse_id: warehouse.id,
           currency: "USD",
           line_items: [
-            { variant_id: variant.id, quantity_ordered: 3, title: "Item" }
+            { variant_id: variant.id, quantity_ordered: 3, unit_cost: "12.99", title: "Item" }
           ]
         }
       }.to_json,
@@ -69,32 +95,9 @@ RSpec.describe "Api::V1::PurchaseOrders", type: :request do
 
     expect(response).to have_http_status(:created)
     line_item = json_response[:data][:line_items].first
-    expect(line_item[:unit_cost]).to eq("7.25")
-    expect(line_item[:subtotal]).to eq("21.75")
-  end
-
-  it "falls back to last purchase cost when variant cost is unset" do
-    warehouse = create(:warehouse)
-    supplier  = create(:supplier)
-    variant   = create(:variant, cost: nil, last_purchase_cost: "6.50", price: "99.00")
-
-    post "/api/v1/purchase_orders",
-      params: {
-        purchase_order: {
-          supplier_id: supplier.id,
-          warehouse_id: warehouse.id,
-          currency: "USD",
-          line_items: [
-            { variant_id: variant.id, quantity_ordered: 2, title: "Item" }
-          ]
-        }
-      }.to_json,
-      headers: auth_headers(admin).merge("Content-Type" => "application/json")
-
-    expect(response).to have_http_status(:created)
-    line_item = json_response[:data][:line_items].first
-    expect(line_item[:unit_cost]).to eq("6.5")
-    expect(line_item[:subtotal]).to eq("13.0")
+    expect(line_item[:unit_cost].to_d).to eq(0.to_d)
+    expect(line_item[:subtotal].to_d).to eq(0.to_d)
+    expect(json_response[:data][:total].to_d).to eq(0.to_d)
   end
 
   it "lists POs" do

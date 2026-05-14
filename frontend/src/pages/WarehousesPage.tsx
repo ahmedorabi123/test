@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { warehousesApi, type Warehouse } from "../api/inventory";
+import { RecentWarehouseOrders } from "../components/orders/RecentWarehouseOrders";
 import { MobileRowCard } from "../components/table/MobileRowCard";
 import { Modal } from "../components/ui/Modal";
 import { PageContainer } from "../components/ui/PageContainer";
@@ -26,6 +28,7 @@ export default function WarehousesPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Warehouse | null>(null);
   const [creating, setCreating] = useState(false);
+  const [recentOrdersWarehouseId, setRecentOrdersWarehouseId] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -41,11 +44,25 @@ export default function WarehousesPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (items.length === 0) return;
+    if (!recentOrdersWarehouseId) {
+      setRecentOrdersWarehouseId(items[0].id);
+      return;
+    }
+    if (!items.some((w) => w.id === recentOrdersWarehouseId)) {
+      setRecentOrdersWarehouseId(items[0].id);
+    }
+  }, [items, recentOrdersWarehouseId]);
+
   const grouped = {
     own: items.filter((w) => (w.kind || "own") === "own"),
     consignment: items.filter((w) => w.kind === "consignment"),
     transit: items.filter((w) => w.kind === "transit"),
   };
+  const recentOrdersWarehouse = items.find(
+    (w) => w.id === recentOrdersWarehouseId,
+  );
 
   return (
     <PageContainer className="space-y-6">
@@ -69,6 +86,32 @@ export default function WarehousesPage() {
       {error && (
         <div className="bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-md text-sm">
           {error}
+        </div>
+      )}
+
+      {items.length > 0 && recentOrdersWarehouseId && (
+        <div className="space-y-3">
+          <label className="block max-w-sm text-sm">
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Recent orders warehouse
+            </span>
+            <select
+              value={recentOrdersWarehouseId}
+              onChange={(e) => setRecentOrdersWarehouseId(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              data-testid="warehouses-recent-orders-filter"
+            >
+              {items.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} ({w.code})
+                </option>
+              ))}
+            </select>
+          </label>
+          <RecentWarehouseOrders
+            warehouseId={recentOrdersWarehouseId}
+            warehouseName={recentOrdersWarehouse?.name}
+          />
         </div>
       )}
 
@@ -242,16 +285,25 @@ function Section({
                   </span>
                 </td>
                 <td className="px-4 py-2 text-right">
-                  {isWarehouseReadOnly(w) ? (
-                    <span className="text-xs text-slate-400">Read-only</span>
-                  ) : (
-                    <button
-                      onClick={() => onEdit(w)}
-                      className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                  <div className="flex justify-end gap-3">
+                    <Link
+                      to={`/orders?warehouse_id=${w.id}`}
+                      className="text-slate-600 hover:text-slate-900 text-sm"
+                      data-testid={`warehouse-recent-orders-${w.code}`}
                     >
-                      Edit
-                    </button>
-                  )}
+                      Recent orders
+                    </Link>
+                    {isWarehouseReadOnly(w) ? (
+                      <span className="text-xs text-slate-400">Read-only</span>
+                    ) : (
+                      <button
+                        onClick={() => onEdit(w)}
+                        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -437,8 +489,8 @@ function WarehouseModal({
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
                   Phase 1: informational only. Showroom commission settlement
-                  posting is planned for a later phase. Changes are recorded
-                  in the audit log.
+                  posting is planned for a later phase. Changes are recorded in
+                  the audit log.
                 </p>
               </label>
             </div>

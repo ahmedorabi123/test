@@ -7,6 +7,7 @@ export default function NewSupplierPage() {
   const [form, setForm] = useState({
     supplier_code: "",
     name: "",
+    kind: "factory",
     email: "",
     phone: "",
     currency: "EGP",
@@ -39,6 +40,7 @@ export default function NewSupplierPage() {
       const created = await suppliersApi.create({
         supplier_code: form.supplier_code.trim() || undefined,
         name: form.name.trim(),
+        kind: form.kind as "factory" | "material",
         email: form.email || null,
         phone: form.phone || null,
         currency: form.currency || "EGP",
@@ -111,6 +113,19 @@ export default function NewSupplierPage() {
               }
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Kind
+            </label>
+            <select
+              value={form.kind}
+              onChange={(e) => set("kind", e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="factory">Factory</option>
+              <option value="material">Material</option>
+            </select>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

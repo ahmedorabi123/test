@@ -26,9 +26,7 @@ test.describe("Showroom report dialog", () => {
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    await expect(
-      dialog.getByText(/post showroom sales report/i),
-    ).toBeVisible();
+    await expect(dialog.getByText(/post showroom sales report/i)).toBeVisible();
 
     const qty = dialog.getByLabel(/quantity/i).first();
     await qty.fill("-1");
