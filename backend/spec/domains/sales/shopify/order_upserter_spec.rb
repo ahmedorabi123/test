@@ -172,23 +172,20 @@ RSpec.describe "Sales::Shopify::OrderUpserter → Accounting integration" do
     }.not_to change(JournalEntry, :count)
   end
 
-  it "creates a reversal when an order transitions from paid to refunded" do
-    # First upsert as paid → creates sale journal entry
+  it "does NOT create a reversal journal when an order-level refunded status arrives (refund accounting is per-refund, not per-order)" do
+    # OrderUpserter only posts the sale journal for 'paid' orders.
+    # A subsequent 'refunded' status from Shopify no longer triggers
+    # RefundReversalHandler here — that is handled by RefundUpserter per refund.
     Sales::Shopify::OrderUpserter.call(paid_payload)
     expect(JournalEntry.count).to eq(1)
 
-    # Then Shopify sends a refund webhook
     refund_payload = paid_payload.merge(
       "financial_status" => "refunded",
       "updated_at"       => "2026-04-21T10:00:00Z"
     )
     expect {
       Sales::Shopify::OrderUpserter.call(refund_payload)
-    }.to change(JournalEntry, :count).by(1)
-
-    reversal = JournalEntry.order(:created_at).last
-    expect(reversal.reversal_of_id).to be_present
-    expect(JournalEntry.reversed.count).to eq(1)
+    }.not_to change(JournalEntry, :count)
   end
 
   it "does not create a journal entry for pending orders" do

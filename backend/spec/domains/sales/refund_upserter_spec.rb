@@ -87,11 +87,42 @@ RSpec.describe Sales::Shopify::RefundUpserter do
   end
 
   describe "full refund" do
-    it "reverses the original sale journal and marks the order refunded" do
-      described_class.call(payload(amount: "113.00", refund_id: 202))
+    it "posts a partial refund journal entry (not a full reversal) and marks the order refunded" do
+      refund = described_class.call(payload(amount: "113.00", refund_id: 202))
       expect(order.reload.financial_status).to eq("refunded")
       expect(order.status).to eq("refunded")
-      expect(JournalEntry.where(idempotency_key: "refund-reversal-#{order.id}")).to exist
+      # We always use PartialRefundJournalHandler — avoids double-counting when
+      # prior partial refund entries already exist.
+      partial_entry = JournalEntry.find_by(idempotency_key: "refund-partial-#{refund.id}")
+      expect(partial_entry).to be_present
+      expect(partial_entry.status).to eq("posted")
+    end
+  end
+
+  describe "multiple partial refunds reaching full amount" do
+    it "posts two partial journal entries and sets the order to refunded" do
+      r1 = described_class.call(payload(amount: "50.00", refund_id: 301))
+      r2 = described_class.call(payload(amount: "63.00", refund_id: 302))
+
+      expect(order.reload.financial_status).to eq("refunded")
+
+      expect(JournalEntry.find_by(idempotency_key: "refund-partial-#{r1.id}")).to be_present
+      expect(JournalEntry.find_by(idempotency_key: "refund-partial-#{r2.id}")).to be_present
+      # No full-order reversal entry should exist (avoids double-counting)
+      expect(JournalEntry.where(idempotency_key: "refund-reversal-#{order.id}")).not_to exist
+    end
+  end
+
+  describe "second partial refund on already-partially_refunded order" do
+    it "keeps financial_status = partially_refunded until fully refunded" do
+      described_class.call(payload(amount: "30.00", refund_id: 401))
+      expect(order.reload.financial_status).to eq("partially_refunded")
+
+      described_class.call(payload(amount: "40.00", refund_id: 402))
+      expect(order.reload.financial_status).to eq("partially_refunded")
+
+      described_class.call(payload(amount: "43.00", refund_id: 403))
+      expect(order.reload.financial_status).to eq("refunded")
     end
   end
 

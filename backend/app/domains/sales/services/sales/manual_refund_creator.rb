@@ -200,11 +200,8 @@ module Sales
 
     def post_journal(refund)
       ::Accounting::PartialRefundJournalHandler.call(refund)
-      begin
-        ::Accounting::PostCogsReversalHandler.call(refund.reload)
-      rescue StandardError => e
-        Rails.logger.error "[ManualRefundCreator] COGS reversal failed for refund=#{refund.id}: #{e.message}"
-      end
+      # COGS reversal disabled: PostCogsReversalHandler omitted until
+      # variant cost tracking is enabled.
     end
 
     def flag_order_status(order)

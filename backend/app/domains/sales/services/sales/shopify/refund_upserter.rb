@@ -160,32 +160,36 @@ module Sales
 
       def update_order_financial_state(refund)
         order = refund.order
-        total_refunded = order.refunds.sum(:amount).to_d
+        total_refunded = order.refunds.where(status: "processed").sum(:amount).to_d
 
         new_state =
           if total_refunded >= order.total_price.to_d
             "refunded"
-          elsif total_refunded > 0
-            order.financial_status == "paid" ? "partially_refunded" : order.financial_status
+          elsif total_refunded > 0 && %w[paid partially_refunded].include?(order.financial_status.to_s)
+            "partially_refunded"
           else
             order.financial_status
           end
-        # Only set statuses Order model accepts; partially_refunded isn't in FINANCIAL_STATUSES yet.
+
         return unless ::Order::FINANCIAL_STATUSES.include?(new_state)
+        return if new_state == order.financial_status && order.total_refunded.to_d == total_refunded
 
         attrs = { financial_status: new_state, total_refunded: total_refunded }
         attrs[:status] = "refunded" if new_state == "refunded"
         order.update!(attrs)
       end
 
+      # Posts accounting for each individual Shopify refund event.
+      #
+      # We ALWAYS use PartialRefundJournalHandler (idempotent per refund.id)
+      # regardless of whether this is the refund that tips the order to fully
+      # refunded. This avoids double-counting when a full refund follows one or
+      # more prior partial refund journal entries.
+      #
+      # RefundReversalHandler is reserved for order CANCELLATION (OrderStateMachine).
+      # COGS reversal is disabled until variant cost tracking is implemented.
       def post_accounting(refund)
-        order = refund.order
-        if refund.full?
-          ::Accounting::RefundReversalHandler.call(order)
-        else
-          ::Accounting::PartialRefundJournalHandler.call(refund)
-        end
-        ::Accounting::PostCogsReversalHandler.call(refund.reload)
+        ::Accounting::PartialRefundJournalHandler.call(refund)
       rescue => e
         Rails.logger.error("[RefundUpserter] Accounting error for refund #{refund.id}: #{e.message}")
       end

@@ -698,7 +698,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_14_210000) do
     t.index ["name"], name: "index_suppliers_on_name"
     t.index ["status"], name: "index_suppliers_on_status"
     t.index ["supplier_code"], name: "index_suppliers_on_supplier_code", unique: true, where: "(supplier_code IS NOT NULL)"
-    t.check_constraint "kind::text = ANY (ARRAY['factory'::character varying::text, 'material'::character varying::text])", name: "suppliers_kind_check"
+    t.check_constraint "kind::text = ANY (ARRAY['factory'::character varying, 'material'::character varying]::text[])", name: "suppliers_kind_check"
   end
 
   create_table "sync_cursors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

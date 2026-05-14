@@ -207,4 +207,34 @@ export const accountingApi = {
           }>,
         ) => r.data,
       ),
+
+  createAccount: (payload: {
+    code: string;
+    name: string;
+    account_type: string;
+    normal_side: string;
+    currency?: string;
+    description?: string;
+    parent_id?: string | null;
+  }): Promise<{ data: Account }> =>
+    api
+      .post<{ data: Account }>(`${BASE}/accounts`, payload)
+      .then((r: AxiosResponse<{ data: Account }>) => r.data),
+
+  updateAccount: (
+    id: string,
+    payload: Partial<{
+      code: string;
+      name: string;
+      account_type: string;
+      normal_side: string;
+      currency: string;
+      description: string;
+      active: boolean;
+      parent_id: string | null;
+    }>,
+  ): Promise<{ data: Account }> =>
+    api
+      .patch<{ data: Account }>(`${BASE}/accounts/${id}`, payload)
+      .then((r: AxiosResponse<{ data: Account }>) => r.data),
 };

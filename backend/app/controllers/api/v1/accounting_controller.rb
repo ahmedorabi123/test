@@ -197,6 +197,50 @@ module Api
         }
       end
 
+      # POST /api/v1/accounting/accounts
+      # Body: { code:, name:, account_type:, normal_side:, currency?: "EGP", description?, parent_id? }
+      def create_account
+        acc = Account.new(account_params)
+        if acc.save
+          AuditLog.record(user: current_user, action: "accounting.account.create",
+                          subject: acc, request: request)
+          render json: { data: AccountSerializer.call(acc) }, status: :created
+        else
+          render json: { error: { type: "invalid", detail: acc.errors.full_messages.join(", ") } },
+                 status: :unprocessable_entity
+        end
+      end
+
+      # PATCH /api/v1/accounting/accounts/:id
+      def update_account
+        acc = Account.find(params[:id])
+        if acc.update(account_params)
+          AuditLog.record(user: current_user, action: "accounting.account.update",
+                          subject: acc, request: request)
+          render json: { data: AccountSerializer.call(acc) }
+        else
+          render json: { error: { type: "invalid", detail: acc.errors.full_messages.join(", ") } },
+                 status: :unprocessable_entity
+        end
+      rescue ActiveRecord::RecordNotFound
+        render json: { error: { type: "not_found", detail: "Account not found" } }, status: :not_found
+      end
+
+      # DELETE /api/v1/accounting/accounts/:id  (soft deactivate, not hard delete)
+      def deactivate_account
+        acc = Account.find(params[:id])
+        if acc.journal_lines.exists?
+          return render json: { error: { type: "invalid", detail: "Cannot deactivate an account that has journal lines. Set active=false via update instead." } },
+                        status: :unprocessable_entity
+        end
+        acc.update!(active: false)
+        AuditLog.record(user: current_user, action: "accounting.account.deactivate",
+                        subject: acc, request: request)
+        render json: { data: AccountSerializer.call(acc) }
+      rescue ActiveRecord::RecordNotFound
+        render json: { error: { type: "not_found", detail: "Account not found" } }, status: :not_found
+      end
+
       # POST /api/v1/accounting/post_order/:order_id
       def post_order
         order = Order.find(params[:order_id])
@@ -309,6 +353,11 @@ module Api
       private
 
       JOURNAL_SORT_KEYS = %w[entry_date description status entry_type created_at].freeze
+
+      def account_params
+        params.permit(:code, :name, :account_type, :normal_side, :currency, :description,
+                      :active, :parent_id)
+      end
 
       def apply_journal_sort(scope)
         key = params[:sort].to_s

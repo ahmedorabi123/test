@@ -110,7 +110,10 @@ describe("AuditLogsPage", () => {
 
     renderWithProviders(<AuditLogsPage />, { route: "/audit-logs" });
     await userEvent.type(screen.getByTestId("audit-q"), "supplier");
-    await userEvent.type(screen.getByTestId("audit-actor-email"), "ADMIN@ERP.LOCAL");
+    await userEvent.type(
+      screen.getByTestId("audit-actor-email"),
+      "ADMIN@ERP.LOCAL",
+    );
     await userEvent.type(screen.getByTestId("audit-from-date"), "2026-05-01");
     await userEvent.type(screen.getByTestId("audit-to-date"), "2026-05-31");
 

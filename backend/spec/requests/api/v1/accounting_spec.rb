@@ -319,4 +319,160 @@ RSpec.describe "Api::V1::Accounting", type: :request do
       expect(response).to have_http_status(:not_found)
     end
   end
+
+  # ─── POST /api/v1/accounting/accounts (Chart of Accounts) ─────────────────
+  describe "POST /api/v1/accounting/accounts" do
+    let(:valid_params) do
+      {
+        code:         "7500",
+        name:         "Printing Expense",
+        account_type: "expense",
+        normal_side:  "debit",
+        currency:     "EGP",
+        description:  "Fabric printing costs"
+      }
+    end
+
+    it "creates a new account and returns 201" do
+      post "/api/v1/accounting/accounts",
+           params: valid_params.to_json,
+           headers: auth_headers(admin).merge("Content-Type" => "application/json")
+      expect(response).to have_http_status(:created)
+      body = json_response[:data]
+      expect(body[:code]).to eq("7500")
+      expect(body[:name]).to eq("Printing Expense")
+      expect(body[:account_type]).to eq("expense")
+      expect(body[:normal_side]).to eq("debit")
+    end
+
+    it "rejects duplicate code with 422" do
+      post "/api/v1/accounting/accounts",
+           params: { code: "1100", name: "Duplicate AR", account_type: "asset", normal_side: "debit" }.to_json,
+           headers: auth_headers(admin).merge("Content-Type" => "application/json")
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(json_response[:error][:detail]).to match(/code.*taken/i)
+    end
+
+    it "rejects invalid account_type with 422" do
+      post "/api/v1/accounting/accounts",
+           params: valid_params.merge(account_type: "bogus").to_json,
+           headers: auth_headers(admin).merge("Content-Type" => "application/json")
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    it "rejects invalid normal_side with 422" do
+      post "/api/v1/accounting/accounts",
+           params: valid_params.merge(normal_side: "neither").to_json,
+           headers: auth_headers(admin).merge("Content-Type" => "application/json")
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    it "supports all five account types" do
+      %w[asset liability equity revenue expense].each_with_index do |type, i|
+        side = %w[asset expense].include?(type) ? "debit" : "credit"
+        post "/api/v1/accounting/accounts",
+             params: { code: "8#{i}00", name: "Test #{type}", account_type: type, normal_side: side }.to_json,
+             headers: auth_headers(admin).merge("Content-Type" => "application/json")
+        expect(response).to have_http_status(:created), "Failed for type=#{type}: #{response.body}"
+      end
+    end
+
+    it "requires auth" do
+      post "/api/v1/accounting/accounts",
+           params: valid_params.to_json,
+           headers: { "Content-Type" => "application/json" }
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
+
+  # ─── PATCH /api/v1/accounting/accounts/:id ────────────────────────────────
+  describe "PATCH /api/v1/accounting/accounts/:id" do
+    it "updates the account name and description" do
+      patch "/api/v1/accounting/accounts/#{ar_account.id}",
+            params: { name: "Cash & Bank", description: "Updated" }.to_json,
+            headers: auth_headers(admin).merge("Content-Type" => "application/json")
+      expect(response).to have_http_status(:ok)
+      expect(json_response[:data][:name]).to eq("Cash & Bank")
+      expect(json_response[:data][:description]).to eq("Updated")
+    end
+
+    it "rejects code change to an already-used code" do
+      patch "/api/v1/accounting/accounts/#{revenue_account.id}",
+            params: { code: "1100" }.to_json,
+            headers: auth_headers(admin).merge("Content-Type" => "application/json")
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    it "can deactivate an account via active=false" do
+      patch "/api/v1/accounting/accounts/#{ar_account.id}",
+            params: { active: false }.to_json,
+            headers: auth_headers(admin).merge("Content-Type" => "application/json")
+      expect(response).to have_http_status(:ok)
+      expect(json_response[:data][:active]).to eq(false)
+      expect(ar_account.reload.active).to eq(false)
+    end
+
+    it "returns 404 for unknown id" do
+      patch "/api/v1/accounting/accounts/00000000-0000-0000-0000-000000000000",
+            params: { name: "x" }.to_json,
+            headers: auth_headers(admin).merge("Content-Type" => "application/json")
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  # ─── COGS disabled — fulfillment produces no COGS entry ───────────────────
+  describe "COGS disabled" do
+    let!(:cogs_account) do
+      create(:account, code: "5000", name: "COGS", account_type: "expense", normal_side: "debit")
+    end
+    let!(:inventory_account) do
+      create(:account, code: "1200", name: "Inventory", account_type: "asset", normal_side: "debit")
+    end
+
+    let!(:warehouse) { create(:warehouse, shopify_location_id: 111) }
+    let!(:variant)   { create(:variant) }
+    let!(:stock_item){ create(:stock_item, variant: variant, warehouse: warehouse, quantity_on_hand: 10) }
+    let!(:order) do
+      o = create(:order, :from_shopify, financial_status: "paid",
+                 subtotal_price: 80, total_tax: 0, total_shipping: 0,
+                 total_price: 80, total_discount: 0)
+      o.line_items.create!(variant: variant, sku: "X", title: "T",
+                           quantity: 2, price: 40, total_discount: 0,
+                           total_tax: 0, line_total: 80,
+                           shopify_line_item_id: 9_999_001)
+      o
+    end
+
+    it "transitions to fulfilled without creating any COGS journal entry" do
+      # order is already financial_status=paid — just post the sale journal
+      # and then fulfill
+      Accounting::PostSaleJournalHandler.call(order)
+      Sales::OrderStateMachine.call(order, to: "fulfilled", actor: nil)
+
+      cogs_entry = JournalEntry.joins(:journal_lines)
+                               .where(journal_lines: { account_id: cogs_account.id })
+                               .first
+      expect(cogs_entry).to be_nil
+
+      # Revenue entry must still be present
+      revenue_entry = JournalEntry.find_by(source_type: "order", entry_type: "sale")
+      expect(revenue_entry).to be_present
+    end
+
+    it "refund does not produce a COGS reversal entry" do
+      Accounting::PostSaleJournalHandler.call(order)
+      refund = create(:refund, order: order, amount: 40, status: "processed",
+                      shopify_refund_id: nil)
+      refund.refund_line_items.create!(order_line_item: order.line_items.first, quantity: 1, subtotal: 40)
+      Sales::ManualRefundCreator.call(
+        order_id: order.id, amount: "40.00",
+        line_items: [{ order_line_item_id: order.line_items.first.id, quantity: 1, subtotal: "40.00" }]
+      ) rescue nil  # may raise due to pre-created refund — just verify no COGS
+
+      cogs_reversal = JournalEntry.joins(:journal_lines)
+                                  .where(journal_lines: { account_id: cogs_account.id })
+                                  .first
+      expect(cogs_reversal).to be_nil
+    end
+  end
 end

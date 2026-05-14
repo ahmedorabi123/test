@@ -151,7 +151,7 @@ RSpec.describe "Shopify order lifecycle (end-to-end)", type: :request do
     expect(Fulfillment.count).to eq(fulfillments_before)
   end
 
-  it "flips the order to refunded and reverses the full sale when refunded in full" do
+  it "flips the order to refunded and posts a partial-refund journal entry when refunded in full" do
     Sales::Shopify::OrderUpserter.call(order_payload, from: :webhook)
     Shipping::Shopify::FulfillmentUpserter.call(fulfillment_payload)
 
@@ -162,6 +162,10 @@ RSpec.describe "Shopify order lifecycle (end-to-end)", type: :request do
     order = Order.find_by(shopify_order_id: order_id)
     expect(order.financial_status).to eq("refunded")
     expect(order.status).to eq("refunded")
-    expect(JournalEntry.where(idempotency_key: "refund-reversal-#{order.id}")).to exist
+    # Refund accounting is always via PartialRefundJournalHandler (avoids
+    # double-counting when multiple partial refunds precede a full refund).
+    refund = Refund.find_by(shopify_refund_id: full_refund["id"])
+    expect(JournalEntry.find_by(idempotency_key: "refund-partial-#{refund.id}")).to be_present
+    expect(JournalEntry.where(idempotency_key: "refund-reversal-#{order.id}")).not_to exist
   end
 end

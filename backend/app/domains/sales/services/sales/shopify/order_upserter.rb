@@ -122,17 +122,16 @@ module Sales
       end
 
       # Trigger accounting side-effects based on financial status.
-      # Both handlers are idempotent so calling multiple times is safe.
+      # PostSaleJournalHandler is idempotent per order (idempotency_key).
+      # Refund accounting is handled per-refund by RefundUpserter — we do NOT
+      # call RefundReversalHandler here to avoid double-counting when partial
+      # refund journal entries already exist.
       def trigger_accounting(order)
         case order.financial_status
         when "paid"
           ::Accounting::PostSaleJournalHandler.call(order)
-        when "refunded"
-          ::Accounting::RefundReversalHandler.call(order)
         end
       rescue => e
-        # Don't fail the order upsert if accounting has an error.
-        # The accounting team can manually post the journal entry.
         Rails.logger.error("[OrderUpserter] Accounting error for order #{order.id}: #{e.message}")
       end
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   accountingApi,
   type Account,
@@ -86,6 +86,249 @@ function Badge({ v }: { v: string }) {
   );
 }
 
+// ── Account Form Modal ────────────────────────────────────────────────────────
+
+const ACCOUNT_TYPES = ["asset", "liability", "equity", "revenue", "expense"] as const;
+const NORMAL_SIDES  = ["debit", "credit"] as const;
+
+const defaultSideForType: Record<string, "debit" | "credit"> = {
+  asset:     "debit",
+  expense:   "debit",
+  liability: "credit",
+  equity:    "credit",
+  revenue:   "credit",
+};
+
+interface AccountFormState {
+  code: string;
+  name: string;
+  account_type: string;
+  normal_side: string;
+  currency: string;
+  description: string;
+  active: boolean;
+}
+
+function AccountFormModal({
+  initial,
+  onClose,
+  onSaved,
+}: {
+  initial: Account | null;
+  onClose: () => void;
+  onSaved: (a: Account) => void;
+}) {
+  const isEdit = initial != null;
+  const [form, setForm] = useState<AccountFormState>({
+    code:         initial?.code         ?? "",
+    name:         initial?.name         ?? "",
+    account_type: initial?.account_type ?? "expense",
+    normal_side:  initial?.normal_side  ?? "debit",
+    currency:     initial?.currency     ?? "EGP",
+    description:  initial?.description  ?? "",
+    active:       initial?.active       ?? true,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState("");
+
+  const set = (k: keyof AccountFormState, v: string | boolean) =>
+    setForm((f) => ({ ...f, [k]: v }));
+
+  const handleTypeChange = (t: string) => {
+    setForm((f) => ({
+      ...f,
+      account_type: t,
+      normal_side: defaultSideForType[t] ?? "debit",
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      let result: { data: Account };
+      if (isEdit) {
+        result = await accountingApi.updateAccount(initial!.id, {
+          code:         form.code,
+          name:         form.name,
+          account_type: form.account_type,
+          normal_side:  form.normal_side,
+          currency:     form.currency,
+          description:  form.description,
+          active:       form.active,
+        });
+      } else {
+        result = await accountingApi.createAccount({
+          code:         form.code,
+          name:         form.name,
+          account_type: form.account_type,
+          normal_side:  form.normal_side,
+          currency:     form.currency,
+          description:  form.description,
+        });
+      }
+      onSaved(result.data);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { error?: { detail?: string } } } })
+          ?.response?.data?.error?.detail ?? "Save failed";
+      setError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b px-5 py-4">
+          <h2 className="font-semibold text-slate-800">
+            {isEdit ? "Edit Account" : "New Account"}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 text-xl leading-none"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {error && (
+            <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Account Code *
+              </label>
+              <input
+                required
+                value={form.code}
+                onChange={(e) => set("code", e.target.value.trim())}
+                placeholder="e.g. 6100"
+                className="w-full rounded-md border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Currency
+              </label>
+              <input
+                value={form.currency}
+                onChange={(e) => set("currency", e.target.value.toUpperCase())}
+                maxLength={3}
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Account Name *
+            </label>
+            <input
+              required
+              value={form.name}
+              onChange={(e) => set("name", e.target.value)}
+              placeholder="e.g. Rent &amp; Occupancy"
+              className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Account Type *
+              </label>
+              <select
+                required
+                value={form.account_type}
+                onChange={(e) => handleTypeChange(e.target.value)}
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              >
+                {ACCOUNT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Normal Side *
+              </label>
+              <select
+                required
+                value={form.normal_side}
+                onChange={(e) => set("normal_side", e.target.value)}
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              >
+                {NORMAL_SIDES.map((s) => (
+                  <option key={s} value={s}>
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-400 mt-1">
+                Assets &amp; expenses = Debit; Liabilities, equity &amp; revenue = Credit
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Description
+            </label>
+            <input
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              placeholder="Optional — brief description"
+              className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+
+          {isEdit && (
+            <div className="flex items-center gap-3">
+              <input
+                id="acc-active"
+                type="checkbox"
+                checked={form.active}
+                onChange={(e) => set("active", e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400"
+              />
+              <label htmlFor="acc-active" className="text-sm text-slate-700">
+                Active (uncheck to deactivate)
+              </label>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Create account"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Accounts tab ─────────────────────────────────────────────────────────────
 
 function AccountsTab() {
@@ -94,8 +337,10 @@ function AccountsTab() {
   const [error, setError] = useState("");
   const [sortKey, setSortKey] = useState<"code" | "name">("code");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [formTarget, setFormTarget] = useState<Account | null | "new">(null);
 
-  useEffect(() => {
+  const loadAccounts = useCallback(() => {
+    setLoading(true);
     accountingApi
       .accounts()
       .then((r) => setAccounts(r.data))
@@ -103,12 +348,11 @@ function AccountsTab() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => { loadAccounts(); }, [loadAccounts]);
+
   const onSort = (key: "code" | "name") => {
     if (sortKey === key) setSortDir(nextDir(sortDir));
-    else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
+    else { setSortKey(key); setSortDir("asc"); }
   };
 
   const sortRows = (rows: Account[]) => {
@@ -120,105 +364,134 @@ function AccountsTab() {
     return sortDir === "asc" ? sorted : sorted.reverse();
   };
 
-  if (loading) return <p className="text-slate-500 p-6">Loading…</p>;
-  if (error) return <p className="text-red-500 p-6">{error}</p>;
+  const handleSaved = (saved: Account) => {
+    setAccounts((prev) => {
+      const idx = prev.findIndex((a) => a.id === saved.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = saved;
+        return next;
+      }
+      return [...prev, saved];
+    });
+    setFormTarget(null);
+  };
 
-  const groups = [
-    "asset",
-    "liability",
-    "equity",
-    "revenue",
-    "expense",
-  ] as const;
+  if (loading) return <p className="text-slate-500 p-6">Loading…</p>;
+  if (error)   return <p className="text-red-500 p-6">{error}</p>;
+
+  const groups = ["asset", "liability", "equity", "revenue", "expense"] as const;
 
   return (
-    <div className="space-y-6">
-      {groups.map((g) => {
-        const rows = sortRows(accounts.filter((a) => a.account_type === g));
-        if (!rows.length) return null;
-        return (
-          <div key={g}>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 px-1">
-              {g}s
-            </h3>
-            {/* Mobile cards */}
-            <div className="space-y-2 md:hidden">
-              {rows.map((a) => (
-                <MobileRowCard
-                  key={a.id}
-                  title={
-                    <span className="font-mono text-sm text-slate-900">
-                      {a.code}
-                    </span>
-                  }
-                  subtitle={a.name}
-                  fields={[
-                    {
-                      label: "Normal side",
-                      value: <Badge v={a.normal_side} />,
-                    },
-                    { label: "Currency", value: a.currency },
-                    {
-                      label: "Status",
-                      value: a.active ? (
-                        <span className="text-emerald-600 text-xs">Active</span>
-                      ) : (
-                        <span className="text-slate-400 text-xs">Inactive</span>
-                      ),
-                    },
-                  ]}
-                />
-              ))}
-            </div>
-            {/* Desktop table */}
-            <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-              <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-                  <tr>
-                    <SortHeader
-                      label="Code"
-                      active={sortKey === "code"}
-                      dir={sortDir}
-                      onClick={() => onSort("code")}
-                    />
-                    <SortHeader
-                      label="Name"
-                      active={sortKey === "name"}
-                      dir={sortDir}
-                      onClick={() => onSort("name")}
-                    />
-                    <th className="px-4 py-2 text-left">Normal Side</th>
-                    <th className="px-4 py-2 text-left">Currency</th>
-                    <th className="px-4 py-2 text-left">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {rows.map((a) => (
-                    <tr key={a.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-2 font-mono font-medium text-slate-700">
+    <>
+      {formTarget != null && (
+        <AccountFormModal
+          initial={formTarget === "new" ? null : formTarget}
+          onClose={() => setFormTarget(null)}
+          onSaved={handleSaved}
+        />
+      )}
+
+      <div className="space-y-6">
+        <div className="flex justify-end">
+          <button
+            onClick={() => setFormTarget("new")}
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
+          >
+            + New Account
+          </button>
+        </div>
+
+        {groups.map((g) => {
+          const rows = sortRows(accounts.filter((a) => a.account_type === g));
+          if (!rows.length) return null;
+          return (
+            <div key={g}>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 px-1">
+                {g}s
+              </h3>
+              {/* Mobile cards */}
+              <div className="space-y-2 md:hidden">
+                {rows.map((a) => (
+                  <MobileRowCard
+                    key={a.id}
+                    title={
+                      <span className="font-mono text-sm text-slate-900">
                         {a.code}
-                      </td>
-                      <td className="px-4 py-2 text-slate-800">{a.name}</td>
-                      <td className="px-4 py-2">
-                        <Badge v={a.normal_side} />
-                      </td>
-                      <td className="px-4 py-2 text-slate-500">{a.currency}</td>
-                      <td className="px-4 py-2">
-                        <span
-                          className={`text-xs font-medium ${a.active ? "text-emerald-600" : "text-slate-400"}`}
-                        >
-                          {a.active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
+                      </span>
+                    }
+                    subtitle={a.name}
+                    fields={[
+                      { label: "Normal side", value: <Badge v={a.normal_side} /> },
+                      { label: "Currency", value: a.currency },
+                      {
+                        label: "Status",
+                        value: a.active ? (
+                          <span className="text-emerald-600 text-xs">Active</span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">Inactive</span>
+                        ),
+                      },
+                    ]}
+                    actions={
+                      <button
+                        type="button"
+                        onClick={() => setFormTarget(a)}
+                        className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Edit
+                      </button>
+                    }
+                  />
+                ))}
+              </div>
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                    <tr>
+                      <SortHeader label="Code" active={sortKey === "code"} dir={sortDir} onClick={() => onSort("code")} />
+                      <SortHeader label="Name" active={sortKey === "name"} dir={sortDir} onClick={() => onSort("name")} />
+                      <th className="px-4 py-2 text-left">Normal Side</th>
+                      <th className="px-4 py-2 text-left">Currency</th>
+                      <th className="px-4 py-2 text-left">Status</th>
+                      <th className="px-4 py-2 text-left">Description</th>
+                      <th className="px-4 py-2"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rows.map((a) => (
+                      <tr key={a.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-2 font-mono font-medium text-slate-700">{a.code}</td>
+                        <td className="px-4 py-2 text-slate-800">{a.name}</td>
+                        <td className="px-4 py-2"><Badge v={a.normal_side} /></td>
+                        <td className="px-4 py-2 text-slate-500">{a.currency}</td>
+                        <td className="px-4 py-2">
+                          <span className={`text-xs font-medium ${a.active ? "text-emerald-600" : "text-slate-400"}`}>
+                            {a.active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-slate-400 text-xs max-w-xs truncate">
+                          {a.description ?? ""}
+                        </td>
+                        <td className="px-4 py-2">
+                          <button
+                            onClick={() => setFormTarget(a)}
+                            className="text-xs text-indigo-600 hover:underline"
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
