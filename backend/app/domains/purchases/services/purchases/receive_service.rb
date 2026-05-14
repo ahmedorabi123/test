@@ -49,12 +49,14 @@ module Purchases
         si.quantity_on_hand = 0
       end
 
-      Inventory::WriteMovement.call(
-        stock_item: stock_item,
-        delta:      qty,
-        reason:     "received",
-        reference:  @po
-      )
+      ::Shopify::Origin.without_read_only do
+        Inventory::WriteMovement.call(
+          stock_item: stock_item,
+          delta:      qty,
+          reason:     "received",
+          reference:  @po
+        )
+      end
 
       li.update!(quantity_received: li.quantity_received + qty)
     end

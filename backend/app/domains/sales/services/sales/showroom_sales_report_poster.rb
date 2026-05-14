@@ -4,7 +4,7 @@ module Sales
   # Input:
   #   {
   #     warehouse_id:   <uuid of consignment warehouse>,
-  #     period:         "2025-01"  # YYYY-MM
+  #     period:         "2025-01" or "2025-01-01..2025-01-10"
   #     report_date:    "2025-02-01"  # optional, when settlement is dated
   #     currency:       "EGP"  # optional, defaults to warehouse currency or EGP
   #     line_items:     [{ variant_id:, quantity:, unit_price: }, ...]
@@ -87,7 +87,9 @@ module Sales
 
     def validate!
       raise InvalidInput, "warehouse_id required"        if @attrs[:warehouse_id].blank?
-      raise InvalidInput, "period must be YYYY-MM"       unless @attrs[:period].to_s =~ /\A\d{4}-\d{2}\z/
+      unless ShowroomReversal::PERIOD_FORMAT.match?(@attrs[:period].to_s)
+        raise InvalidInput, "period must be YYYY-MM, YYYY-MM-DD, or YYYY-MM-DD..YYYY-MM-DD"
+      end
       raise InvalidInput, "line_items required"          if Array(@attrs[:line_items]).empty?
     end
 

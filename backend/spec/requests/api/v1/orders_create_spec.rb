@@ -59,4 +59,45 @@ RSpec.describe "Api::V1::Orders POST (manual order)", type: :request do
       headers: auth_headers(admin).merge("Content-Type" => "application/json")
     expect(response).to have_http_status(:unprocessable_entity)
   end
+
+  it "reserves Shopify-origin variants from non-Shopify showroom stock" do
+    shopify_product = create(:product, :from_shopify)
+    shopify_variant = create(:variant, :from_shopify, product: shopify_product, price: "25.00")
+    showroom = create(:warehouse, kind: "consignment")
+    stock_item = create(:stock_item, variant: shopify_variant, warehouse: showroom, quantity_on_hand: 6)
+
+    post "/api/v1/orders",
+      params: {
+        order: {
+          source: "showroom",
+          warehouse_id: showroom.id,
+          line_items: [
+            { variant_id: shopify_variant.id, title: "Shopify Item", quantity: 2, price: "25.00" }
+          ]
+        }
+      }.to_json,
+      headers: auth_headers(admin).merge("Content-Type" => "application/json")
+
+    expect(response).to have_http_status(:created), response.body
+    expect(stock_item.reload.quantity_reserved).to eq(2)
+  end
+
+  it "rejects manual orders assigned to Shopify warehouses" do
+    shopify_warehouse = create(:warehouse, shopify_location_id: 123456)
+
+    post "/api/v1/orders",
+      params: {
+        order: {
+          source: "manual",
+          warehouse_id: shopify_warehouse.id,
+          line_items: [
+            { variant_id: variant.id, title: "Item", quantity: 1, price: "25.00" }
+          ]
+        }
+      }.to_json,
+      headers: auth_headers(admin).merge("Content-Type" => "application/json")
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(json_response.dig(:error, :detail)).to include("cannot use Shopify warehouses")
+  end
 end

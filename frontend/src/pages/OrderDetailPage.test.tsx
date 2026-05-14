@@ -92,6 +92,9 @@ describe("OrderDetailPage", () => {
       screen.queryByRole("button", { name: /mark partially paid/i }),
     ).not.toBeInTheDocument();
     expect(
+      screen.queryByRole("button", { name: /create shipment/i }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByRole("button", { name: /manual fulfillment/i }),
     ).not.toBeInTheDocument();
     expect(
@@ -99,6 +102,58 @@ describe("OrderDetailPage", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: /^refunds$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not show shipment creation for manual orders", async () => {
+    server.use(
+      http.get("*/api/v1/orders/ord-manual", () =>
+        HttpResponse.json({
+          data: {
+            id: "ord-manual",
+            order_number: "SO-1001",
+            external_number: null,
+            source: "manual",
+            status: "processing",
+            financial_status: "paid",
+            fulfillment_status: null,
+            currency: "EGP",
+            subtotal_price: "100.00",
+            total_tax: "0.00",
+            total_shipping: "0.00",
+            total_discount: "0.00",
+            total_price: "100.00",
+            customer_email: "manual@example.com",
+            customer_name: "Manual Customer",
+            placed_at: "2026-01-01T00:00:00Z",
+            cancelled_at: null,
+            shopify_order_id: null,
+            read_only_origin: false,
+            created_at: "2026-01-01T00:00:00Z",
+            updated_at: "2026-01-01T00:00:00Z",
+            line_items: [],
+            fulfillments: [],
+          },
+        }),
+      ),
+      http.get("*/api/v1/orders/ord-manual/stock_allocation", () =>
+        HttpResponse.json({ data: [] }),
+      ),
+      http.get("*/api/v1/orders/ord-manual/timeline", () =>
+        HttpResponse.json({ data: [] }),
+      ),
+    );
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/orders/:id" element={<OrderDetailPage />} />
+      </Routes>,
+      { route: "/orders/ord-manual" },
+    );
+
+    expect(await screen.findByText("SO-1001")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /create shipment/i }),
     ).not.toBeInTheDocument();
   });
 });

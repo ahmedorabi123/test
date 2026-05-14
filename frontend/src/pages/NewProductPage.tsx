@@ -30,14 +30,8 @@ const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
 type VariantDraft = {
   key: string;
   title: string;
-  option1: string;
-  option2: string;
-  option3: string;
   sku: string;
   price: string;
-  compare_at_price: string;
-  cost_per_item: string;
-  barcode: string;
 };
 
 type Draft = {
@@ -80,37 +74,9 @@ function newVariant(title = "Default"): VariantDraft {
   return {
     key: `variant-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     title,
-    option1: "",
-    option2: "",
-    option3: "",
     sku: "",
     price: "0.00",
-    compare_at_price: "",
-    cost_per_item: "",
-    barcode: "",
   };
-}
-
-function uniqueValues(values: string[]) {
-  return Array.from(
-    new Set(values.map((value) => value.trim()).filter(Boolean)),
-  );
-}
-
-function buildProductOptions(variants: VariantDraft[]) {
-  const definitions = [
-    { name: "Option 1", values: uniqueValues(variants.map((v) => v.option1)) },
-    { name: "Option 2", values: uniqueValues(variants.map((v) => v.option2)) },
-    { name: "Option 3", values: uniqueValues(variants.map((v) => v.option3)) },
-  ].filter((definition) => definition.values.length > 0);
-
-  return definitions.map((definition, index) => ({
-    name: definition.name,
-    position: index + 1,
-    product_option_values_attributes: definition.values.map(
-      (value, valueIndex) => ({ value, position: valueIndex + 1 }),
-    ),
-  }));
 }
 
 function validateMedia(files: File[]) {
@@ -246,23 +212,11 @@ export default function NewProductPage() {
         metafields: draft.metafields.filter(
           (row) => row.namespace && row.key && row.value.trim(),
         ),
-        product_options_attributes: buildProductOptions(validVariants) as never,
         variants_attributes: validVariants.map((variant, index) => ({
           title: variant.title.trim() || "Default",
           sku: variant.sku.trim() || null,
           price: variant.price || "0.00",
-          compare_at_price: variant.compare_at_price.trim() || null,
-          cost: variant.cost_per_item.trim() || null,
-          cost_per_item: variant.cost_per_item.trim() || null,
-          barcode: variant.barcode.trim() || null,
-          option1: variant.option1.trim() || null,
-          option2: variant.option2.trim() || null,
-          option3: variant.option3.trim() || null,
           position: index + 1,
-          inventory_policy: "deny",
-          inventory_management: "shopify",
-          requires_shipping: true,
-          taxable: true,
         })),
       });
 
@@ -366,18 +320,12 @@ export default function NewProductPage() {
             </div>
 
             <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <table className="min-w-[1080px] text-sm">
+              <table className="min-w-[560px] text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                   <tr>
                     <th className="px-3 py-2 text-left">Variant</th>
-                    <th className="px-3 py-2 text-left">Option 1</th>
-                    <th className="px-3 py-2 text-left">Option 2</th>
-                    <th className="px-3 py-2 text-left">Option 3</th>
                     <th className="px-3 py-2 text-left">SKU</th>
                     <th className="px-3 py-2 text-right">Price</th>
-                    <th className="px-3 py-2 text-right">Compare</th>
-                    <th className="px-3 py-2 text-right">Cost</th>
-                    <th className="px-3 py-2 text-left">Barcode</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -394,22 +342,6 @@ export default function NewProductPage() {
                           className="w-44 rounded border border-slate-300 px-2 py-1"
                         />
                       </td>
-                      {(["option1", "option2", "option3"] as const).map(
-                        (field, optionIndex) => (
-                          <td key={field} className="px-3 py-2">
-                            <input
-                              aria-label={`Variant ${index + 1} option ${optionIndex + 1}`}
-                              value={variant[field]}
-                              onChange={(e) =>
-                                updateVariant(index, {
-                                  [field]: e.target.value,
-                                })
-                              }
-                              className="w-32 rounded border border-slate-300 px-2 py-1"
-                            />
-                          </td>
-                        ),
-                      )}
                       <td className="px-3 py-2">
                         <input
                           aria-label={`Variant ${index + 1} SKU`}
@@ -431,46 +363,6 @@ export default function NewProductPage() {
                             updateVariant(index, { price: e.target.value })
                           }
                           className="w-24 rounded border border-slate-300 px-2 py-1 text-right"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          aria-label={`Variant ${index + 1} compare at price`}
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={variant.compare_at_price}
-                          onChange={(e) =>
-                            updateVariant(index, {
-                              compare_at_price: e.target.value,
-                            })
-                          }
-                          className="w-24 rounded border border-slate-300 px-2 py-1 text-right"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          aria-label={`Variant ${index + 1} cost`}
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={variant.cost_per_item}
-                          onChange={(e) =>
-                            updateVariant(index, {
-                              cost_per_item: e.target.value,
-                            })
-                          }
-                          className="w-24 rounded border border-slate-300 px-2 py-1 text-right"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          aria-label={`Variant ${index + 1} barcode`}
-                          value={variant.barcode}
-                          onChange={(e) =>
-                            updateVariant(index, { barcode: e.target.value })
-                          }
-                          className="w-32 rounded border border-slate-300 px-2 py-1 font-mono"
                         />
                       </td>
                       <td className="px-3 py-2 text-right">

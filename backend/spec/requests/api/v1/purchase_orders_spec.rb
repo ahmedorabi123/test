@@ -55,6 +55,37 @@ RSpec.describe "Api::V1::PurchaseOrders", type: :request do
     expect(variant.reload.last_purchase_cost).to be_nil
   end
 
+  it "receives Shopify-origin variants into Shopify warehouses" do
+    warehouse = create(:warehouse, shopify_location_id: 987654)
+    supplier  = create(:supplier)
+    product   = create(:product, :from_shopify)
+    variant   = create(:variant, :from_shopify, product: product, price: "10.00")
+
+    post "/api/v1/purchase_orders",
+      params: {
+        purchase_order: {
+          supplier_id: supplier.id,
+          warehouse_id: warehouse.id,
+          currency: "USD",
+          line_items: [
+            { variant_id: variant.id, quantity_ordered: 4, title: "Shopify Item" }
+          ]
+        }
+      }.to_json,
+      headers: auth_headers(admin).merge("Content-Type" => "application/json")
+
+    expect(response).to have_http_status(:created), response.body
+    po_id = json_response[:data][:id]
+    li_id = json_response[:data][:line_items].first[:id]
+
+    post "/api/v1/purchase_orders/#{po_id}/receive",
+      params: { receipts: [ { line_item_id: li_id, quantity: 4 } ] }.to_json,
+      headers: auth_headers(admin).merge("Content-Type" => "application/json")
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(StockItem.find_by(variant: variant, warehouse: warehouse).quantity_on_hand).to eq(4)
+  end
+
   it "rejects POs against non-factory suppliers" do
     warehouse = create(:warehouse)
     supplier  = create(:supplier, kind: "material")

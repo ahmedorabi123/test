@@ -85,7 +85,7 @@ Rails.application.routes.draw do
         end
       end
 
-      # Shipping / Fulfillments (read-only + manual create for non-Shopify orders)
+      # Shipping / Fulfillments (view-only; Shopify sync owns fulfillment data)
       resources :fulfillments, only: %i[index show create] do
         collection do
           get  :export

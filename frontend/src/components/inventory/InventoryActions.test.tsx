@@ -124,7 +124,7 @@ describe("TransferStockButton", () => {
     });
     expect(
       Array.from(variantSelect.options).map((option) => option.text).join("|"),
-    ).not.toContain("Shopify Widget");
+    ).toContain("Shopify Widget");
     await userEvent.selectOptions(variantSelect, "v1");
     const qtyInput = within(dialog1).getByRole(
       "spinbutton",
@@ -248,6 +248,13 @@ describe("ShowroomReportButton", () => {
       within(dialog).getByLabelText(/showroom \*/i),
       "w2",
     );
+    await userEvent.selectOptions(
+      within(dialog).getByLabelText(/period type/i),
+      "ten_days",
+    );
+    fireEvent.change(within(dialog).getByLabelText(/start date/i), {
+      target: { value: "2025-03-02" },
+    });
 
     const variantSelect = await waitFor(() => {
       const sel = within(dialog)
@@ -274,9 +281,11 @@ describe("ShowroomReportButton", () => {
     );
 
     await waitFor(() => {
-      expect((received as { line_items: unknown[] }).line_items).toEqual([
-        { variant_id: "v1", quantity: -1, unit_price: "50" },
-      ]);
+      expect(received).toMatchObject({
+        period: "2025-03-02..2025-03-11",
+        report_date: "2025-03-02",
+        line_items: [{ variant_id: "v1", quantity: -1, unit_price: "50" }],
+      });
     });
 
     expect(

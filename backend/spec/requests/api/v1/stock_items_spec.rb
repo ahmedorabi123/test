@@ -124,8 +124,22 @@ RSpec.describe "Api::V1::StockItems", type: :request do
       expect(si.low_stock_threshold).to eq(3)
     end
 
-    it "rejects creation for Shopify-origin variants and warehouses" do
+    it "allows Shopify-origin variants in non-Shopify warehouses" do
       variant = create(:variant, :from_shopify)
+      warehouse = create(:warehouse)
+
+      expect {
+        post "/api/v1/stock_items",
+             params: { variant_id: variant.id, warehouse_id: warehouse.id, quantity_on_hand: 20 },
+             headers: auth_headers(admin)
+      }.to change(StockItem, :count).by(1)
+
+      expect(response).to have_http_status(:created)
+      expect(StockItem.find_by(variant: variant, warehouse: warehouse).quantity_on_hand).to eq(20)
+    end
+
+    it "rejects creation in Shopify-origin warehouses" do
+      variant = create(:variant)
       warehouse = create(:warehouse, shopify_location_id: 123456)
 
       expect {
@@ -174,8 +188,23 @@ RSpec.describe "Api::V1::StockItems", type: :request do
       expect(body["available"]).to eq(6) # 10 - 2 - 2
     end
 
-    it "rejects adjustments to Shopify-origin stock items" do
+    it "allows adjustments to Shopify-origin variants outside Shopify warehouses" do
       variant = create(:variant, :from_shopify)
+      warehouse = create(:warehouse, kind: "consignment")
+      si = create(:stock_item, variant: variant, warehouse: warehouse, quantity_on_hand: 10)
+
+      expect {
+        patch "/api/v1/stock_items/#{si.id}",
+              params: { stock_item: { quantity_on_hand: 15 } },
+              headers: auth_headers(admin)
+      }.to change(StockMovement, :count).by(1)
+
+      expect(response).to have_http_status(:ok)
+      expect(si.reload.quantity_on_hand).to eq(15)
+    end
+
+    it "rejects adjustments in Shopify-origin warehouses" do
+      variant = create(:variant)
       warehouse = create(:warehouse, shopify_location_id: 123456)
       si = create(:stock_item, variant: variant, warehouse: warehouse, quantity_on_hand: 10)
 
@@ -223,7 +252,7 @@ RSpec.describe "Api::V1::StockItems", type: :request do
     end
 
     it "rejects bulk changes containing Shopify-origin stock items" do
-      variant = create(:variant, :from_shopify)
+      variant = create(:variant)
       warehouse = create(:warehouse, shopify_location_id: 123456)
       si = create(:stock_item, variant: variant, warehouse: warehouse, low_stock_threshold: 5)
 

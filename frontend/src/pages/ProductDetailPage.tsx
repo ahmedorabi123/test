@@ -19,6 +19,14 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const apiOrigin = import.meta.env.VITE_API_URL || "http://localhost:3010";
+const ALLOWED_MEDIA_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/gif",
+];
+const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
 
 const CATEGORY_METAFIELDS = [
   { key: "color", label: "Color" },
@@ -156,11 +164,13 @@ function toDraft(p: Product): Draft {
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const originalRef = useRef<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState(0);
   const [tagInput, setTagInput] = useState("");
@@ -265,6 +275,49 @@ export default function ProductDetailPage() {
       setError((e as Error).message || "Save failed");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleImageUpload(files: File[]) {
+    if (!product || isReadOnly || files.length === 0) return;
+    const invalid = files.find(
+      (file) =>
+        !ALLOWED_MEDIA_TYPES.includes(file.type) || file.size > MAX_MEDIA_BYTES,
+    );
+    if (invalid) {
+      setError(
+        invalid.size > MAX_MEDIA_BYTES
+          ? `${invalid.name} exceeds 5 MB`
+          : `${invalid.name}: unsupported type ${invalid.type || "unknown"}`,
+      );
+      return;
+    }
+
+    setUploadingImages(true);
+    setError(null);
+    try {
+      const uploaded = await productsApi.uploadImages(product.id, files);
+      setProduct((prev) =>
+        prev
+          ? {
+              ...prev,
+              uploaded_images: [...(prev.uploaded_images ?? []), ...uploaded],
+            }
+          : prev,
+      );
+      const currentImageCount =
+        (product.images ?? []).length + (product.uploaded_images ?? []).length;
+      setActiveImage(currentImageCount > 0 ? currentImageCount : 0);
+    } catch (e) {
+      const err = e as {
+        response?: { data?: { error?: { detail?: string } } };
+        message?: string;
+      };
+      setError(
+        err.response?.data?.error?.detail || err.message || "Upload failed",
+      );
+    } finally {
+      setUploadingImages(false);
     }
   }
 
@@ -565,17 +618,55 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* Media gallery (read-only — managed via Shopify) */}
-            {images.length > 0 && (
+            {(images.length > 0 || !isReadOnly) && (
               <div className="bg-white rounded-xl ring-1 ring-slate-200 p-4">
-                <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                  Media
-                </h2>
-                <img
-                  src={images[activeImage]?.src}
-                  alt={images[activeImage]?.alt || product.title}
-                  className="w-full max-h-80 object-contain rounded"
-                />
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    Media
+                  </h2>
+                  {!isReadOnly && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={uploadingImages}
+                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        {uploadingImages ? "Uploading..." : "Upload images"}
+                      </button>
+                      <input
+                        ref={imageInputRef}
+                        aria-label="Upload product images"
+                        type="file"
+                        multiple
+                        accept={ALLOWED_MEDIA_TYPES.join(",")}
+                        className="sr-only"
+                        onChange={(event) => {
+                          handleImageUpload(
+                            Array.from(event.target.files ?? []),
+                          );
+                          event.target.value = "";
+                        }}
+                      />
+                    </>
+                  )}
+                </div>
+                {images.length > 0 ? (
+                  <img
+                    src={images[activeImage]?.src}
+                    alt={images[activeImage]?.alt || product.title}
+                    className="w-full max-h-80 object-contain rounded"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={uploadingImages}
+                    className="flex min-h-40 w-full items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+                  >
+                    Add image
+                  </button>
+                )}
                 {images.length > 1 && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     {images.map((img, idx) => (

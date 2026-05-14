@@ -66,6 +66,34 @@ RSpec.describe "Api::V1::ShowroomSales", type: :request do
     expect(response).to have_http_status(:created)
   end
 
+  it "accepts custom date-range periods as distinct report keys" do
+    post "/api/v1/showroom_sales",
+         params: {
+           warehouse_id: showroom.id,
+           period: "2025-05-01..2025-05-10",
+           report_date: "2025-05-10",
+           line_items: [{ variant_id: variant.id, quantity: -1, unit_price: "50.00" }]
+         }, as: :json, headers: auth_headers(admin)
+
+    expect(response).to have_http_status(:created), response.body
+    expect(json_response.dig(:data, :reversal, :period)).to eq("2025-05-01..2025-05-10")
+  end
+
+  it "deducts showroom stock for Shopify-origin variants" do
+    shopify_product = create(:product, :from_shopify)
+    shopify_variant = create(:variant, :from_shopify, product: shopify_product, price: 50.00, cost_per_item: 20.00)
+    stock_item = create(:stock_item, variant: shopify_variant, warehouse: showroom, quantity_on_hand: 5)
+
+    post "/api/v1/showroom_sales",
+         params: {
+           warehouse_id: showroom.id, period: "2025-05-11",
+           line_items: [{ variant_id: shopify_variant.id, quantity: 2, unit_price: "50.00" }]
+         }, as: :json, headers: auth_headers(admin)
+
+    expect(response).to have_http_status(:created), response.body
+    expect(stock_item.reload.quantity_on_hand).to eq(3)
+  end
+
   it "rejects re-posting the same (warehouse, period)" do
     post "/api/v1/showroom_sales",
          params: {

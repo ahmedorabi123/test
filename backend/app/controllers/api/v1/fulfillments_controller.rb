@@ -69,34 +69,10 @@ module Api
       end
 
       # POST /api/v1/fulfillments
-      # Creates a manual fulfillment (non-Shopify) for an ERP-only order.
-      # Body: { fulfillment: { order_id:, tracking_company:, tracking_number:,
-      #                        tracking_url:, service:, shipped_at:,
-      #                        transition_order:, line_items: [{order_line_item_id:, quantity:}] } }
+      # Disabled in Phase 1: fulfillments are view-only Shopify data.
       def create
         authorize Fulfillment
-        attrs = create_params
-        order = Order.find(attrs.fetch(:order_id))
-        return unless ensure_not_shopify_origin!(order)
-
-        fulfillment = Shipping::CreateManualFulfillment.call(
-          order:            order,
-          tracking_company: attrs[:tracking_company],
-          tracking_number:  attrs[:tracking_number],
-          tracking_url:     attrs[:tracking_url],
-          service:          attrs[:service],
-          shipped_at:       parse_time(attrs[:shipped_at]),
-          line_items:       Array(attrs[:line_items]),
-          transition_order: attrs.fetch(:transition_order, true),
-          actor:            current_user
-        )
-        render json: { data: FulfillmentSerializer.call(fulfillment) }, status: :created
-      rescue Shipping::CreateManualFulfillment::InvalidInput => e
-        render_error(422, "unprocessable_entity", e.message)
-      rescue Shipping::CreateManualFulfillment::AlreadyFulfilled => e
-        render_error(422, "already_fulfilled", e.message)
-      rescue ActiveRecord::RecordInvalid => e
-        render_error(422, "unprocessable_entity", e.message)
+        render_error(403, "manual_shipments_disabled", "Shipment creation is disabled; fulfillments are read-only Shopify data.")
       end
 
       # POST /api/v1/fulfillments/bulk (no-op stub; reserved for future)

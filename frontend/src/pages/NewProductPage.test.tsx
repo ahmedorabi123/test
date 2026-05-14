@@ -77,6 +77,14 @@ describe("NewProductPage", () => {
     expect(JSON.stringify(productPayload)).not.toContain(
       "stock_items_attributes",
     );
+    expect(JSON.stringify(productPayload)).not.toContain(
+      "compare_at_price",
+    );
+    expect(JSON.stringify(productPayload)).not.toContain("cost_per_item");
+    expect(JSON.stringify(productPayload)).not.toContain("barcode");
+    expect(JSON.stringify(productPayload)).not.toContain(
+      "product_options_attributes",
+    );
     expect(productPayload).toMatchObject({
       product: {
         title: "Manual Tee",

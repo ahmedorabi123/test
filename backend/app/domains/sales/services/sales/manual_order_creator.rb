@@ -57,6 +57,12 @@ module Sales
       raise InvalidInput, "line_items required" if Array(attrs[:line_items]).empty?
       src = attrs[:source].presence || "manual"
       raise InvalidInput, "source must be manual or showroom" unless %w[manual showroom].include?(src)
+      raise InvalidInput, "manual and showroom orders cannot use Shopify warehouses" if attrs[:location_id].present?
+
+      if attrs[:warehouse_id].present?
+        warehouse = ::Warehouse.find(attrs[:warehouse_id])
+        raise InvalidInput, "manual and showroom orders cannot use Shopify warehouses" if warehouse.shopify_origin?
+      end
     end
 
     def build_order

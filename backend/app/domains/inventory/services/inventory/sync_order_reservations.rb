@@ -89,7 +89,6 @@ module Inventory
     def stock_item_for(line_item, warehouse)
       variant = line_item.variant
       return nil unless variant
-      return nil if manual_stock_guard?(variant) && shopify_locked_variant?(variant)
       return nil if manual_stock_guard?(variant) && warehouse&.shopify_origin?
 
       stock_item = StockItem.find_by(variant: variant, warehouse: warehouse) if warehouse
@@ -110,10 +109,6 @@ module Inventory
 
     def manual_stock_guard?(variant)
       @order.source != "shopify" && variant&.inventory_policy.to_s != "continue"
-    end
-
-    def shopify_locked_variant?(variant)
-      variant&.shopify_origin? || variant&.product&.shopify_origin?
     end
 
     def cancelled_quantity(line_item)

@@ -28,6 +28,14 @@ interface VariantHit {
   }>;
 }
 
+function isOrderWarehouse(warehouse: Warehouse) {
+  return Boolean(
+    warehouse.active &&
+      !warehouse.read_only_origin &&
+      !warehouse.shopify_location_id,
+  );
+}
+
 export default function ManualOrderPage() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -49,7 +57,8 @@ export default function ManualOrderPage() {
   const [variantQuery, setVariantQuery] = useState("");
   const [variantHits, setVariantHits] = useState<VariantHit[]>([]);
   const [variantSearching, setVariantSearching] = useState(false);
-  const [inStockOnly, setInStockOnly] = useState(true);
+  const [variantDropdownOpen, setVariantDropdownOpen] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [variantById, setVariantById] = useState<Record<string, VariantHit>>(
     {},
   );
@@ -64,19 +73,19 @@ export default function ManualOrderPage() {
       }
       try {
         const rows = await warehousesApi.list();
-        const activeRows = rows.filter((warehouse) => warehouse.active);
-        setWarehouses(activeRows);
-        setWarehouseId((current) => current || activeRows[0]?.id || "");
+        const orderWarehouses = rows.filter(isOrderWarehouse);
+        setWarehouses(orderWarehouses);
+        setWarehouseId((current) => current || orderWarehouses[0]?.id || "");
       } catch {
         // optional
       }
     })();
   }, []);
 
-  // Debounced variant search via /variants?search=&include=stock_items_summary
+  // Debounced variant lookup via /variants?search=&include=stock_items_summary
   useEffect(() => {
     const q = variantQuery.trim();
-    if (q.length < 2 || !warehouseId) {
+    if (!warehouseId) {
       setVariantHits([]);
       return;
     }
@@ -86,8 +95,8 @@ export default function ManualOrderPage() {
       try {
         const res = await api.get<{ data: VariantHit[] }>("/variants", {
           params: {
-            search: q,
-            per_page: 25,
+            search: q || undefined,
+            per_page: q ? 50 : 100,
             include: "stock_items_summary",
             warehouse_id: warehouseId,
             in_stock: inStockOnly ? "true" : undefined,
@@ -122,6 +131,7 @@ export default function ManualOrderPage() {
     ]);
     setVariantQuery("");
     setVariantHits([]);
+    setVariantDropdownOpen(false);
   };
 
   const updateLine = (key: string, patch: Partial<Line>) =>
@@ -138,7 +148,7 @@ export default function ManualOrderPage() {
   const shipping = Number(totalShipping || 0);
   const total = subtotal + shipping;
 
-  const canSubmit = lines.length > 0 && !submitting;
+  const canSubmit = lines.length > 0 && Boolean(warehouseId) && !submitting;
 
   const availabilityFor = (variantId: string) => {
     const v = variantById[variantId];
@@ -232,11 +242,12 @@ export default function ManualOrderPage() {
             Warehouse
           </label>
           <select
+            aria-label="Warehouse"
             value={warehouseId}
             onChange={(e) => setWarehouseId(e.target.value)}
             className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="">Auto-select</option>
+            <option value="">Select warehouse</option>
             {warehouses.map((warehouse) => (
               <option key={warehouse.id} value={warehouse.id}>
                 {warehouse.name}
@@ -304,16 +315,23 @@ export default function ManualOrderPage() {
               <input
                 type="text"
                 value={variantQuery}
-                onChange={(e) => setVariantQuery(e.target.value)}
+                onFocus={() => setVariantDropdownOpen(true)}
+                onChange={(e) => {
+                  setVariantQuery(e.target.value);
+                  setVariantDropdownOpen(true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setVariantDropdownOpen(false);
+                }}
                 placeholder={
                   warehouseId
-                    ? "Search variant by SKU, name, product…"
+                    ? "Search or choose a variant..."
                     : "Pick a warehouse first"
                 }
                 disabled={!warehouseId}
                 className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
-              {warehouseId && variantQuery.trim().length >= 2 && (
+              {warehouseId && variantDropdownOpen && (
                 <div className="absolute z-10 mt-1 w-full max-h-72 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
                   {variantSearching && (
                     <div className="px-3 py-2 text-xs text-slate-500">

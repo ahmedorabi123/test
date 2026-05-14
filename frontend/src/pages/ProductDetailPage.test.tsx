@@ -1,4 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
@@ -7,6 +8,76 @@ import { renderWithProviders } from "../test/renderWithProviders";
 import ProductDetailPage from "./ProductDetailPage";
 
 describe("ProductDetailPage", () => {
+  it("uploads images when an editable product has no media", async () => {
+    const user = userEvent.setup();
+    let uploadedNames: string[] = [];
+    server.use(
+      http.get("*/api/v1/products/prod-empty", () =>
+        HttpResponse.json({
+          data: {
+            id: "prod-empty",
+            title: "Manual Tee",
+            handle: "manual-tee",
+            description: "",
+            status: "active",
+            vendor: "ACME",
+            product_type: "Apparel",
+            tags: [],
+            source: "manual",
+            shopify_product_id: null,
+            read_only_origin: false,
+            created_at: "2026-01-01T00:00:00Z",
+            updated_at: "2026-01-01T00:00:00Z",
+            variants_count: 0,
+            inventory_total: 0,
+            variants_in_stock_count: 0,
+            variants: [],
+            images: [],
+            uploaded_images: [],
+            collections: [],
+            collection_ids: [],
+            metafields: [],
+          },
+        }),
+      ),
+      http.post("*/api/v1/products/prod-empty/images", async ({ request }) => {
+        const form = await request.formData();
+        uploadedNames = form
+          .getAll("files[]")
+          .map((value) => (value as File).name)
+          .filter(Boolean);
+        return HttpResponse.json(
+          {
+            data: uploadedNames.map((name, index) => ({
+              id: index + 1,
+              filename: name,
+              content_type: "image/png",
+              byte_size: 5,
+              url: `/rails/active_storage/${name}`,
+            })),
+          },
+          { status: 201 },
+        );
+      }),
+    );
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/products/:id" element={<ProductDetailPage />} />
+      </Routes>,
+      { route: "/products/prod-empty" },
+    );
+
+    expect(await screen.findByRole("button", { name: /add image/i })).toBeInTheDocument();
+    await user.upload(
+      screen.getByLabelText(/upload product images/i),
+      new File(["image"], "back.png", { type: "image/png" }),
+    );
+
+    await waitFor(() => expect(uploadedNames).toEqual(["back.png"]));
+    expect(await screen.findByAltText("back.png")).toBeInTheDocument();
+  });
+
   it("renders uploaded local product images", async () => {
     server.use(
       http.get("*/api/v1/products/prod-uploaded", () =>

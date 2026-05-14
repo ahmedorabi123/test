@@ -39,9 +39,13 @@ module Inventory
 
       variant_ids = order.line_items.map(&:variant_id).compact
       if variant_ids.any?
-        best_id = StockItem
+        stock_scope = StockItem
           .joins(:warehouse)
           .where(variant_id: variant_ids, warehouses: { active: true })
+
+        stock_scope = stock_scope.where(warehouses: { shopify_location_id: nil }) if order.source != "shopify"
+
+        best_id = stock_scope
           .group(:warehouse_id)
           .order(Arel.sql("SUM(stock_items.quantity_on_hand - stock_items.quantity_reserved - stock_items.quantity_unavailable) DESC"))
           .limit(1)

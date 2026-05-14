@@ -43,16 +43,6 @@ function isWarehouseMutable(warehouse: Warehouse) {
   );
 }
 
-function isVariantMutable(variant: VariantOption) {
-  return !(
-    variant.read_only_origin ||
-    variant.shopify_variant_id ||
-    variant.product_read_only_origin ||
-    variant.product_source === "shopify" ||
-    variant.product_shopify_product_id
-  );
-}
-
 async function fetchAllVariants() {
   const variants: VariantOption[] = [];
   let page = 1;
@@ -68,7 +58,7 @@ async function fetchAllVariants() {
     page += 1;
   } while (variants.length < total);
 
-  return variants.filter(isVariantMutable);
+  return variants;
 }
 
 interface TransferLine {
@@ -365,6 +355,40 @@ interface ReportLine {
   unit_price: string;
 }
 
+type PeriodMode = "day" | "week" | "ten_days" | "month" | "custom";
+
+function isoDate(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+function isoMonth(date = new Date()) {
+  return date.toISOString().slice(0, 7);
+}
+
+function addDays(value: string, days: number) {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function periodKey(
+  mode: PeriodMode,
+  start: string,
+  end: string,
+  month: string,
+) {
+  if (mode === "month") return month;
+  if (mode === "day") return start;
+  if (mode === "week") return `${start}..${addDays(start, 6)}`;
+  if (mode === "ten_days") return `${start}..${addDays(start, 9)}`;
+  return `${start}..${end}`;
+}
+
+function reportDateFor(mode: PeriodMode, start: string, month: string) {
+  return mode === "month" ? `${month}-01` : start;
+}
+
 export function ShowroomReportButton({
   warehouses,
   onDone,
@@ -374,10 +398,10 @@ export function ShowroomReportButton({
 }) {
   const [open, setOpen] = useState(false);
   const [warehouseId, setWarehouseId] = useState("");
-  const [period, setPeriod] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("month");
+  const [periodStart, setPeriodStart] = useState(() => isoDate());
+  const [periodEnd, setPeriodEnd] = useState(() => isoDate());
+  const [periodMonth, setPeriodMonth] = useState(() => isoMonth());
   const [currency, setCurrency] = useState("EGP");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<ReportLine[]>([
@@ -398,6 +422,13 @@ export function ShowroomReportButton({
     (w) => w.kind === "consignment" && isWarehouseMutable(w),
   );
   const noShowrooms = showrooms.length === 0;
+  const period = periodKey(
+    periodMode,
+    periodStart,
+    periodEnd,
+    periodMonth,
+  );
+  const reportDate = reportDateFor(periodMode, periodStart, periodMonth);
 
   useEffect(() => {
     if (open && variants.length === 0) {
@@ -423,11 +454,16 @@ export function ShowroomReportButton({
       setError("Add at least one line with a non-zero quantity and a price");
       return;
     }
+    if (periodMode === "custom" && periodEnd < periodStart) {
+      setError("End date must be on or after the start date");
+      return;
+    }
     setSubmitting(true);
     try {
       const created = await showroomSalesApi.create({
         warehouse_id: warehouseId,
         period,
+        report_date: reportDate,
         currency,
         notes: notes || undefined,
         line_items: valid.map((l) => ({
@@ -510,7 +546,7 @@ export function ShowroomReportButton({
         description="Records sales sold by a consignment showroom. Posts a sales journal entry, COGS, and deducts inventory at the showroom."
       >
         <form onSubmit={submit} className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
             <label className="text-sm">
               <span className="block text-slate-600 mb-1">Showroom *</span>
               <select
@@ -528,15 +564,56 @@ export function ShowroomReportButton({
               </select>
             </label>
             <label className="text-sm">
-              <span className="block text-slate-600 mb-1">Period *</span>
-              <input
-                type="month"
-                required
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
+              <span className="block text-slate-600 mb-1">Period type</span>
+              <select
+                value={periodMode}
+                onChange={(e) => setPeriodMode(e.target.value as PeriodMode)}
                 className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
-              />
+              >
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="ten_days">10 days</option>
+                <option value="month">Month</option>
+                <option value="custom">Custom</option>
+              </select>
             </label>
+            {periodMode === "month" ? (
+              <label className="text-sm">
+                <span className="block text-slate-600 mb-1">Month *</span>
+                <input
+                  type="month"
+                  required
+                  value={periodMonth}
+                  onChange={(e) => setPeriodMonth(e.target.value)}
+                  className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+                />
+              </label>
+            ) : (
+              <label className="text-sm">
+                <span className="block text-slate-600 mb-1">Start date *</span>
+                <input
+                  type="date"
+                  required
+                  value={periodStart}
+                  onChange={(e) => setPeriodStart(e.target.value)}
+                  className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+                />
+              </label>
+            )}
+            {periodMode === "custom" ? (
+              <label className="text-sm">
+                <span className="block text-slate-600 mb-1">End date *</span>
+                <input
+                  type="date"
+                  required
+                  value={periodEnd}
+                  onChange={(e) => setPeriodEnd(e.target.value)}
+                  className="min-h-11 w-full rounded border border-slate-300 px-3 py-2"
+                />
+              </label>
+            ) : (
+              <div className="hidden md:block" aria-hidden="true" />
+            )}
             <label className="text-sm">
               <span className="block text-slate-600 mb-1">Currency</span>
               <input

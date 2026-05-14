@@ -6,7 +6,6 @@ import {
   type OrderStockAllocationLine,
   type OrderTimelineEntry,
 } from "../api/orders";
-import ManualFulfillmentButton from "../components/shipping/ManualFulfillmentButton";
 import DeliveryActions from "../components/shipments/DeliveryActions";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -266,9 +265,6 @@ export default function OrderDetailPage() {
           >
             New order
           </Link>
-          {!isReadOnly && (
-            <ManualFulfillmentButton order={order} onCreated={reloadOrder} />
-          )}
         </div>
       </div>
 

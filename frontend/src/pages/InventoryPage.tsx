@@ -56,16 +56,6 @@ function isWarehouseMutable(warehouse: Warehouse) {
   );
 }
 
-function isVariantMutable(variant: VariantOption) {
-  return !(
-    variant.read_only_origin ||
-    variant.shopify_variant_id ||
-    variant.product_read_only_origin ||
-    variant.product_source === "shopify" ||
-    variant.product_shopify_product_id
-  );
-}
-
 function NewStockItemModal({
   warehouses,
   defaultWarehouseId,
@@ -108,7 +98,7 @@ function NewStockItemModal({
               warehouse_id: warehouseId,
             },
           });
-          setOptions(res.data.data.filter(isVariantMutable));
+          setOptions(res.data.data);
         } catch {
           setOptions([]);
         }

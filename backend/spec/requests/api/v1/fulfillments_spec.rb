@@ -38,4 +38,19 @@ RSpec.describe "Api::V1::Fulfillments", type: :request do
       read_only_origin: true
     )
   end
+
+  it "rejects manual shipment creation" do
+    order = create(:order)
+
+    post "/api/v1/fulfillments",
+         params: {
+           fulfillment: {
+             order_id: order.id,
+             tracking_company: "Manual"
+           }
+         }, as: :json, headers: auth_headers(admin)
+
+    expect(response).to have_http_status(:forbidden)
+    expect(json_response.dig(:error, :type)).to eq("manual_shipments_disabled")
+  end
 end
