@@ -294,6 +294,30 @@ module Api
         render json: { error: { type: "invalid", detail: e.message } }, status: :unprocessable_entity
       end
 
+      # DELETE /api/v1/accounting/journal_entries/:id
+      # Posts a balanced reversal entry. Original is preserved (audit-safe);
+      # only operator-created "manual" entries that are still posted may be
+      # "deleted" this way. Shopify-/system-sourced entries (entry_type !=
+      # "manual") are rejected to prevent silent edits to authoritative books.
+      def destroy_journal_entry
+        entry = JournalEntry.find(params[:id])
+        result = Accounting::ManualJournalEntryDeletion.call(entry, actor: current_user, request: request)
+        render json: {
+          data: {
+            original: JournalEntrySerializer.call(result.original.reload, include_lines: true),
+            reversal: JournalEntrySerializer.call(result.reversal.reload, include_lines: true)
+          }
+        }
+      rescue Accounting::ManualJournalEntryDeletion::NotManualError => e
+        render json: { error: { type: "forbidden", detail: e.message } }, status: :unprocessable_entity
+      rescue Accounting::ManualJournalEntryDeletion::NotPostedError => e
+        render json: { error: { type: "invalid", detail: e.message } }, status: :unprocessable_entity
+      rescue Accounting::ManualJournalEntryDeletion::IsReversalError => e
+        render json: { error: { type: "invalid", detail: e.message } }, status: :unprocessable_entity
+      rescue ActiveRecord::RecordNotFound
+        render json: { error: { type: "not_found", detail: "Journal entry not found" } }, status: :not_found
+      end
+
       # GET /api/v1/accounting/balance_sheet?as_of=
       def balance_sheet
         as_of = params[:as_of].present? ? Date.parse(params[:as_of]) : Date.current

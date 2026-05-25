@@ -24,6 +24,7 @@ module Shopify
         shopify_fulfillment_created: :fulfillment,
         shopify_fulfillment_updated: :fulfillment,
         shopify_fulfillment_cancelled: :fulfillment,
+        shopify_refund_created: :refund,
         shopify_customer_created: :customer,
         shopify_customer_updated: :customer,
         shopify_customer_data_requested: :noop,

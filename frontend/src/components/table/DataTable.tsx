@@ -278,9 +278,9 @@ export default function DataTable<T extends { id: string | number }>({
           </div>
         )}
         {!useMobileCards && (
-          <div className="overflow-x-auto">
+          <div className="relative max-h-[calc(100vh-260px)] overflow-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="sticky top-0 z-20 bg-slate-50 border-b border-slate-200 shadow-[0_1px_0_0_rgb(226_232_240)]">
                 <tr>
                   {selectable && (
                     <th className="w-10 px-4 py-3">

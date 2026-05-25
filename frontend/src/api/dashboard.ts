@@ -8,6 +8,7 @@ export interface DashboardSummary {
     ar_outstanding: number;
     pending_shipments: number;
     low_stock_count: number;
+    inventory_divergence_count: number;
     orders_pending: number;
   };
   revenue_trend: Array<{ date: string; revenue: number; orders: number }>;

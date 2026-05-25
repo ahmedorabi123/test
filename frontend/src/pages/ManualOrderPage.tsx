@@ -88,6 +88,13 @@ export default function ManualOrderPage() {
     if (!warehouseId && inStockOnly) setInStockOnly(false);
   }, [warehouseId, inStockOnly]);
 
+  // When the user toggles "In stock only" with a warehouse already chosen,
+  // open the dropdown so the prefetched in-stock list is visible immediately
+  // (otherwise it only appears once they focus the search input).
+  useEffect(() => {
+    if (warehouseId && inStockOnly) setVariantDropdownOpen(true);
+  }, [warehouseId, inStockOnly]);
+
   // Debounced variant lookup via /variants?search=&include=stock_items_summary
   useEffect(() => {
     const q = variantQuery.trim();
@@ -338,7 +345,7 @@ export default function ManualOrderPage() {
                 disabled={!warehouseId}
                 className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
-              {warehouseId && variantDropdownOpen && (
+              {warehouseId && (variantDropdownOpen || inStockOnly) && (
                 <div className="absolute z-10 mt-1 w-full max-h-72 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
                   {variantSearching && (
                     <div className="px-3 py-2 text-xs text-slate-500">
@@ -348,8 +355,10 @@ export default function ManualOrderPage() {
                   {!variantSearching && variantHits.length === 0 && (
                     <div className="px-3 py-2 text-xs text-slate-500">
                       {inStockOnly
-                        ? "No in-stock matches at this warehouse"
-                        : "No matches"}
+                        ? "No in-stock variants at this warehouse"
+                        : variantQuery.trim()
+                          ? "No matches"
+                          : "Start typing to search, or tick \"In stock only\" to browse available stock"}
                     </div>
                   )}
                   {variantHits.map((v) => {

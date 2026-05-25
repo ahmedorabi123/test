@@ -33,9 +33,9 @@ export interface PermissionDef {
 }
 
 export const usersApi = {
-  list: (): Promise<{ data: User[] }> =>
+  list: (params?: { sort?: string; dir?: "asc" | "desc" }): Promise<{ data: User[] }> =>
     api
-      .get<{ data: User[] }>("/users")
+      .get<{ data: User[] }>("/users", { params })
       .then((r: AxiosResponse<{ data: User[] }>) => r.data),
 
   get: (id: string): Promise<{ data: User }> =>
@@ -85,9 +85,9 @@ export const usersApi = {
 };
 
 export const rolesApi = {
-  list: (): Promise<{ data: Role[] }> =>
+  list: (params?: { sort?: string; dir?: "asc" | "desc" }): Promise<{ data: Role[] }> =>
     api
-      .get<{ data: Role[] }>("/roles")
+      .get<{ data: Role[] }>("/roles", { params })
       .then((r: AxiosResponse<{ data: Role[] }>) => r.data),
 
   get: (id: string): Promise<{ data: Role }> =>

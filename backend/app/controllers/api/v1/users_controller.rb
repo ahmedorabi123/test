@@ -7,7 +7,8 @@ module Api
 
       def index
         authorize User
-        @users = policy_scope(User).includes(:roles).order(:first_name)
+        @users = policy_scope(User).includes(:roles)
+        @users = apply_user_sort(@users)
         render json: { data: users_json(@users) }
       end
 
@@ -29,6 +30,9 @@ module Api
 
       def update
         authorize @user
+        if user_update_params.key?(:active) && ActiveModel::Type::Boolean.new.cast(user_update_params[:active]) == false
+          return if protect_admin_deactivation!
+        end
         before = @user.attributes.slice("email", "first_name", "last_name", "active")
         @user.update!(user_update_params)
         AuditLog.record(user: current_user, action: "user.updated",
@@ -39,10 +43,12 @@ module Api
 
       def destroy
         authorize @user
+        return if protect_admin_deactivation!
+
         @user.update!(active: false)
-        AuditLog.record(user: current_user, action: "user.deactivated",
+        AuditLog.record(user: current_user, action: "user.deleted",
                         subject: @user, request: request)
-        render json: { message: "User deactivated" }
+        render json: { message: "User deleted" }
       end
 
       def assign_role
@@ -70,6 +76,15 @@ module Api
 
       private
 
+      USER_SORT_ALLOWLIST = %w[email first_name last_name active last_login_at created_at].freeze
+
+      def apply_user_sort(scope)
+        col = params[:sort].to_s.presence
+        col = "first_name" unless USER_SORT_ALLOWLIST.include?(col)
+        dir = params[:dir].to_s.downcase == "desc" ? :desc : :asc
+        scope.order(col => dir)
+      end
+
       def set_user
         @user = User.find(params[:id])
       end
@@ -80,6 +95,19 @@ module Api
 
       def user_update_params
         params.require(:user).permit(:first_name, :last_name, :active)
+      end
+
+      def protect_admin_deactivation!
+        return false unless @user.admin?
+
+        admin_email = ENV.fetch("ADMIN_EMAIL", "admin@erp.local").downcase
+        if @user.email.to_s.downcase == admin_email
+          render_error(422, "primary_admin_protected", "The primary admin user cannot be deleted or deactivated")
+          return true
+        end
+
+        render_error(422, "admin_user_protected", "Admin users cannot be deleted or deactivated")
+        true
       end
 
       def users_json(users)

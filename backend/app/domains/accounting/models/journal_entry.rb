@@ -69,6 +69,7 @@ class JournalEntry < ApplicationRecord
   # Reverse a posted entry (creates an opposite entry).
   def reverse!(description: "Reversal of #{self.description}")
     raise "Can only reverse a posted entry" unless status == "posted"
+    raise "Cannot reverse a reversal entry (entry #{id} is itself a reversal of #{reversal_of_id})" if reversal_of_id.present?
     transaction do
       reversal = self.class.post!(
         {

@@ -108,7 +108,8 @@ module Shipping
         return unless warehouse
 
         fulfillment.fulfillment_line_items.each do |fli|
-          ::Inventory::ConsumeReservation.call(fli, warehouse: warehouse)
+          consumed = ::Inventory::ConsumeReservation.call(fli, warehouse: warehouse)
+          ::Inventory::MirrorShopifyFulfillmentConsumption.call(fli) if consumed
         end
       end
 

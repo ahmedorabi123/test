@@ -45,6 +45,17 @@ module Api
       def update
         authorize @po
         attrs = po_update_params.to_h
+        line_items = Array(attrs.delete("line_items") || attrs.delete(:line_items))
+
+        if line_items.any?
+          @po = Purchases::EditReceiptService.call(
+            purchase_order: @po,
+            line_items: line_items,
+            actor: current_user,
+            request: request
+          )
+        end
+
         if attrs[:status] == "ordered" && @po.status == "draft"
           attrs[:ordered_at] ||= Time.current
         end
@@ -53,6 +64,10 @@ module Api
         else
           render_error(422, "unprocessable_entity", @po.errors.full_messages.join(", "))
         end
+      rescue Purchases::EditReceiptService::InvalidInput,
+             Purchases::EditReceiptService::MissingWarehouse,
+             Inventory::WriteMovement::InsufficientStockError => e
+        render_error(422, "unprocessable_entity", e.message)
       end
 
       # POST /api/v1/purchase_orders/:id/receive
@@ -129,7 +144,8 @@ module Api
       end
 
       def po_update_params
-        params.require(:purchase_order).permit(:status, :expected_at, :notes, :warehouse_id)
+        params.require(:purchase_order).permit(:status, :expected_at, :notes, :warehouse_id,
+                                               line_items: %i[id quantity_received])
       end
 
       def export_scope

@@ -117,12 +117,11 @@ RSpec.describe Shopify::ProcessWebhookJob, type: :job do
         .to have_enqueued_job(Sales::HandleShopifyOrderJob)
     end
 
-    it "does not dispatch refunds/create in Phase 1" do
+    it "dispatches refunds/create to Sales::HandleShopifyRefundJob" do
       ev = make_event("refunds/create", { "id" => 101, "order_id" => 42, "updated_at" => "2026-04-21T10:00:00Z" })
       expect { described_class.new.perform(ev.id) }
-        .not_to have_enqueued_job(Sales::HandleShopifyRefundJob)
+        .to have_enqueued_job(Sales::HandleShopifyRefundJob)
       expect(ev.reload).to be_processed
-      expect(ev.error).to match(/Unsupported Shopify topic/)
     end
 
     it "dispatches fulfillments/create to Shipping::HandleShopifyFulfillmentJob" do

@@ -8,6 +8,7 @@ class Collection < ApplicationRecord
 
   has_many :collection_products, dependent: :destroy
   has_many :products, through: :collection_products
+  has_one_attached :uploaded_image
 
   validates :title,  presence: true
   validates :handle, presence: true, uniqueness: { case_sensitive: false }

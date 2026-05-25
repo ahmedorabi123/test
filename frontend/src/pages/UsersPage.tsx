@@ -43,6 +43,8 @@ function UsersTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [sort, setSort] = useState<string>("first_name");
+  const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [form, setForm] = useState({
     email: "",
     first_name: "",
@@ -54,7 +56,7 @@ function UsersTab() {
     setLoading(true);
     setError("");
     try {
-      const [u, r] = await Promise.all([usersApi.list(), rolesApi.list()]);
+      const [u, r] = await Promise.all([usersApi.list({ sort, dir }), rolesApi.list()]);
       setUsers(u.data);
       setRoles(r.data);
     } catch (e) {
@@ -66,7 +68,17 @@ function UsersTab() {
 
   useEffect(() => {
     reload();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sort, dir]);
+
+  const toggleSort = (col: string) => {
+    if (sort === col) {
+      setDir(dir === "asc" ? "desc" : "asc");
+    } else {
+      setSort(col);
+      setDir("asc");
+    }
+  };
 
   const submitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +126,21 @@ function UsersTab() {
   const toggleActive = async (u: User) => {
     try {
       await usersApi.update(u.id, { active: !u.active });
+      reload();
+    } catch (e) {
+      setError(getMessage(e));
+    }
+  };
+
+  const deleteUser = async (u: User) => {
+    if (
+      !window.confirm(
+        `Delete user ${u.email}? The user will be deactivated and kept for audit history.`,
+      )
+    )
+      return;
+    try {
+      await usersApi.deactivate(u.id);
       reload();
     } catch (e) {
       setError(getMessage(e));
@@ -242,10 +269,10 @@ function UsersTab() {
                   </button>
                 ))}
                 <button
-                  onClick={() => toggleActive(u)}
+                  onClick={() => (u.active ? deleteUser(u) : toggleActive(u))}
                   className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
                 >
-                  {u.active ? "Deactivate" : "Reactivate"}
+                  {u.active ? "Delete user" : "Restore user"}
                 </button>
               </>
             }
@@ -260,13 +287,13 @@ function UsersTab() {
 
       <div className="hidden overflow-x-auto rounded bg-white shadow md:block">
         <table className="min-w-[720px] text-sm">
-          <thead className="bg-slate-50 text-slate-600 text-xs uppercase">
+          <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 text-xs uppercase">
             <tr>
-              <th className="text-left px-3 py-2">Name</th>
-              <th className="text-left px-3 py-2">Email</th>
+              <SortableTh label="Name" col="first_name" sort={sort} dir={dir} onSort={toggleSort} />
+              <SortableTh label="Email" col="email" sort={sort} dir={dir} onSort={toggleSort} />
               <th className="text-left px-3 py-2">Roles</th>
-              <th className="text-left px-3 py-2">Last login</th>
-              <th className="text-left px-3 py-2">Status</th>
+              <SortableTh label="Last login" col="last_login_at" sort={sort} dir={dir} onSort={toggleSort} />
+              <SortableTh label="Status" col="active" sort={sort} dir={dir} onSort={toggleSort} />
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
@@ -328,10 +355,10 @@ function UsersTab() {
                 </td>
                 <td className="px-3 py-2 text-right">
                   <button
-                    onClick={() => toggleActive(u)}
+                    onClick={() => (u.active ? deleteUser(u) : toggleActive(u))}
                     className="text-indigo-600 hover:text-indigo-800 text-xs"
                   >
-                    {u.active ? "Deactivate" : "Reactivate"}
+                    {u.active ? "Delete user" : "Restore user"}
                   </button>
                 </td>
               </tr>
@@ -668,5 +695,17 @@ function getMessage(e: unknown): string {
     err?.response?.data?.message ||
     err?.message ||
     "Something went wrong"
+  );
+}
+
+function SortableTh({ label, col, sort, dir, onSort }: { label: string; col: string; sort: string; dir: "asc" | "desc"; onSort: (col: string) => void }) {
+  const active = sort === col;
+  return (
+    <th className="text-left px-3 py-2">
+      <button type="button" onClick={() => onSort(col)} className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-slate-700">
+        {label}
+        {active && <span aria-hidden>{dir === "asc" ? "▲" : "▼"}</span>}
+      </button>
+    </th>
   );
 }

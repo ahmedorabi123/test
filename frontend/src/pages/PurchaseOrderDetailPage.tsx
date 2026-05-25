@@ -6,6 +6,9 @@ export default function PurchaseOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [po, setPo] = useState<PurchaseOrder | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [receivedEdits, setReceivedEdits] = useState<Record<string, number>>(
+    {},
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -19,6 +22,11 @@ export default function PurchaseOrderDetailPage() {
         q[li.id] = li.remaining;
       });
       setQuantities(q);
+      const edits: Record<string, number> = {};
+      (data.line_items || []).forEach((li) => {
+        edits[li.id] = li.quantity_received;
+      });
+      setReceivedEdits(edits);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -68,9 +76,40 @@ export default function PurchaseOrderDetailPage() {
     load();
   };
 
+  const saveReceivedEdits = async () => {
+    if (!po) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const line_items = (po.line_items || [])
+        .filter((li) => receivedEdits[li.id] !== li.quantity_received)
+        .map((li) => ({
+          id: li.id,
+          quantity_received: Math.max(0, Number(receivedEdits[li.id] || 0)),
+        }));
+      if (line_items.length === 0) {
+        setError("No received quantities changed");
+        return;
+      }
+      await purchaseOrdersApi.update(po.id, { line_items });
+      await load();
+    } catch (e: unknown) {
+      const err = e as {
+        response?: { data?: { error?: { detail?: string } } };
+        message?: string;
+      };
+      setError(
+        err.response?.data?.error?.detail || err.message || "Save failed",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!po) return <div className="p-6">Loading…</div>;
 
   const canReceive = ["ordered", "partial"].includes(po.status);
+  const canEditReceived = ["partial", "received"].includes(po.status);
 
   return (
     <div className="p-6 max-w-4xl">
@@ -117,6 +156,9 @@ export default function PurchaseOrderDetailPage() {
               <th className="px-3 py-2">Item</th>
               <th className="px-3 py-2 text-right">Ordered</th>
               <th className="px-3 py-2 text-right">Received</th>
+              {canEditReceived && (
+                <th className="px-3 py-2 text-right">Edit received</th>
+              )}
               <th className="px-3 py-2 text-right">Remaining</th>
               {canReceive && (
                 <th className="px-3 py-2 text-right">Receive now</th>
@@ -129,6 +171,22 @@ export default function PurchaseOrderDetailPage() {
                 <td className="px-3 py-2">{li.title || li.sku}</td>
                 <td className="px-3 py-2 text-right">{li.quantity_ordered}</td>
                 <td className="px-3 py-2 text-right">{li.quantity_received}</td>
+                {canEditReceived && (
+                  <td className="px-3 py-2 text-right">
+                    <input
+                      type="number"
+                      min={0}
+                      value={receivedEdits[li.id] ?? li.quantity_received}
+                      onChange={(e) =>
+                        setReceivedEdits((q) => ({
+                          ...q,
+                          [li.id]: Math.max(0, Number(e.target.value)),
+                        }))
+                      }
+                      className="w-20 border rounded px-2 py-0.5 text-right"
+                    />
+                  </td>
+                )}
                 <td className="px-3 py-2 text-right">{li.remaining}</td>
                 {canReceive && (
                   <td className="px-3 py-2 text-right">
@@ -163,6 +221,15 @@ export default function PurchaseOrderDetailPage() {
           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-sm disabled:opacity-50"
         >
           {busy ? "Receiving…" : "Receive selected quantities"}
+        </button>
+      )}
+      {canEditReceived && (
+        <button
+          onClick={saveReceivedEdits}
+          disabled={busy}
+          className="ml-2 px-4 py-2 border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded text-sm disabled:opacity-50"
+        >
+          Save received edits
         </button>
       )}
     </div>

@@ -29,6 +29,8 @@ module Shopify
           Sales::HandleShopifyOrderJob.perform_later(@payload)
         when :fulfillment
           Shipping::HandleShopifyFulfillmentJob.perform_later(@payload)
+        when :refund
+          Sales::HandleShopifyRefundJob.perform_later(@payload)
         when :customer
           Crm::HandleShopifyCustomerJob.perform_later(@payload)
         when :noop

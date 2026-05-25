@@ -36,8 +36,18 @@ module Api
       # DELETE /api/v1/warehouses/:id
       def destroy
         authorize @warehouse
-        @warehouse.destroy!
+        Inventory::WarehouseDeletion.call(warehouse: @warehouse, actor: current_user)
         head :no_content
+      rescue Inventory::WarehouseDeletion::Blocked => e
+        render json: {
+          error: {
+            status: 422,
+            type: "warehouse_delete_blocked",
+            detail: e.message,
+            code: "warehouse_has_dependencies",
+            dependencies: e.result.dependencies
+          }
+        }, status: :unprocessable_entity
       end
 
       private

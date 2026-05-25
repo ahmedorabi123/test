@@ -79,7 +79,7 @@ module Shipping
         dedupe_key: "manual-fulfillment:#{fulfillment.id}:created"
       )
 
-      if @transition_order && @order.status != "fulfilled"
+      if @transition_order && @order.status != "fulfilled" && should_transition_order?
         begin
           ::Sales::OrderStateMachine.call(@order.reload, to: "fulfilled", actor: @actor)
         rescue ::Sales::OrderStateMachine::InvalidTransition => e
@@ -150,6 +150,14 @@ module Shipping
       return if offenders.empty?
       raise AlreadyFulfilled,
             "Cannot fulfill more than ordered. Already fulfilled lines: #{offenders.map { |o| "#{o[:sku] || o[:line_item_id]} (requested #{o[:requested]}, only #{o[:remaining]} remaining)" }.join('; ')}"
+    end
+
+    def should_transition_order?
+      return true unless @order.source.in?(%w[manual showroom])
+
+      @order.reload.line_items.all? do |line_item|
+        line_item.fulfilled_quantity.to_i >= line_item.quantity.to_i
+      end
     end
   end
 end

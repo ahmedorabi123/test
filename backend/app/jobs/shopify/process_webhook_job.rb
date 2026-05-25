@@ -80,6 +80,8 @@ module Shopify
       when :shopify_fulfillment_created, :shopify_fulfillment_updated,
            :shopify_fulfillment_cancelled
         Shipping::HandleShopifyFulfillmentJob.perform_later(normalized[:data])
+      when :shopify_refund_created
+        Sales::HandleShopifyRefundJob.perform_later(normalized[:data])
       when :shopify_customer_created, :shopify_customer_updated
         Crm::HandleShopifyCustomerJob.perform_later(normalized[:data])
       when :shopify_inventory_item_created, :shopify_inventory_item_updated,

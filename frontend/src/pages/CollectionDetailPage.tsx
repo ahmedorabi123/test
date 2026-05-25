@@ -59,6 +59,8 @@ export default function CollectionDetailPage() {
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [stagedProducts, setStagedProducts] = useState<Product[]>([]);
 
   // Product search for adding
   const [productSearch, setProductSearch] = useState("");
@@ -66,7 +68,8 @@ export default function CollectionDetailPage() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  const isDirty = JSON.stringify(draft) !== originalRef.current;
+  const isDirty =
+    JSON.stringify(draft) !== originalRef.current || Boolean(imageFile);
 
   useEffect(() => {
     if (isNew) return;
@@ -92,9 +95,17 @@ export default function CollectionDetailPage() {
           ...draft,
           kind: "custom",
         });
+        if (imageFile) await collectionsApi.uploadImage(created.id, imageFile);
+        for (const product of stagedProducts) {
+          await collectionsApi.addProduct(created.id, product.id);
+        }
         navigate(`/collections/${created.id}`, { replace: true });
       } else {
         const updated = await collectionsApi.update(id!, draft);
+        if (imageFile) {
+          await collectionsApi.uploadImage(id!, imageFile);
+          setImageFile(null);
+        }
         setCollection(updated);
         const d = toDraft(updated);
         setDraft(d);
@@ -126,9 +137,10 @@ export default function CollectionDetailPage() {
     try {
       const res = await productsApi.list({ search: q, per_page: 10 });
       // Filter out already-in-collection products
-      const existingIds = new Set(
-        (collection?.products ?? []).map((p: CollectionProduct) => p.id),
-      );
+      const existingIds = new Set([
+        ...(collection?.products ?? []).map((p: CollectionProduct) => p.id),
+        ...stagedProducts.map((p) => p.id),
+      ]);
       setProductResults(
         res.data.filter(
           (p) => !existingIds.has(p.id) && canAddProductToManualCollection(p),
@@ -140,6 +152,17 @@ export default function CollectionDetailPage() {
   };
 
   const handleAddProduct = async (product: Product) => {
+    if (isNew) {
+      if (!canAddProductToManualCollection(product)) {
+        setError("Shopify-managed products cannot be added manually.");
+        return;
+      }
+      setStagedProducts((rows) => [...rows, product]);
+      setProductSearch("");
+      setProductResults([]);
+      return;
+    }
+
     if (!collection) return;
     if (!canAddProductToManualCollection(product)) {
       setError("Shopify-managed products cannot be added manually.");
@@ -159,6 +182,11 @@ export default function CollectionDetailPage() {
   };
 
   const handleRemoveProduct = async (productId: string) => {
+    if (isNew) {
+      setStagedProducts((rows) => rows.filter((row) => row.id !== productId));
+      return;
+    }
+
     if (!collection) return;
     setRemovingId(productId);
     try {
@@ -316,9 +344,28 @@ export default function CollectionDetailPage() {
             disabled={isReadOnly}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
           />
-          {draft.image && (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Upload image
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                className="hidden"
+                disabled={isReadOnly}
+                onChange={(event) =>
+                  setImageFile(event.target.files?.[0] ?? null)
+                }
+              />
+            </label>
+            {imageFile && (
+              <span className="text-xs text-slate-500">{imageFile.name}</span>
+            )}
+          </div>
+          {(imageFile || draft.image) && (
             <img
-              src={draft.image}
+              src={
+                imageFile ? URL.createObjectURL(imageFile) : draft.image || ""
+              }
               alt={draft.title}
               className="mt-3 h-28 w-28 rounded object-cover ring-1 ring-slate-200"
             />
@@ -417,11 +464,12 @@ export default function CollectionDetailPage() {
       )}
 
       {/* Products section (only for custom or show-only for smart) */}
-      {!isNew && collection && (
+      {(isNew || collection) && (
         <div className="bg-white rounded-xl ring-1 ring-slate-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
-              Products ({collection.products_count})
+              Products (
+              {isNew ? stagedProducts.length : collection?.products_count})
             </h2>
           </div>
 
@@ -464,44 +512,47 @@ export default function CollectionDetailPage() {
           )}
 
           {/* Product list */}
-          {collection.products && collection.products.length > 0 ? (
+          {(isNew ? stagedProducts : (collection?.products ?? [])).length >
+          0 ? (
             <div className="divide-y divide-slate-100">
-              {collection.products.map((p: CollectionProduct) => (
-                <div
-                  key={p.id}
-                  className="flex items-center gap-3 py-2.5 group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      to={`/products/${p.id}`}
-                      className="text-sm font-medium text-indigo-700 hover:underline"
-                    >
-                      {p.title}
-                    </Link>
-                    <div className="text-xs text-slate-500 font-mono">
-                      {p.handle}
-                    </div>
-                  </div>
-                  <span
-                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
-                      p.status === "active"
-                        ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
-                        : "bg-gray-100 text-gray-600 ring-gray-500/20"
-                    }`}
+              {(isNew ? stagedProducts : (collection?.products ?? [])).map(
+                (p: Product | CollectionProduct) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-3 py-2.5 group"
                   >
-                    {p.status}
-                  </span>
-                  {!isReadOnly && (
-                    <button
-                      onClick={() => handleRemoveProduct(p.id)}
-                      disabled={removingId === p.id}
-                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded transition-opacity disabled:opacity-50"
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        to={`/products/${p.id}`}
+                        className="text-sm font-medium text-indigo-700 hover:underline"
+                      >
+                        {p.title}
+                      </Link>
+                      <div className="text-xs text-slate-500 font-mono">
+                        {p.handle}
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+                        p.status === "active"
+                          ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+                          : "bg-gray-100 text-gray-600 ring-gray-500/20"
+                      }`}
                     >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              ))}
+                      {p.status}
+                    </span>
+                    {!isReadOnly && (
+                      <button
+                        onClick={() => handleRemoveProduct(p.id)}
+                        disabled={removingId === p.id}
+                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded transition-opacity disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ),
+              )}
             </div>
           ) : (
             <p className="text-sm text-slate-400 py-4 text-center">

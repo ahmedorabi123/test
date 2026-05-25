@@ -22,6 +22,8 @@ export interface AuditLogListParams {
   actor_email?: string;
   from_date?: string;
   to_date?: string;
+  sort?: string;
+  dir?: "asc" | "desc";
 }
 
 export const auditLogsApi = {

@@ -121,15 +121,6 @@ export default function PurchasesPage() {
         ),
       },
       {
-        id: "total",
-        header: "Total",
-        render: (po) => (
-          <span className="font-medium text-slate-900">
-            {po.currency} {Number(po.total).toFixed(2)}
-          </span>
-        ),
-      },
-      {
         id: "expected_at",
         header: "Expected",
         sortKey: "expected_at",

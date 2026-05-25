@@ -9,6 +9,8 @@ class JournalEntrySerializer
       entry_type:    entry.entry_type,
       source_type:   entry.source_type,
       source_id:     entry.source_id,
+      reversal_of_id: entry.reversal_of_id,
+      is_reversal:   entry.reversal_of_id.present?,
       total_debits:  entry.journal_lines.select { |l| l.side == "debit" }.sum { |l| l.amount.to_f },
       total_credits: entry.journal_lines.select { |l| l.side == "credit" }.sum { |l| l.amount.to_f },
       created_at:    entry.created_at

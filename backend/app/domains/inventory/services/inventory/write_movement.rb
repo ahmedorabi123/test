@@ -52,7 +52,8 @@ module Inventory
           reference_id:    @reference&.id&.to_s,
           snapshot_before: before,
           snapshot_after:  after,
-          note:            @note
+          note:            @note,
+          movement_scope:  "system"
         )
       end
     end

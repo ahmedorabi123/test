@@ -5,10 +5,16 @@ RSpec.describe "POST /api/v1/orders/:id/transition", type: :request do
   let(:headers) { auth_headers(user) }
   let(:order) { create(:order) }
 
-  it "transitions order status" do
-    post "/api/v1/orders/#{order.id}/transition", params: { to: "processing" }, headers: headers
+  it "transitions manual order status to fulfilled" do
+    post "/api/v1/orders/#{order.id}/transition", params: { to: "fulfilled" }, headers: headers
     expect(response).to have_http_status(:ok)
-    expect(order.reload.status).to eq("processing")
+    expect(order.reload.status).to eq("fulfilled")
+  end
+
+  it "rejects manual processing transition" do
+    post "/api/v1/orders/#{order.id}/transition", params: { to: "processing" }, headers: headers
+    expect(response).to have_http_status(:unprocessable_content).or have_http_status(:unprocessable_entity)
+    expect(order.reload.status).to eq("pending")
   end
 
   it "returns 422 on illegal transition" do

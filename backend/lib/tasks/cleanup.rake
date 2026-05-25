@@ -87,7 +87,7 @@ namespace :db do
 
         # 4. Shopify-sourced journal entries
         shopify_source_ids = Order.where.not(shopify_order_id: nil).pluck(:id).map(&:to_s)
-        shopify_je = JournalEntry.where(source_type: "Order", source_id: shopify_source_ids)
+        shopify_je = JournalEntry.where(source_type: "order", source_id: shopify_source_ids)
         counts[:journal_entries] = shopify_je.count
         unless dry
           JournalLine.where(journal_entry_id: shopify_je.select(:id)).delete_all
@@ -180,6 +180,20 @@ namespace :db do
       puts "[cleanup:manual_only] mode=#{dry ? 'DRY_RUN' : 'EXECUTE'}"
       counts = {}
 
+      # Snapshot Shopify-origin counts so we can assert they are unchanged
+      # after the destructive pass. Any drift here means the manual_only path
+      # accidentally swept a Shopify row — abort hard rather than ship the diff.
+      shopify_snapshot = {
+        orders:        Order.shopify_origin.count,
+        products:      Product.shopify_origin.count,
+        variants:      Variant.shopify_origin.count,
+        warehouses:    Warehouse.shopify_origin.count,
+        customers:     (defined?(Customer)     ? Customer.shopify_origin.count     : 0),
+        refunds:       (defined?(Refund)       ? Refund.shopify_origin.count       : 0),
+        fulfillments:  (defined?(Fulfillment)  ? Fulfillment.shopify_origin.count  : 0),
+        collections:   (defined?(Collection)   ? Collection.shopify_origin.count   : 0)
+      }
+
       ApplicationRecord.transaction do
         # ── 1. Manual orders & all their dependents ──────────────────────────
         manual_order_ids = Order.where(shopify_order_id: nil).pluck(:id)
@@ -193,21 +207,11 @@ namespace :db do
         counts[:fulfillments] = manual_fulfillment_ids.size
         counts[:fulfillment_line_items] = defined?(FulfillmentLineItem) ? FulfillmentLineItem.where(fulfillment_id: manual_fulfillment_ids).count : 0
 
-        counts[:order_line_items] = OrderLineItem.where(order_id: manual_order_ids).count
-
-        # ── 2. Accounting entries from manual orders/refunds ─────────────────
-        # Manual-order journal entries (source_type=Order, source not Shopify)
+        manual_order_line_item_ids = OrderLineItem.where(order_id: manual_order_ids).pluck(:id)
+        counts[:order_line_items] = manual_order_line_item_ids.size
         manual_order_id_strs = manual_order_ids.map(&:to_s)
         manual_refund_id_strs = manual_refund_ids.map(&:to_s)
-        manual_je = JournalEntry.where(
-          "(source_type = 'order' AND source_id IN (?)) OR " \
-          "(source_type = 'refund' AND source_id IN (?)) OR " \
-          "(entry_type = 'manual')",
-          manual_order_id_strs,
-          manual_refund_id_strs
-        )
-        counts[:journal_entries]      = manual_je.count
-        counts[:journal_lines]        = JournalLine.where(journal_entry_id: manual_je.select(:id)).count
+        manual_fulfillment_id_strs = manual_fulfillment_ids.map(&:to_s)
 
         # ── 3. Manual customers ───────────────────────────────────────────────
         counts[:customers] = Customer.where(shopify_customer_id: nil).count
@@ -215,8 +219,10 @@ namespace :db do
         # ── 4. Manual products + variants ────────────────────────────────────
         manual_product_ids = Product.where(shopify_product_id: nil).pluck(:id)
         manual_variant_ids = Variant.where(shopify_variant_id: nil).pluck(:id)
+        manual_collection_ids = Collection.where(shopify_collection_id: nil).pluck(:id) if defined?(Collection)
         counts[:products] = manual_product_ids.size
         counts[:variants] = manual_variant_ids.size
+        counts[:collections] = manual_collection_ids&.size || 0
 
         # ── 5. Manual stock items (linked to manual warehouses or manual variants) ─
         manual_wh_ids = Warehouse.where(shopify_location_id: nil).pluck(:id)
@@ -224,16 +230,21 @@ namespace :db do
 
         manual_stock_item_ids = StockItem.where(
           "(warehouse_id IN (?)) OR (variant_id IN (?))",
-          manual_wh_ids.presence || ["__none__"],
-          manual_variant_ids.presence || ["__none__"]
+          manual_wh_ids.presence || ["00000000-0000-0000-0000-000000000000"],
+          manual_variant_ids.presence || ["00000000-0000-0000-0000-000000000000"]
         ).pluck(:id)
         counts[:stock_items] = manual_stock_item_ids.size
 
-        # Stock movements for manual stock items or from manual order sources
-        counts[:stock_movements] = StockMovement.where(
+        manual_stock_movement_ids = StockMovement.where(
           "(stock_item_id IN (?))",
-          manual_stock_item_ids.presence || ["__none__"]
-        ).count
+          manual_stock_item_ids.presence || ["00000000-0000-0000-0000-000000000000"]
+        ).pluck(:id)
+        counts[:stock_movements] = manual_stock_movement_ids.size
+        manual_stock_movement_id_strs = manual_stock_movement_ids.map(&:to_s)
+
+        manual_showroom_reversal_ids = defined?(ShowroomReversal) ? ShowroomReversal.where(warehouse_id: manual_wh_ids).pluck(:id) : []
+        counts[:showroom_reversals] = manual_showroom_reversal_ids.size
+        manual_showroom_reversal_id_strs = manual_showroom_reversal_ids.map(&:to_s)
 
         # ── 6. Stock transfers (all are manual) ──────────────────────────────
         counts[:stock_transfers] = StockTransfer.count
@@ -242,11 +253,35 @@ namespace :db do
         # ── 7. Purchase orders (all are manual — no Shopify PO sync) ─────────
         counts[:purchase_orders] = PurchaseOrder.count
         counts[:purchase_order_lines] = defined?(PurchaseOrderLineItem) ? PurchaseOrderLineItem.count : 0
+        counts[:suppliers] = defined?(Supplier) ? Supplier.count : 0
+
+        production_order_ids = defined?(ProductionOrder) ? ProductionOrder.pluck(:id) : []
+        counts[:production_orders] = production_order_ids.size
+        counts[:production_stages] = defined?(ProductionStage) ? ProductionStage.where(production_order_id: production_order_ids).count : 0
+
+        counts[:user_roles_scoped_to_manual_warehouses] = defined?(UserRole) ? UserRole.where(warehouse_id: manual_wh_ids).count : 0
 
         # ── 8. Stock reservations for manual orders ───────────────────────────
         manual_reservation_count = defined?(StockReservation) ?
-          StockReservation.where(order_id: manual_order_ids).count : 0
+          StockReservation.where(order_line_item_id: manual_order_line_item_ids).count : 0
         counts[:stock_reservations] = manual_reservation_count
+
+        # ── 9. Accounting entries from manual entities ───────────────────────
+        manual_je = JournalEntry.where(
+          "(source_type = 'order' AND source_id IN (:order_ids)) OR " \
+          "(source_type = 'refund' AND source_id IN (:refund_ids)) OR " \
+          "(source_type = 'fulfillment' AND source_id IN (:fulfillment_ids)) OR " \
+          "(source_type = 'showroom_reversal' AND source_id IN (:showroom_reversal_ids)) OR " \
+          "(source_type = 'stock_movement' AND source_id IN (:stock_movement_ids)) OR " \
+          "(entry_type = 'manual')",
+          order_ids: manual_order_id_strs.presence || ["__none__"],
+          refund_ids: manual_refund_id_strs.presence || ["__none__"],
+          fulfillment_ids: manual_fulfillment_id_strs.presence || ["__none__"],
+          showroom_reversal_ids: manual_showroom_reversal_id_strs.presence || ["__none__"],
+          stock_movement_ids: manual_stock_movement_id_strs.presence || ["__none__"]
+        )
+        counts[:journal_entries] = manual_je.count
+        counts[:journal_lines] = JournalLine.where(journal_entry_id: manual_je.select(:id)).count
 
         puts "[cleanup:manual_only] counts:"
         counts.each { |k, v| puts "  #{k}: #{v}" }
@@ -258,7 +293,7 @@ namespace :db do
 
         Shopify::Origin.without_read_only do
           # 8. Reservations first (to avoid FK violations)
-          StockReservation.where(order_id: manual_order_ids).delete_all if defined?(StockReservation) && manual_order_ids.any?
+          StockReservation.where(order_line_item_id: manual_order_line_item_ids).delete_all if defined?(StockReservation) && manual_order_line_item_ids.any?
 
           # 7. POs
           if defined?(PurchaseOrderLineItem)
@@ -266,12 +301,27 @@ namespace :db do
           end
           PurchaseOrder.delete_all if defined?(PurchaseOrder)
 
+          if defined?(ProductionStage) && production_order_ids.any?
+            ProductionStage.where(production_order_id: production_order_ids).delete_all
+          end
+          ProductionOrder.where(id: production_order_ids).delete_all if defined?(ProductionOrder) && production_order_ids.any?
+          Supplier.delete_all if defined?(Supplier)
+
           # 6. Stock transfers
           StockTransferLine.delete_all if defined?(StockTransferLine)
           StockTransfer.delete_all
 
+          UserRole.where(warehouse_id: manual_wh_ids).delete_all if defined?(UserRole) && manual_wh_ids.any?
+          ShowroomReversal.where(id: manual_showroom_reversal_ids).delete_all if defined?(ShowroomReversal) && manual_showroom_reversal_ids.any?
+
           # 5. Stock movements + cost layers + stock items
           if manual_stock_item_ids.any?
+            # Reservations may also reference stock_items directly via
+            # stock_item_id (not only through their order_line_item). Cover
+            # both legs to avoid FK violations.
+            if defined?(StockReservation)
+              StockReservation.where(stock_item_id: manual_stock_item_ids).delete_all
+            end
             StockMovement.where(stock_item_id: manual_stock_item_ids).delete_all
             StockCostLayer.where(stock_item_id: manual_stock_item_ids).delete_all if defined?(StockCostLayer)
             StockItem.where(id: manual_stock_item_ids).delete_all
@@ -279,10 +329,29 @@ namespace :db do
           Warehouse.where(shopify_location_id: nil).delete_all
 
           # 4. Catalog: variants then products (Shopify items are protected via scope NOT used here)
+          CollectionProduct.where(collection_id: manual_collection_ids).delete_all if defined?(CollectionProduct) && manual_collection_ids.present?
+          Collection.where(id: manual_collection_ids).find_each(batch_size: 200, &:destroy) if defined?(Collection) && manual_collection_ids.present?
+
+          # Any surviving order_line_item that still references a manual variant
+          # would block variant deletion via FK. Such rows can only exist on
+          # historical/orphaned data — nullify the variant reference (we keep
+          # the OLI row for the audit trail) before deleting variants.
+          manual_variant_ids = Variant.where(shopify_variant_id: nil).pluck(:id)
+          if manual_variant_ids.any?
+            OrderLineItem.where(variant_id: manual_variant_ids).update_all(variant_id: nil)
+          end
+
           Variant.where(shopify_variant_id: nil).delete_all
           Product.where(shopify_product_id: nil).find_each(batch_size: 200, &:destroy)
 
           # 3. Customers
+          # Surviving Shopify orders may still reference a manual customer
+          # (e.g. legacy data); null the FK before delete to keep the audit
+          # trail of those orders intact.
+          manual_customer_ids = Customer.where(shopify_customer_id: nil).pluck(:id)
+          if manual_customer_ids.any?
+            Order.where(customer_id: manual_customer_ids).update_all(customer_id: nil)
+          end
           Customer.where(shopify_customer_id: nil).delete_all
 
           # 2. Accounting entries
@@ -313,6 +382,34 @@ namespace :db do
           Inventory::Reservations::RecountStockItem.call(si) if defined?(Inventory::Reservations::RecountStockItem)
         end
 
+        # Integrity guard: every Shopify-origin count must be unchanged.
+        after = {
+          orders:        Order.shopify_origin.count,
+          products:      Product.shopify_origin.count,
+          variants:      Variant.shopify_origin.count,
+          warehouses:    Warehouse.shopify_origin.count,
+          customers:     (defined?(Customer)     ? Customer.shopify_origin.count     : 0),
+          refunds:       (defined?(Refund)       ? Refund.shopify_origin.count       : 0),
+          fulfillments:  (defined?(Fulfillment)  ? Fulfillment.shopify_origin.count  : 0),
+          collections:   (defined?(Collection)   ? Collection.shopify_origin.count   : 0)
+        }
+        drift = shopify_snapshot.keys.select { |k| shopify_snapshot[k] != after[k] }
+        if drift.any?
+          report = drift.map { |k| "#{k}: #{shopify_snapshot[k]} -> #{after[k]}" }.join(", ")
+          raise "[cleanup:manual_only] Shopify-origin counts changed — aborting (#{report})"
+        end
+        puts "[cleanup:manual_only] Shopify-origin counts unchanged ✓"
+
+        if ENV["SKIP_CATCHUP"].to_s != "1" && Rake::Task.task_defined?("bootstrap:catchup")
+          puts "[cleanup:manual_only] running bootstrap:catchup to refresh Shopify mirror…"
+          begin
+            Rake::Task["bootstrap:catchup"].reenable
+            Rake::Task["bootstrap:catchup"].invoke
+          rescue => e
+            warn "[cleanup:manual_only] catchup failed (continuing): #{e.class}: #{e.message}"
+          end
+        end
+
         if defined?(Accounting::IntegrityChecker)
           puts "[cleanup:manual_only] running accounting integrity check…"
           report = Accounting::IntegrityChecker.call
@@ -327,5 +424,113 @@ namespace :db do
 
       puts "[cleanup:manual_only] done."
     end
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # db:cleanup:all_operational
+    #
+    # Runs manual_only then shopify_only in one shot to wipe ALL operational
+    # data (orders, refunds, fulfillments, journal entries, stock movements
+    # and reservations, products/variants/collections, manual warehouses and
+    # purchase orders). Chart of Accounts, users, roles and Shopify-managed
+    # warehouses stay. Shopify catch-up backfill runs at the end of
+    # shopify_only.
+    # ─────────────────────────────────────────────────────────────────────────
+    desc "DESTRUCTIVE: wipe all manual AND Shopify-originated operational data. " \
+         "Set CLEANUP_CONFIRM=YES_I_MEAN_IT; DRY_RUN=1 to preview."
+    task all_operational: :environment do
+      unless ENV["CLEANUP_CONFIRM"].to_s == "YES_I_MEAN_IT"
+        abort "[cleanup:all_operational] Refusing to run. Set CLEANUP_CONFIRM=YES_I_MEAN_IT to confirm."
+      end
+      Rake::Task["db:cleanup:manual_only"].invoke
+      Rake::Task["db:cleanup:shopify_only"].invoke
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # db:cleanup:status
+    #
+    # Non-destructive pre-flight: prints per-module counts split into
+    # "shopify" (origin set) and "manual" (origin nil) buckets so the
+    # operator can see exactly what `manual_only` vs `shopify_only` will
+    # touch before running anything destructive.
+    # ─────────────────────────────────────────────────────────────────────────
+    desc "Print per-module counts split by origin (manual vs Shopify). Non-destructive."
+    task status: :environment do
+      pairs = [
+        ["Order",            Order],
+        ["OrderLineItem",    OrderLineItem],
+        ["Refund",           defined?(Refund) ? Refund : nil],
+        ["Fulfillment",      defined?(Fulfillment) ? Fulfillment : nil],
+        ["Customer",         defined?(Customer) ? Customer : nil],
+        ["Product",          Product],
+        ["Variant",          Variant],
+        ["Collection",       defined?(Collection) ? Collection : nil],
+        ["Warehouse",        Warehouse],
+        ["StockItem",        StockItem]
+      ].compact
+
+      puts "[cleanup:status] origin split (manual vs Shopify):"
+      pairs.each do |label, klass|
+        if klass.respond_to?(:shopify_origin) && klass.respond_to?(:manual_origin)
+          shopify = klass.shopify_origin.count
+          manual  = klass.manual_origin.count
+          puts format("  %-18s manual=%-6d shopify=%-6d total=%d",
+                      label, manual, shopify, manual + shopify)
+        else
+          puts format("  %-18s (no origin scope) total=%d", label, klass.count)
+        end
+      end
+
+      # Always-manual tables (no Shopify counterpart)
+      puts "[cleanup:status] manual-only modules:"
+      [
+        ["PurchaseOrder",    defined?(PurchaseOrder) ? PurchaseOrder : nil],
+        ["StockTransfer",    defined?(StockTransfer) ? StockTransfer : nil],
+        ["Supplier",         defined?(Supplier) ? Supplier : nil],
+        ["ProductionOrder",  defined?(ProductionOrder) ? ProductionOrder : nil]
+      ].compact.each do |label, klass|
+        puts format("  %-18s total=%d", label, klass.count)
+      end
+
+      puts "[cleanup:status] webhook events:"
+      if defined?(WebhookEvent)
+        puts format("  shopify=%d processed=%d failed=%d",
+                    WebhookEvent.where(source: "shopify").count,
+                    WebhookEvent.where.not(processed_at: nil).count,
+                    WebhookEvent.where.not(error: nil).count)
+      end
+    end
   end
 end
+
+# RUNBOOK — Shopify-only reset
+# =============================================================================
+# 1. Pre-flight inspection (non-destructive):
+#      docker compose exec backend bin/rails db:cleanup:status
+#
+# 2. Take a full DB backup BEFORE any destructive task:
+#      docker compose exec backend bin/rails 'db:backup[pre_cleanup]'
+#    (Stored under backend/db/backups/; restore with rails 'db:restore[<file>]')
+#
+# 3. Dry-run the desired task (counts only; transaction rolled back):
+#      CLEANUP_CONFIRM=YES_I_MEAN_IT DRY_RUN=1 \
+#        docker compose exec -e CLEANUP_CONFIRM -e DRY_RUN \
+#        backend bin/rails db:cleanup:manual_only
+#
+# 4. Review printed counts. If acceptable, execute for real:
+#      CLEANUP_CONFIRM=YES_I_MEAN_IT \
+#        docker compose exec -e CLEANUP_CONFIRM \
+#        backend bin/rails db:cleanup:manual_only
+#
+# 5. After cleanup, verify Shopify-origin survivors and trigger an incremental
+#    catch-up to repopulate from Shopify:
+#      docker compose exec backend bin/rails db:cleanup:status
+#      docker compose exec backend bin/rails bootstrap:catchup
+#
+# Notes:
+#   - manual_only  → preserves every Shopify-origin row.
+#   - shopify_only → deletes Shopify-origin operational rows then re-pulls
+#     from Shopify (unless SKIP_BACKFILL=1).
+#   - all_operational → manual_only then shopify_only.
+#   - On failure, the whole task rolls back inside its transaction; combined
+#     with step 2 the operation is fully reversible.
+# =============================================================================

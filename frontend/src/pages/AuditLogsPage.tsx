@@ -19,6 +19,8 @@ export default function AuditLogsPage() {
   const actorEmail = searchParams.get("actor_email") || "";
   const fromDate = searchParams.get("from_date") || "";
   const toDate = searchParams.get("to_date") || "";
+  const sortParam = searchParams.get("sort") || "occurred_at";
+  const dirParam = (searchParams.get("dir") === "asc" ? "asc" : "desc") as "asc" | "desc";
 
   const [rows, setRows] = useState<AuditLogEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -47,6 +49,8 @@ export default function AuditLogsPage() {
         actor_email: actorEmail || undefined,
         from_date: fromDate || undefined,
         to_date: toDate || undefined,
+        sort: sortParam,
+        dir: dirParam,
       });
       setRows(res.data);
       setTotal(res.meta.total);
@@ -70,6 +74,8 @@ export default function AuditLogsPage() {
     actorEmail,
     fromDate,
     toDate,
+    sortParam,
+    dirParam,
   ]);
 
   useEffect(() => {
@@ -211,12 +217,12 @@ export default function AuditLogsPage() {
         </div>
         <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+            <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">When</th>
-                <th className="px-4 py-3 text-left font-medium">Actor</th>
-                <th className="px-4 py-3 text-left font-medium">Action</th>
-                <th className="px-4 py-3 text-left font-medium">Subject</th>
+                <SortableTh label="When" col="occurred_at" sort={sortParam} dir={dirParam} onSort={(c, d) => { const sp = new URLSearchParams(searchParams); sp.set("sort", c); sp.set("dir", d); setSearchParams(sp, { replace: true }); }} />
+                <SortableTh label="Actor" col="user_id" sort={sortParam} dir={dirParam} onSort={(c, d) => { const sp = new URLSearchParams(searchParams); sp.set("sort", c); sp.set("dir", d); setSearchParams(sp, { replace: true }); }} />
+                <SortableTh label="Action" col="action" sort={sortParam} dir={dirParam} onSort={(c, d) => { const sp = new URLSearchParams(searchParams); sp.set("sort", c); sp.set("dir", d); setSearchParams(sp, { replace: true }); }} />
+                <SortableTh label="Subject" col="subject_type" sort={sortParam} dir={dirParam} onSort={(c, d) => { const sp = new URLSearchParams(searchParams); sp.set("sort", c); sp.set("dir", d); setSearchParams(sp, { replace: true }); }} />
                 <th className="px-4 py-3 text-left font-medium">IP</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -335,5 +341,34 @@ export default function AuditLogsPage() {
         </div>
       </div>
     </PageContainer>
+  );
+}
+
+function SortableTh({
+  label,
+  col,
+  sort,
+  dir,
+  onSort,
+}: {
+  label: string;
+  col: string;
+  sort: string;
+  dir: "asc" | "desc";
+  onSort: (col: string, dir: "asc" | "desc") => void;
+}) {
+  const active = sort === col;
+  const next: "asc" | "desc" = active && dir === "asc" ? "desc" : "asc";
+  return (
+    <th className="px-4 py-3 text-left font-medium">
+      <button
+        type="button"
+        onClick={() => onSort(col, next)}
+        className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-slate-700"
+      >
+        {label}
+        {active && <span aria-hidden>{dir === "asc" ? "▲" : "▼"}</span>}
+      </button>
+    </th>
   );
 }

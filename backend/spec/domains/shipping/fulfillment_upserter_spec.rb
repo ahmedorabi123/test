@@ -43,7 +43,7 @@ RSpec.describe Shipping::Shopify::FulfillmentUpserter do
     expect {
       described_class.call(payload)
     }.to change(Fulfillment, :count).by(1)
-     .and change(StockMovement, :count).by(1)
+     .and change(StockMovement, :count).by(2)
 
     f = Fulfillment.last
     expect(f.order).to eq(order)
@@ -52,10 +52,11 @@ RSpec.describe Shipping::Shopify::FulfillmentUpserter do
     expect(f.fulfillment_line_items.count).to eq(1)
 
     expect(stock_item.reload.quantity_on_hand).to eq(47)
-    sm = StockMovement.last
+    expect(stock_item.shopify_quantity_on_hand).to eq(47)
+    sm = StockMovement.find_by!(movement_scope: "system", reason: "fulfilled")
     expect(sm.delta).to eq(-3)
-    expect(sm.reason).to eq("fulfilled")
     expect(sm.reference_type).to eq("FulfillmentLineItem")
+    expect(StockMovement.where(movement_scope: "shopify_mirror", reason: "shopify_mirror_order_consumed")).to exist
   end
 
   it "is idempotent — second delivery does not double-deduct stock" do

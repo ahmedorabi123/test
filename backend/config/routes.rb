@@ -51,6 +51,7 @@ Rails.application.routes.draw do
         resources :images, only: %i[create destroy], controller: "product_images"
       end
       resources :collections, only: %i[index show create update destroy] do
+        resource :image, only: %i[create destroy], controller: "collection_images"
         member do
           post   "products",             action: :add_product,    as: :add_product
           delete "products/:product_id", action: :remove_product, as: :remove_product
@@ -142,6 +143,7 @@ Rails.application.routes.draw do
         get    "journal_entries",            to: "accounting#journal_entries"
         post   "journal_entries",            to: "accounting#create_journal_entry"
         get    "journal_entries/:id",        to: "accounting#journal_entry"
+        delete "journal_entries/:id",        to: "accounting#destroy_journal_entry"
         get    "accounts/:code/ledger",      to: "accounting#account_ledger"
         get    "trial_balance",              to: "accounting#trial_balance"
         get    "pnl",                        to: "accounting#pnl"

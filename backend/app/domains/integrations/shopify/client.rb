@@ -113,6 +113,10 @@ module Shopify
 
     def enforce_read_only!(path)
       return unless read_only?
+      # Webhook (re-)registration is integration plumbing, not a data write.
+      # Allow it to proceed even in READ_ONLY_SHOPIFY mode so deploys / URL
+      # changes can self-heal without flipping a global write flag.
+      return if path.to_s.start_with?("webhooks")
       raise ReadOnlyError, "Shopify is in read-only mode (READ_ONLY_SHOPIFY=true); writes to #{path} are blocked."
     end
 

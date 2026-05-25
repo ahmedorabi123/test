@@ -4,9 +4,9 @@ RSpec.describe Sales::OrderStateMachine do
   describe "status transitions" do
     let(:order) { create(:order) }
 
-    it "moves pending → processing" do
+    it "rejects manual pending → processing" do
       expect { described_class.call(order, to: "processing") }
-        .to change { order.reload.status }.from("pending").to("processing")
+        .to raise_error(Sales::OrderStateMachine::InvalidTransition, /Manual orders/)
     end
 
     it "moves pending → fulfilled" do
@@ -39,9 +39,12 @@ RSpec.describe Sales::OrderStateMachine do
   describe "financial transitions" do
     let(:order) { create(:order) }
 
-    it "moves pending → authorized → paid" do
-      described_class.call(order, to: "authorized")
-      expect(order.reload.financial_status).to eq("authorized")
+    it "rejects manual pending → authorized" do
+      expect { described_class.call(order, to: "authorized") }
+        .to raise_error(Sales::OrderStateMachine::InvalidTransition, /Manual orders/)
+    end
+
+    it "moves pending → paid" do
       described_class.call(order, to: "paid")
       expect(order.reload.financial_status).to eq("paid")
     end

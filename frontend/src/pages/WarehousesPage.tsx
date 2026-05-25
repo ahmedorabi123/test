@@ -22,6 +22,33 @@ function isWarehouseReadOnly(warehouse: Warehouse) {
   return Boolean(warehouse.read_only_origin || warehouse.shopify_location_id);
 }
 
+function apiErrorMessage(error: unknown) {
+  const payload = (error as {
+    response?: {
+      data?: {
+        error?:
+          | string
+          | {
+              detail?: string;
+              dependencies?: Array<{ count?: number; message?: string }>;
+            };
+        errors?: string[];
+      };
+    };
+    message?: string;
+  })?.response?.data;
+
+  if (typeof payload?.error === "string") return payload.error;
+  if (payload?.error && typeof payload.error === "object") {
+    const dependencyText = payload.error.dependencies
+      ?.map((row) => `${row.message || "Dependency"} (${row.count || 0})`)
+      .join(" ");
+    return [payload.error.detail, dependencyText].filter(Boolean).join(" ");
+  }
+  if (payload?.errors?.length) return payload.errors.join(", ");
+  return (error as Error).message || "Request failed";
+}
+
 export default function WarehousesPage() {
   const [items, setItems] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -29,6 +56,24 @@ export default function WarehousesPage() {
   const [editing, setEditing] = useState<Warehouse | null>(null);
   const [creating, setCreating] = useState(false);
   const [recentOrdersWarehouseId, setRecentOrdersWarehouseId] = useState("");
+
+  const deleteWarehouse = async (warehouse: Warehouse) => {
+    if (isWarehouseReadOnly(warehouse)) return;
+    if (
+      !window.confirm(
+        `Delete warehouse ${warehouse.name}? This only succeeds when it has no inventory, transfers, orders, purchases, showroom reports, or scoped user roles.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await warehousesApi.destroy(warehouse.id);
+      load();
+    } catch (e) {
+      setError(apiErrorMessage(e));
+    }
+  };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -122,6 +167,7 @@ export default function WarehousesPage() {
           warehouses={grouped[kind]}
           loading={loading}
           onEdit={setEditing}
+          onDelete={deleteWarehouse}
         />
       ))}
 
@@ -148,11 +194,13 @@ function Section({
   warehouses,
   loading,
   onEdit,
+  onDelete,
 }: {
   title: string;
   warehouses: Warehouse[];
   loading: boolean;
   onEdit: (w: Warehouse) => void;
+  onDelete: (w: Warehouse) => void;
 }) {
   if (warehouses.length === 0 && !loading) return null;
   return (
@@ -205,12 +253,20 @@ function Section({
                   Shopify-managed
                 </span>
               ) : (
-                <button
-                  onClick={() => onEdit(w)}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
-                >
-                  Edit warehouse
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => onEdit(w)}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  >
+                    Edit warehouse
+                  </button>
+                  <button
+                    onClick={() => onDelete(w)}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md border border-rose-200 bg-white px-3 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                  >
+                    Delete
+                  </button>
+                </div>
               )
             }
           />
@@ -218,7 +274,7 @@ function Section({
       </div>
       <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-white text-xs text-slate-500 uppercase">
+          <thead className="sticky top-0 z-10 bg-white text-xs text-slate-500 uppercase">
             <tr>
               <th className="px-4 py-2 text-left">Name</th>
               <th className="px-4 py-2 text-left">Code</th>
@@ -296,12 +352,20 @@ function Section({
                     {isWarehouseReadOnly(w) ? (
                       <span className="text-xs text-slate-400">Read-only</span>
                     ) : (
-                      <button
-                        onClick={() => onEdit(w)}
-                        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                      >
-                        Edit
-                      </button>
+                      <>
+                        <button
+                          onClick={() => onEdit(w)}
+                          className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => onDelete(w)}
+                          className="text-rose-600 hover:text-rose-800 text-sm font-medium"
+                        >
+                          Delete
+                        </button>
+                      </>
                     )}
                   </div>
                 </td>

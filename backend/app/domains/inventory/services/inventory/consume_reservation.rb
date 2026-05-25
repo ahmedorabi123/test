@@ -110,7 +110,7 @@ module Inventory
       # Always persist fulfillment_status directly (no state-machine counterpart).
       new_status = order.status
       new_status = "fulfilled"   if fulfillment_status == "fulfilled" && %w[pending processing].include?(new_status)
-      new_status = "processing"  if fulfillment_status == "partial"   && new_status == "pending"
+      new_status = "processing"  if fulfillment_status == "partial" && new_status == "pending" && !manual_order?
 
       # Use the state machine when the status axis actually changes so that
       # side-effects (COGS, audit log) are triggered correctly.
@@ -118,6 +118,10 @@ module Inventory
       if new_status != order.status
         ::Sales::OrderStateMachine.call(order, to: new_status)
       end
+    end
+
+    def manual_order?
+      order.source.in?(%w[manual showroom])
     end
   end
 end

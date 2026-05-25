@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_14_210000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_19_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -615,6 +615,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_14_210000) do
     t.datetime "updated_at", null: false
     t.integer "quantity_unavailable", default: 0, null: false
     t.string "unavailability_reason"
+    t.integer "shopify_quantity_on_hand"
+    t.integer "shopify_quantity_committed"
+    t.datetime "shopify_last_synced_at"
     t.index ["shopify_inventory_level_id"], name: "index_stock_items_on_shopify_inventory_level_id", unique: true, where: "(shopify_inventory_level_id IS NOT NULL)"
     t.index ["variant_id", "warehouse_id"], name: "index_stock_items_on_variant_id_and_warehouse_id", unique: true
     t.index ["variant_id"], name: "index_stock_items_on_variant_id"
@@ -632,6 +635,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_14_210000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "note"
+    t.string "movement_scope", default: "system", null: false
+    t.integer "committed_delta"
+    t.integer "committed_snapshot_before"
+    t.integer "committed_snapshot_after"
+    t.index ["movement_scope", "reason"], name: "index_stock_movements_on_scope_and_reason"
+    t.index ["reference_type", "reference_id", "movement_scope"], name: "index_stock_movements_on_reference_and_scope"
     t.index ["stock_item_id"], name: "index_stock_movements_on_stock_item_id"
   end
 

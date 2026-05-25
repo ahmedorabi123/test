@@ -34,6 +34,8 @@ export interface JournalEntry {
   entry_type?: string;
   source_type?: string;
   source_id?: string;
+  reversal_of_id?: string | null;
+  is_reversal?: boolean;
   total_debits: number;
   total_credits: number;
   created_at: string;
@@ -187,9 +189,30 @@ export const accountingApi = {
       .post<{ data: JournalEntry }>(`${BASE}/journal_entries`, payload)
       .then((r: AxiosResponse<{ data: JournalEntry }>) => r.data),
 
+  deleteJournalEntry: (
+    id: string,
+  ): Promise<{ data: { original: JournalEntry; reversal: JournalEntry } }> =>
+    api
+      .delete<{ data: { original: JournalEntry; reversal: JournalEntry } }>(
+        `${BASE}/journal_entries/${id}`,
+      )
+      .then(
+        (
+          r: AxiosResponse<{
+            data: { original: JournalEntry; reversal: JournalEntry };
+          }>,
+        ) => r.data,
+      ),
+
   accountLedger: (
     code: string,
-    params?: { from?: string; to?: string; q?: string; page?: number; per_page?: number },
+    params?: {
+      from?: string;
+      to?: string;
+      q?: string;
+      page?: number;
+      per_page?: number;
+    },
   ): Promise<{
     data: AccountLedgerRow[];
     meta: { page: number; per_page: number; total: number; account: Account };
@@ -197,13 +220,23 @@ export const accountingApi = {
     api
       .get<{
         data: AccountLedgerRow[];
-        meta: { page: number; per_page: number; total: number; account: Account };
+        meta: {
+          page: number;
+          per_page: number;
+          total: number;
+          account: Account;
+        };
       }>(`${BASE}/accounts/${encodeURIComponent(code)}/ledger`, { params })
       .then(
         (
           r: AxiosResponse<{
             data: AccountLedgerRow[];
-            meta: { page: number; per_page: number; total: number; account: Account };
+            meta: {
+              page: number;
+              per_page: number;
+              total: number;
+              account: Account;
+            };
           }>,
         ) => r.data,
       ),

@@ -35,6 +35,18 @@ export interface StockItem {
   quantity_on_hand: number;
   quantity_reserved: number;
   quantity_unavailable: number;
+  shopify_quantity_on_hand?: number | null;
+  shopify_quantity_committed?: number | null;
+  shopify_available?: number | null;
+  shopify_last_synced_at?: string | null;
+  shopify_divergence?: {
+    on_hand_delta: number;
+    committed_delta?: number | null;
+    system_on_hand: number;
+    shopify_on_hand: number;
+    system_committed: number;
+    shopify_committed?: number | null;
+  } | null;
   unavailability_reason?: string | null;
   available: number;
   low_stock_threshold: number;

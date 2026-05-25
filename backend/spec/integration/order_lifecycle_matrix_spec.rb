@@ -61,27 +61,15 @@ RSpec.describe "Order lifecycle cross-module matrix", type: :model do
   end
 
   # ──────────────────────────────────────────────────────────────────────────
-  # 2. PROCESSING (status: pending → processing) — purely advisory, no side
-  #    effects on inventory or accounting.
+  # 2. PROCESSING is no longer available to manual/showroom orders.
   # ──────────────────────────────────────────────────────────────────────────
   describe "status: pending → processing" do
-    it "does not move stock, does not post journals, but does log audit" do
+    it "is rejected for manual orders" do
       order = paid_manual_order
-      stock_before = stock_item.reload.attributes.slice("quantity_on_hand", "quantity_reserved")
-      journals_before = JournalEntry.count
-      movements_before = StockMovement.count
-
-      Sales::OrderStateMachine.call(order, to: "processing")
-
-      expect(order.reload.status).to eq("processing")
-      expect(stock_item.reload.quantity_on_hand).to eq(stock_before["quantity_on_hand"])
-      expect(stock_item.quantity_reserved).to eq(stock_before["quantity_reserved"])
-      expect(JournalEntry.count).to eq(journals_before)
-      expect(StockMovement.count).to eq(movements_before)
-
-      audit = AuditLog.where(action: "order.status_changed").last
-      expect(audit).to be_present
-      expect(audit.diff.deep_symbolize_keys.dig(:status, :to)).to eq("processing")
+      expect {
+        Sales::OrderStateMachine.call(order, to: "processing")
+      }.to raise_error(Sales::OrderStateMachine::InvalidTransition, /Manual orders/)
+      expect(order.reload.status).to eq("pending")
     end
   end
 
@@ -144,12 +132,12 @@ RSpec.describe "Order lifecycle cross-module matrix", type: :model do
       expect(order.reload.last_delivery_status).to eq("delivered")
     end
 
-    it "auto-creates a fulfillment when transitioning to fulfilled with no fulfillments" do
+    it "fulfills without creating a shipment row when transitioning manual orders" do
       order = paid_manual_order(quantity: 2)
       Sales::OrderStateMachine.call(order, to: "fulfilled")
 
       expect(order.reload.status).to eq("fulfilled")
-      expect(order.fulfillments.count).to eq(1)
+      expect(order.fulfillments.count).to eq(0)
       expect(stock_item.reload.quantity_on_hand).to eq(18)
     end
   end

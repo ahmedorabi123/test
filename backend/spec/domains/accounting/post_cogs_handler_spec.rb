@@ -11,7 +11,13 @@ RSpec.describe Accounting::PostCogsHandler do
     create(:account, code: "5000", name: "COGS", account_type: "expense", normal_side: "debit")
   end
 
-  it "posts COGS from a persisted FIFO cost breakdown before variant fallback" do
+  it "skips COGS while the feature gate is disabled" do
+    fulfillment.fulfillment_line_items.create!(order_line_item: line_item, quantity: 2)
+
+    expect { described_class.call(fulfillment) }.not_to change(JournalEntry, :count)
+  end
+
+  it "posts COGS from a persisted FIFO cost breakdown before variant fallback when enabled" do
     fulfillment.fulfillment_line_items.create!(
       order_line_item: line_item,
       quantity: 2,
@@ -21,11 +27,21 @@ RSpec.describe Accounting::PostCogsHandler do
       ]
     )
 
-    described_class.call(fulfillment)
+    with_env("ACCOUNTING_COGS_ENABLED", "true") do
+      described_class.call(fulfillment)
+    end
 
     entry = JournalEntry.find_by!(idempotency_key: "cogs-#{fulfillment.id}")
     expect(entry.journal_lines.sum(:amount)).to eq(24.0)
     debit = entry.journal_lines.joins(:account).find_by!(accounts: { code: "5000" })
     expect(debit.amount).to eq(12.0)
+  end
+
+  def with_env(key, value)
+    previous = ENV[key]
+    ENV[key] = value
+    yield
+  ensure
+    ENV[key] = previous
   end
 end

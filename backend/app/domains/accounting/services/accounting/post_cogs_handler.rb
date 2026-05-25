@@ -18,6 +18,7 @@ module Accounting
     end
 
     def call
+      return unless Accounting::Features.cogs_enabled?
       return if @fulfillment.status != "success"
 
       idem_key = "#{IDEMPOTENCY_PREFIX}-#{@fulfillment.id}"

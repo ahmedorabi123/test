@@ -7,7 +7,8 @@ module Api
 
       def index
         authorize Role
-        roles = Role.includes(:permissions).order(:name)
+        roles = Role.includes(:permissions)
+        roles = apply_role_sort(roles)
         render json: { data: roles.map { |r| role_json(r) } }
       end
 
@@ -70,6 +71,15 @@ module Api
       end
 
       private
+
+      ROLE_SORT_ALLOWLIST = %w[name created_at].freeze
+
+      def apply_role_sort(scope)
+        col = params[:sort].to_s.presence
+        col = "name" unless ROLE_SORT_ALLOWLIST.include?(col)
+        dir = params[:dir].to_s.downcase == "desc" ? :desc : :asc
+        scope.order(col => dir)
+      end
 
       def set_role
         @role = Role.find(params[:id])

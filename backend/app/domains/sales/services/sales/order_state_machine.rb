@@ -69,6 +69,7 @@ module Sales
       unless legal.include?(@to)
         raise InvalidTransition, "Cannot move order #{@order.order_number} from status=#{from} to #{@to}"
       end
+      ensure_manual_transition_allowed!
 
       Order.transaction do
         @order.update!(status: @to, cancelled_at: (Time.current if @to == "cancelled"))
@@ -83,6 +84,7 @@ module Sales
         raise InvalidTransition,
               "Cannot move order #{@order.order_number} from financial_status=#{from} to #{@to}"
       end
+      ensure_manual_transition_allowed!
 
       Order.transaction do
         @order.update!(financial_status: @to)
@@ -117,6 +119,11 @@ module Sales
     end
 
     def ensure_fulfillment_inventory_consumed!
+      if manual_order?
+        ::Inventory::ConsumeOrderLineReservations.call(@order, actor: @actor)
+        return
+      end
+
       fulfillments = @order.fulfillments.successful.includes(:fulfillment_line_items)
 
       if fulfillments.empty?
@@ -143,6 +150,17 @@ module Sales
         # COGS disabled: cost-per-product tracking not yet implemented.
         # Re-enable PostCogsHandler here when variant costs are reliable.
       end
+    end
+
+    def manual_order?
+      %w[manual showroom].include?(@order.source.to_s)
+    end
+
+    def ensure_manual_transition_allowed!
+      return unless manual_order?
+      return unless %w[processing authorized].include?(@to)
+
+      raise InvalidTransition, "Manual orders cannot be moved to #{@to}"
     end
 
     def recompute_customer_stats

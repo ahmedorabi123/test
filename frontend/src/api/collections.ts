@@ -14,6 +14,14 @@ export interface CollectionProduct {
   image?: string | null;
 }
 
+export interface UploadedCollectionImage {
+  id: number;
+  filename: string;
+  content_type: string;
+  byte_size: number;
+  url: string;
+}
+
 export interface Collection {
   id: string;
   shopify_collection_id?: number | null;
@@ -21,6 +29,7 @@ export interface Collection {
   handle: string;
   body_html?: string | null;
   image?: string | null;
+  uploaded_image?: UploadedCollectionImage | null;
   sort_order?: string;
   published_at?: string | null;
   published_scope?: string;
@@ -97,4 +106,21 @@ export const collectionsApi = {
         data: Collection;
       }>(`/collections/${collectionId}/products/${productId}`)
       .then((r) => r.data.data),
+
+  uploadImage: (collectionId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api
+      .post<{ data: UploadedCollectionImage }>(
+        `/collections/${collectionId}/image`,
+        form,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      )
+      .then((r) => r.data.data);
+  },
+
+  deleteImage: (collectionId: string) =>
+    api.delete(`/collections/${collectionId}/image`).then(() => undefined),
 };

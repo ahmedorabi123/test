@@ -53,7 +53,11 @@ namespace :bootstrap do
       log.call "Registering webhooks against #{base} ..."
       begin
         wh_client = ::Shopify::Client.new
-        topics    = Shopify::EventNormalizer::SUPPORTED_TOPICS.keys
+        # Skip GDPR compliance topics — Shopify only accepts them via the
+        # app's config, not the REST webhooks endpoint.
+        topics = Shopify::EventNormalizer::SUPPORTED_TOPICS.keys - %w[
+          customers/data_request customers/redact shop/redact fulfillments/cancelled
+        ]
         existing  = wh_client.get("webhooks.json").fetch("webhooks", []).index_by { |w| w["topic"] }
         topics.each do |topic|
           callback = "#{base}/webhooks/shopify/#{topic}"

@@ -11,8 +11,9 @@ module Api
         authorize Product, :index?
         scope = Variant.includes(:product)
         scope = scope.where(id: Array(params[:ids]).flat_map { |value| value.to_s.split(",") }.reject(&:blank?)) if params[:ids].present?
-        if params[:search].present?
-          q = "%#{params[:search]}%"
+        query = params[:search].presence || params[:q].presence
+        if query.present?
+          q = "%#{query}%"
           scope = scope.left_outer_joins(:product).where(
             "variants.sku ILIKE :q OR variants.title ILIKE :q OR variants.barcode ILIKE :q OR products.title ILIKE :q OR products.handle ILIKE :q",
             q: q
@@ -28,12 +29,14 @@ module Api
           if warehouse.nil?
             return render_error(404, "not_found", "Warehouse not found")
           end
+
+          # Shopify-origin warehouses (those backed by a Shopify location) can
+          # only hold Shopify-origin variants — a manual variant would never
+          # appear there in Shopify and would drift on next sync. Filter the
+          # lookup so PO/transfer/order forms don't accidentally pick a
+          # manual variant for a Shopify warehouse.
           if warehouse.shopify_origin?
-            return render_error(
-              422,
-              "unprocessable_entity",
-              "Cannot list variants for a Shopify-managed warehouse from this endpoint. Manual orders must target a non-Shopify warehouse."
-            )
+            scope = scope.where.not(shopify_variant_id: nil)
           end
         end
 

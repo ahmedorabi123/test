@@ -88,15 +88,21 @@ function Badge({ v }: { v: string }) {
 
 // ── Account Form Modal ────────────────────────────────────────────────────────
 
-const ACCOUNT_TYPES = ["asset", "liability", "equity", "revenue", "expense"] as const;
-const NORMAL_SIDES  = ["debit", "credit"] as const;
+const ACCOUNT_TYPES = [
+  "asset",
+  "liability",
+  "equity",
+  "revenue",
+  "expense",
+] as const;
+const NORMAL_SIDES = ["debit", "credit"] as const;
 
 const defaultSideForType: Record<string, "debit" | "credit"> = {
-  asset:     "debit",
-  expense:   "debit",
+  asset: "debit",
+  expense: "debit",
   liability: "credit",
-  equity:    "credit",
-  revenue:   "credit",
+  equity: "credit",
+  revenue: "credit",
 };
 
 interface AccountFormState {
@@ -120,16 +126,16 @@ function AccountFormModal({
 }) {
   const isEdit = initial != null;
   const [form, setForm] = useState<AccountFormState>({
-    code:         initial?.code         ?? "",
-    name:         initial?.name         ?? "",
+    code: initial?.code ?? "",
+    name: initial?.name ?? "",
     account_type: initial?.account_type ?? "expense",
-    normal_side:  initial?.normal_side  ?? "debit",
-    currency:     initial?.currency     ?? "EGP",
-    description:  initial?.description  ?? "",
-    active:       initial?.active       ?? true,
+    normal_side: initial?.normal_side ?? "debit",
+    currency: initial?.currency ?? "EGP",
+    description: initial?.description ?? "",
+    active: initial?.active ?? true,
   });
   const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState("");
+  const [error, setError] = useState("");
 
   const set = (k: keyof AccountFormState, v: string | boolean) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -150,22 +156,22 @@ function AccountFormModal({
       let result: { data: Account };
       if (isEdit) {
         result = await accountingApi.updateAccount(initial!.id, {
-          code:         form.code,
-          name:         form.name,
+          code: form.code,
+          name: form.name,
           account_type: form.account_type,
-          normal_side:  form.normal_side,
-          currency:     form.currency,
-          description:  form.description,
-          active:       form.active,
+          normal_side: form.normal_side,
+          currency: form.currency,
+          description: form.description,
+          active: form.active,
         });
       } else {
         result = await accountingApi.createAccount({
-          code:         form.code,
-          name:         form.name,
+          code: form.code,
+          name: form.name,
           account_type: form.account_type,
-          normal_side:  form.normal_side,
-          currency:     form.currency,
-          description:  form.description,
+          normal_side: form.normal_side,
+          currency: form.currency,
+          description: form.description,
         });
       }
       onSaved(result.data);
@@ -275,7 +281,8 @@ function AccountFormModal({
                 ))}
               </select>
               <p className="text-xs text-slate-400 mt-1">
-                Assets &amp; expenses = Debit; Liabilities, equity &amp; revenue = Credit
+                Assets &amp; expenses = Debit; Liabilities, equity &amp; revenue
+                = Credit
               </p>
             </div>
           </div>
@@ -348,11 +355,16 @@ function AccountsTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadAccounts(); }, [loadAccounts]);
+  useEffect(() => {
+    loadAccounts();
+  }, [loadAccounts]);
 
   const onSort = (key: "code" | "name") => {
     if (sortKey === key) setSortDir(nextDir(sortDir));
-    else { setSortKey(key); setSortDir("asc"); }
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
   };
 
   const sortRows = (rows: Account[]) => {
@@ -378,9 +390,15 @@ function AccountsTab() {
   };
 
   if (loading) return <p className="text-slate-500 p-6">Loading…</p>;
-  if (error)   return <p className="text-red-500 p-6">{error}</p>;
+  if (error) return <p className="text-red-500 p-6">{error}</p>;
 
-  const groups = ["asset", "liability", "equity", "revenue", "expense"] as const;
+  const groups = [
+    "asset",
+    "liability",
+    "equity",
+    "revenue",
+    "expense",
+  ] as const;
 
   return (
     <>
@@ -422,14 +440,21 @@ function AccountsTab() {
                     }
                     subtitle={a.name}
                     fields={[
-                      { label: "Normal side", value: <Badge v={a.normal_side} /> },
+                      {
+                        label: "Normal side",
+                        value: <Badge v={a.normal_side} />,
+                      },
                       { label: "Currency", value: a.currency },
                       {
                         label: "Status",
                         value: a.active ? (
-                          <span className="text-emerald-600 text-xs">Active</span>
+                          <span className="text-emerald-600 text-xs">
+                            Active
+                          </span>
                         ) : (
-                          <span className="text-slate-400 text-xs">Inactive</span>
+                          <span className="text-slate-400 text-xs">
+                            Inactive
+                          </span>
                         ),
                       },
                     ]}
@@ -446,12 +471,22 @@ function AccountsTab() {
                 ))}
               </div>
               {/* Desktop table */}
-              <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="hidden md:block overflow-auto max-h-[calc(100vh-280px)] rounded-lg border border-slate-200 bg-white shadow-sm">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                     <tr>
-                      <SortHeader label="Code" active={sortKey === "code"} dir={sortDir} onClick={() => onSort("code")} />
-                      <SortHeader label="Name" active={sortKey === "name"} dir={sortDir} onClick={() => onSort("name")} />
+                      <SortHeader
+                        label="Code"
+                        active={sortKey === "code"}
+                        dir={sortDir}
+                        onClick={() => onSort("code")}
+                      />
+                      <SortHeader
+                        label="Name"
+                        active={sortKey === "name"}
+                        dir={sortDir}
+                        onClick={() => onSort("name")}
+                      />
                       <th className="px-4 py-2 text-left">Normal Side</th>
                       <th className="px-4 py-2 text-left">Currency</th>
                       <th className="px-4 py-2 text-left">Status</th>
@@ -462,12 +497,20 @@ function AccountsTab() {
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((a) => (
                       <tr key={a.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-2 font-mono font-medium text-slate-700">{a.code}</td>
+                        <td className="px-4 py-2 font-mono font-medium text-slate-700">
+                          {a.code}
+                        </td>
                         <td className="px-4 py-2 text-slate-800">{a.name}</td>
-                        <td className="px-4 py-2"><Badge v={a.normal_side} /></td>
-                        <td className="px-4 py-2 text-slate-500">{a.currency}</td>
                         <td className="px-4 py-2">
-                          <span className={`text-xs font-medium ${a.active ? "text-emerald-600" : "text-slate-400"}`}>
+                          <Badge v={a.normal_side} />
+                        </td>
+                        <td className="px-4 py-2 text-slate-500">
+                          {a.currency}
+                        </td>
+                        <td className="px-4 py-2">
+                          <span
+                            className={`text-xs font-medium ${a.active ? "text-emerald-600" : "text-slate-400"}`}
+                          >
                             {a.active ? "Active" : "Inactive"}
                           </span>
                         </td>
@@ -539,11 +582,37 @@ function JournalTab() {
       })
       .catch(() => setError("Failed to load journal entries"))
       .finally(() => setLoading(false));
-  }, [from, to, q, minAmount, maxAmount, accountCode, page, perPage, sortKey, sortDir]);
+  }, [
+    from,
+    to,
+    q,
+    minAmount,
+    maxAmount,
+    accountCode,
+    page,
+    perPage,
+    sortKey,
+    sortDir,
+  ]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const deleteEntry = async (entry: JournalEntry) => {
+    if (entry.entry_type !== "manual" || entry.status !== "posted") return;
+    const ok = window.confirm(
+      `Reverse manual entry from ${entry.entry_date}?\n\nA balanced reversal entry will be posted. The original is preserved for audit.`,
+    );
+    if (!ok) return;
+    try {
+      await accountingApi.deleteJournalEntry(entry.id);
+      load();
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: { detail?: string } } } };
+      setError(err.response?.data?.error?.detail || "Failed to reverse entry");
+    }
+  };
 
   const toggleSort = (key: string) => {
     if (sortKey === key) setSortDir(nextDir(sortDir));
@@ -612,7 +681,9 @@ function JournalTab() {
       {/* Search row */}
       <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Search description</label>
+          <label className="block text-xs text-slate-500 mb-1">
+            Search description
+          </label>
           <input
             type="text"
             value={q}
@@ -625,7 +696,9 @@ function JournalTab() {
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Account code starts with</label>
+          <label className="block text-xs text-slate-500 mb-1">
+            Account code starts with
+          </label>
           <input
             type="text"
             value={accountCode}
@@ -638,7 +711,9 @@ function JournalTab() {
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Min amount</label>
+          <label className="block text-xs text-slate-500 mb-1">
+            Min amount
+          </label>
           <input
             type="number"
             min="0"
@@ -652,7 +727,9 @@ function JournalTab() {
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Max amount</label>
+          <label className="block text-xs text-slate-500 mb-1">
+            Max amount
+          </label>
           <input
             type="number"
             min="0"
@@ -750,9 +827,9 @@ function JournalTab() {
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="hidden md:block overflow-auto max-h-[calc(100vh-280px)] rounded-lg border border-slate-200 bg-white shadow-sm">
         <table className="min-w-[760px] text-sm">
-          <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+          <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
               <SortHeader
                 label="Date"
@@ -829,6 +906,29 @@ function JournalTab() {
                       {fmt(e.total_credits)}
                     </td>
                     <td className="px-4 py-2 text-slate-400 text-xs">
+                      {e.entry_type === "manual" &&
+                        e.status === "posted" &&
+                        !e.is_reversal && (
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              deleteEntry(e);
+                            }}
+                            className="mr-2 text-rose-600 hover:text-rose-700"
+                            title="Post a reversal entry"
+                          >
+                            Reverse
+                          </button>
+                        )}
+                      {e.is_reversal && (
+                        <span
+                          className="mr-2 text-slate-400"
+                          title="This entry is itself a reversal — it cannot be reversed."
+                        >
+                          ↶ reversal
+                        </span>
+                      )}
                       {expanded === e.id ? "▲" : "▼"}
                     </td>
                   </tr>
@@ -1031,9 +1131,9 @@ function TrialBalanceTab() {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="hidden md:block overflow-auto max-h-[calc(100vh-280px)] rounded-lg border border-slate-200 bg-white shadow-sm">
             <table className="min-w-[720px] text-sm">
-              <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                 <tr>
                   <SortHeader
                     label="Code"
@@ -1588,9 +1688,9 @@ function ManualEntryTab({ onPosted }: { onPosted: () => void }) {
               className="w-full max-w-xs rounded border border-slate-300 px-2 py-1 text-sm"
             />
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[calc(100vh-280px)]">
             <table className="min-w-[820px] text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-xs text-slate-600 uppercase">
                 <tr>
                   <th className="px-2 py-2 text-left">Account</th>
                   <th className="px-2 py-2 text-left w-24">Side</th>
@@ -1849,7 +1949,9 @@ function AccountLedgerTab() {
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Account code</label>
+          <label className="block text-xs text-slate-500 mb-1">
+            Account code
+          </label>
           <input
             type="text"
             value={code}
@@ -1886,7 +1988,9 @@ function AccountLedgerTab() {
           />
         </div>
         <div className="flex-1 min-w-[180px]">
-          <label className="block text-xs text-slate-500 mb-1">Search description</label>
+          <label className="block text-xs text-slate-500 mb-1">
+            Search description
+          </label>
           <input
             type="text"
             value={q}
@@ -1914,9 +2018,9 @@ function AccountLedgerTab() {
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
-      <div className="overflow-x-auto rounded-md border border-slate-200">
+      <div className="overflow-auto max-h-[calc(100vh-280px)] rounded-md border border-slate-200">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600">
+          <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
             <tr>
               <th className="px-3 py-2 text-left">Date</th>
               <th className="px-3 py-2 text-left">Entry</th>
@@ -1937,7 +2041,9 @@ function AccountLedgerTab() {
             {!loading && rows.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-6 text-center text-slate-400">
-                  {code.trim() ? "No lines in this range" : "Enter an account code to begin"}
+                  {code.trim()
+                    ? "No lines in this range"
+                    : "Enter an account code to begin"}
                 </td>
               </tr>
             )}
@@ -1945,7 +2051,9 @@ function AccountLedgerTab() {
               <tr key={r.line_id} className="border-t border-slate-100">
                 <td className="px-3 py-2 font-mono text-xs">{r.entry_date}</td>
                 <td className="px-3 py-2">{r.entry_description}</td>
-                <td className="px-3 py-2 text-slate-600">{r.description ?? "—"}</td>
+                <td className="px-3 py-2 text-slate-600">
+                  {r.description ?? "—"}
+                </td>
                 <td className="px-3 py-2 text-right font-mono">
                   {r.side === "debit" ? fmt(r.amount) : ""}
                 </td>

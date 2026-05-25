@@ -32,6 +32,7 @@ module Shopify
       "fulfillments/create"       => :shopify_fulfillment_created,
       "fulfillments/update"       => :shopify_fulfillment_updated,
       "fulfillments/cancelled"    => :shopify_fulfillment_cancelled,
+      "refunds/create"            => :shopify_refund_created,
       "shop/redact"               => :shopify_shop_redacted,
       "app/uninstalled"           => :shopify_app_uninstalled
     }.freeze

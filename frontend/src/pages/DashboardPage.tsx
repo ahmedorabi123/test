@@ -379,7 +379,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <KpiCard
           label={`Revenue (${windowDays}d)`}
           value={summary ? fmtCurrency(summary.kpis.revenue, currency) : "—"}
@@ -415,6 +415,15 @@ export default function DashboardPage() {
           value={summary ? fmtNumber(summary.kpis.low_stock_count) : "—"}
           hint="at or below threshold"
           accent="from-yellow-500 to-amber-600"
+          loading={loading}
+        />
+        <KpiCard
+          label="Inventory divergence"
+          value={
+            summary ? fmtNumber(summary.kpis.inventory_divergence_count) : "—"
+          }
+          hint="system vs Shopify"
+          accent="from-rose-500 to-pink-600"
           loading={loading}
         />
       </div>

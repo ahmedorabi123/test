@@ -117,6 +117,33 @@ RSpec.describe "Users and roles API", type: :request do
     end
   end
 
+  describe "DELETE /api/v1/users/:id" do
+    it "soft-deactivates regular users" do
+      user = create(:user)
+
+      delete "/api/v1/users/#{user.id}", headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:ok)
+      expect(user.reload.active).to eq(false)
+    end
+
+    it "does not deactivate the current admin through delete" do
+      delete "/api/v1/users/#{admin.id}", headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(admin.reload.active).to eq(true)
+    end
+
+    it "does not deactivate another admin" do
+      other_admin = create(:user, :admin)
+
+      delete "/api/v1/users/#{other_admin.id}", headers: auth_headers(admin)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(other_admin.reload.active).to eq(true)
+    end
+  end
+
   def json
     JSON.parse(response.body)
   end

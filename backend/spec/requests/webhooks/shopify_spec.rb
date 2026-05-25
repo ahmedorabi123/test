@@ -107,13 +107,13 @@ RSpec.describe "Webhooks::Shopify", type: :request do
       end
     end
 
-    it "ignores refunds/create in Phase 1" do
+    it "accepts refunds/create and persists the webhook" do
       expect {
         post_webhook(topic: "refunds/create")
-      }.not_to change(WebhookEvent, :count)
+      }.to change(WebhookEvent, :count).by(1)
 
-      expect(response).to have_http_status(:ok)
-      expect(response.parsed_body["status"]).to eq("ignored")
+      expect(response).to have_http_status(:accepted)
+      expect(WebhookEvent.last.topic).to eq("refunds/create")
     end
   end
 

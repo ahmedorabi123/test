@@ -90,14 +90,16 @@ RSpec.describe ::Shopify::Client do
       expect { client.query("{ shop { name } }") }.not_to raise_error
     end
 
-    it "blocks webhook registration" do
-      expect { client.post("webhooks.json", payload: { webhook: {} }) }
-        .to raise_error(described_class::ReadOnlyError)
+    it "allows webhook registration even under read-only (integration plumbing)" do
+      stub_request(:post, /webhooks\.json/).to_return(
+        status: 201, body: { webhook: { id: 1 } }.to_json
+      )
+      expect { client.post("webhooks.json", payload: { webhook: {} }) }.not_to raise_error
     end
 
-    it "blocks webhook deletion" do
-      expect { client.delete("webhooks/1.json") }
-        .to raise_error(described_class::ReadOnlyError)
+    it "allows webhook deletion even under read-only (integration plumbing)" do
+      stub_request(:delete, %r{webhooks/1\.json}).to_return(status: 200, body: "{}")
+      expect { client.delete("webhooks/1.json") }.not_to raise_error
     end
 
     it "allows REST GETs (reads always permitted)" do

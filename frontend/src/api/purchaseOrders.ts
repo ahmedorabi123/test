@@ -35,6 +35,13 @@ export interface PurchaseOrder {
   line_items?: PurchaseOrderLineItem[];
 }
 
+export type PurchaseOrderUpdatePayload = Omit<
+  Partial<PurchaseOrder>,
+  "line_items"
+> & {
+  line_items?: Array<{ id: string; quantity_received: number }>;
+};
+
 export interface CreatePOPayload {
   supplier_id: string;
   warehouse_id?: string;
@@ -77,7 +84,7 @@ export const purchaseOrdersApi = {
         data: PurchaseOrder;
       }>("/purchase_orders", { purchase_order: payload })
       .then((r) => r.data.data),
-  update: (id: string, payload: Partial<PurchaseOrder>) =>
+  update: (id: string, payload: PurchaseOrderUpdatePayload) =>
     api
       .patch<{
         data: PurchaseOrder;

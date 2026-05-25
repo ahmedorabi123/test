@@ -32,6 +32,15 @@ module Purchases
         variant = li[:variant_id].present? ? Variant.find(li[:variant_id]) : nil
         qty     = li[:quantity_ordered].to_i
 
+        # Guard: a Shopify-origin warehouse must only receive Shopify-origin
+        # variants. Otherwise the resulting receive would create stock for a
+        # manual variant at a Shopify location, which Shopify cannot reflect
+        # and would drift on the next inventory sync.
+        if variant && warehouse&.shopify_origin? && !variant.shopify_origin?
+          raise InvalidInput,
+                "Variant #{variant.sku || variant.id} is manual and cannot be ordered into Shopify-origin warehouse #{warehouse.code}"
+        end
+
         # Phase 1: factory POs are inventory-only; costs are not captured on
         # the PO. Store zeroed monetary fields to keep the schema dormant.
         po.line_items.build(

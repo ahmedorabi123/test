@@ -43,8 +43,13 @@ module Api
           pending_shipments:   Fulfillment.where(delivery_status: %w[pending in_transit])
                                           .where("created_at >= ?", since).count,
           low_stock_count:     StockItem.low_stock.count,
+          inventory_divergence_count: inventory_divergence_count,
           orders_pending:      Order.where(status: "pending").count
         }
+      end
+
+      def inventory_divergence_count
+        StockItem.includes(:warehouse, :variant).select(&:shopify_divergence).count
       end
 
       def revenue_trend(since, window)

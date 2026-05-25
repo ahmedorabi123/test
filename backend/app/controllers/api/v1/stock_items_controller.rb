@@ -5,6 +5,7 @@ module Api
       include Exportable
 
       sortable_by "quantity_on_hand", "quantity_reserved", "quantity_unavailable",
+                  "shopify_quantity_on_hand", "shopify_quantity_committed",
                   "low_stock_threshold", "updated_at", "created_at",
                   "product_title", "variant_sku", "warehouse_name", "available",
                   default: { updated_at: :desc }
@@ -236,6 +237,8 @@ module Api
           "Warehouse"     => ->(si) { si.warehouse&.name },
           "On Hand"       => :quantity_on_hand,
           "Reserved"      => :quantity_reserved,
+          "Shopify On Hand" => :shopify_quantity_on_hand,
+          "Shopify Committed" => :shopify_quantity_committed,
           "Unavailable"   => :quantity_unavailable,
           "Available"     => ->(si) { si.available },
           "Low Threshold" => :low_stock_threshold,

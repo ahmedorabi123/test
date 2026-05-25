@@ -147,8 +147,23 @@ export default function OrderDetailPage() {
     cancelled: [],
     refunded: [],
   };
+  const legalManualStatus: Record<string, string[]> = {
+    pending: ["fulfilled", "cancelled"],
+    processing: ["fulfilled", "cancelled"],
+    fulfilled: [],
+    cancelled: [],
+    refunded: [],
+  };
   const legalFinancial: Record<string, string[]> = {
     pending: ["authorized", "paid", "voided"],
+    authorized: ["paid", "voided"],
+    paid: [],
+    partially_refunded: [],
+    refunded: [],
+    voided: [],
+  };
+  const legalManualFinancial: Record<string, string[]> = {
+    pending: ["paid", "voided"],
     authorized: ["paid", "voided"],
     paid: [],
     partially_refunded: [],
@@ -173,10 +188,14 @@ export default function OrderDetailPage() {
     order.source === "shopify" ||
     order.shopify_order_id,
   );
-  const statusTargets = isReadOnly ? [] : (legalStatus[order.status] ?? []);
+  const isManualOrder =
+    order.source === "manual" || order.source === "showroom";
+  const statusMap = isManualOrder ? legalManualStatus : legalStatus;
+  const financialMap = isManualOrder ? legalManualFinancial : legalFinancial;
+  const statusTargets = isReadOnly ? [] : (statusMap[order.status] ?? []);
   const financialTargets = isReadOnly
     ? []
-    : (legalFinancial[order.financial_status] ?? []);
+    : (financialMap[order.financial_status] ?? []);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">

@@ -1,4 +1,14 @@
 namespace :shopify do
+  # These topics are either GDPR compliance hooks delivered via the app's
+  # webhooks config (not the REST API), or not exposed on the REST endpoint
+  # at all. Skip them in registration to keep the run quiet.
+  REST_UNREGISTERABLE_TOPICS = %w[
+    customers/data_request
+    customers/redact
+    shop/redact
+    fulfillments/cancelled
+  ].freeze
+
   desc "Register all required Shopify webhooks against WEBHOOK_BASE_URL"
   task register_webhooks: :environment do
     base = ENV.fetch("WEBHOOK_BASE_URL") do
@@ -6,7 +16,7 @@ namespace :shopify do
     end
 
     client = Shopify::Client.new
-    topics = Shopify::EventNormalizer::SUPPORTED_TOPICS.keys
+    topics = Shopify::EventNormalizer::SUPPORTED_TOPICS.keys - REST_UNREGISTERABLE_TOPICS
 
     existing = client.get("webhooks.json").fetch("webhooks", []).index_by { |w| w["topic"] }
 

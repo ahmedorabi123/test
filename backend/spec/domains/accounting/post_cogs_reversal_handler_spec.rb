@@ -37,11 +37,20 @@ RSpec.describe Accounting::PostCogsReversalHandler do
     refund
   end
 
-  it "posts a DR 1200 / CR 5000 entry for restock_type='return' lines" do
+  it "skips COGS reversals while the feature gate is disabled" do
     refund = make_refund
     expect {
       described_class.call(refund.reload)
-    }.to change { JournalEntry.where(entry_type: "refund").count }.by(1)
+    }.not_to change { JournalEntry.count }
+  end
+
+  it "posts a DR 1200 / CR 5000 entry for restock_type='return' lines when enabled" do
+    refund = make_refund
+    with_env("ACCOUNTING_COGS_ENABLED", "true") do
+      expect {
+        described_class.call(refund.reload)
+      }.to change { JournalEntry.where(entry_type: "refund").count }.by(1)
+    end
 
     entry = JournalEntry.where(idempotency_key: "cogs-reversal-#{refund.id}").first
     expect(entry).to be_present
@@ -55,38 +64,56 @@ RSpec.describe Accounting::PostCogsReversalHandler do
 
   it "is idempotent (no duplicate entry on second call)" do
     refund = make_refund
-    described_class.call(refund.reload)
-    expect {
+    with_env("ACCOUNTING_COGS_ENABLED", "true") do
       described_class.call(refund.reload)
-    }.not_to change { JournalEntry.count }
+      expect {
+        described_class.call(refund.reload)
+      }.not_to change { JournalEntry.count }
+    end
   end
 
   it "skips when refund is not processed" do
     refund = make_refund(status: "draft")
-    expect {
-      described_class.call(refund.reload)
-    }.not_to change { JournalEntry.count }
+    with_env("ACCOUNTING_COGS_ENABLED", "true") do
+      expect {
+        described_class.call(refund.reload)
+      }.not_to change { JournalEntry.count }
+    end
   end
 
   it "skips lines with restock_type='no_restock'" do
     refund = make_refund(restock_type: "no_restock")
-    expect {
-      described_class.call(refund.reload)
-    }.not_to change { JournalEntry.count }
+    with_env("ACCOUNTING_COGS_ENABLED", "true") do
+      expect {
+        described_class.call(refund.reload)
+      }.not_to change { JournalEntry.count }
+    end
   end
 
   it "falls back to refund.restock? when restock_type is blank" do
     refund = make_refund(restock_type: nil, restock: true)
-    expect {
-      described_class.call(refund.reload)
-    }.to change { JournalEntry.count }.by(1)
+    with_env("ACCOUNTING_COGS_ENABLED", "true") do
+      expect {
+        described_class.call(refund.reload)
+      }.to change { JournalEntry.count }.by(1)
+    end
   end
 
   it "skips when total cost is zero" do
     variant.update!(cost_per_item: 0, cost: 0)
     refund = make_refund
-    expect {
-      described_class.call(refund.reload)
-    }.not_to change { JournalEntry.count }
+    with_env("ACCOUNTING_COGS_ENABLED", "true") do
+      expect {
+        described_class.call(refund.reload)
+      }.not_to change { JournalEntry.count }
+    end
+  end
+
+  def with_env(key, value)
+    previous = ENV[key]
+    ENV[key] = value
+    yield
+  ensure
+    ENV[key] = previous
   end
 end

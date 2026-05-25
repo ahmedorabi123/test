@@ -32,7 +32,7 @@ module Api
 
         page     = [params[:page].to_i, 1].max
         per_page = (params[:per_page].to_i.positive? ? params[:per_page].to_i : 25).clamp(1, 200)
-        records  = scope.order(occurred_at: :desc).offset((page - 1) * per_page).limit(per_page)
+        records  = apply_sort(scope).offset((page - 1) * per_page).limit(per_page)
 
         render json: {
           data: records.map { |log| serialize(log) },
@@ -41,6 +41,15 @@ module Api
       end
 
       private
+
+      SORT_ALLOWLIST = %w[occurred_at action subject_type user_id].freeze
+
+      def apply_sort(scope)
+        col = params[:sort].to_s.presence
+        col = "occurred_at" unless SORT_ALLOWLIST.include?(col)
+        dir = params[:dir].to_s.downcase == "asc" ? :asc : :desc
+        scope.order(col => dir)
+      end
 
       def serialize(log)
         {

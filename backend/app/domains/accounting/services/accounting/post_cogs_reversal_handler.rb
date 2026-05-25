@@ -22,6 +22,7 @@ module Accounting
     end
 
     def call
+      return unless Accounting::Features.cogs_enabled?
       return unless @refund
       return unless @refund.processed?
 

@@ -48,11 +48,36 @@ function isStockItemReadOnly(stockItem: StockItem) {
   return Boolean(stockItem.read_only_origin);
 }
 
+function formatShopifyQuantity(value: number | null | undefined) {
+  return value == null ? "—" : value;
+}
+
+function DivergencePill({ stockItem }: { stockItem: StockItem }) {
+  const divergence = stockItem.shopify_divergence;
+  if (!divergence) return null;
+
+  const title = [
+    `System on hand: ${divergence.system_on_hand}`,
+    `Shopify on hand: ${divergence.shopify_on_hand}`,
+    `System committed: ${divergence.system_committed}`,
+    `Shopify committed: ${divergence.shopify_committed ?? "unknown"}`,
+  ].join("\n");
+
+  return (
+    <span
+      title={title}
+      className="w-fit rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200"
+    >
+      Diverged
+    </span>
+  );
+}
+
 function isWarehouseMutable(warehouse: Warehouse) {
   return Boolean(
     warehouse.active &&
-      !warehouse.read_only_origin &&
-      !warehouse.shopify_location_id,
+    !warehouse.read_only_origin &&
+    !warehouse.shopify_location_id,
   );
 }
 
@@ -560,18 +585,6 @@ export default function InventoryPage() {
     load();
   }, [load]);
 
-  const openAdjust = (si: StockItem) => {
-    if (isStockItemReadOnly(si)) return;
-    setAdjustState({
-      stockItem: si,
-      onHand: String(si.quantity_on_hand),
-      unavailable: String(si.quantity_unavailable),
-      unavailabilityReason: si.unavailability_reason ?? "",
-      saving: false,
-      error: null,
-    });
-  };
-
   const saveAdjust = async () => {
     if (!adjustState) return;
     const { stockItem: si } = adjustState;
@@ -631,6 +644,7 @@ export default function InventoryPage() {
                 Shopify-managed
               </span>
             )}
+            <DivergencePill stockItem={si} />
           </div>
         ),
       },
@@ -672,7 +686,7 @@ export default function InventoryPage() {
       },
       {
         id: "committed",
-        header: "Committed",
+        header: "System committed",
         sortKey: "quantity_reserved",
         render: (si) => (
           <span
@@ -683,6 +697,26 @@ export default function InventoryPage() {
             }`}
           >
             {si.quantity_reserved}
+          </span>
+        ),
+      },
+      {
+        id: "shopify_on_hand",
+        header: "Shopify on hand",
+        sortKey: "shopify_quantity_on_hand",
+        render: (si) => (
+          <span className="text-sm text-slate-700">
+            {formatShopifyQuantity(si.shopify_quantity_on_hand)}
+          </span>
+        ),
+      },
+      {
+        id: "shopify_committed",
+        header: "Shopify committed",
+        sortKey: "shopify_quantity_committed",
+        render: (si) => (
+          <span className="text-sm text-slate-700">
+            {formatShopifyQuantity(si.shopify_quantity_committed)}
           </span>
         ),
       },
@@ -725,24 +759,6 @@ export default function InventoryPage() {
             <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 px-2 py-0.5 text-xs font-medium">
               OK
             </span>
-          ),
-      },
-      {
-        id: "actions",
-        header: "",
-        render: (si) =>
-          isStockItemReadOnly(si) ? (
-            <span className="text-xs text-slate-400">Read-only</span>
-          ) : (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                openAdjust(si);
-              }}
-              className="text-xs text-indigo-600 hover:underline whitespace-nowrap"
-            >
-              Adjust
-            </button>
           ),
       },
     ],
@@ -996,27 +1012,32 @@ export default function InventoryPage() {
               { label: "SKU", value: stockItem.sku || "-" },
               { label: "Warehouse", value: stockItem.warehouse_name || "-" },
               { label: "On hand", value: stockItem.quantity_on_hand },
-              { label: "Committed", value: stockItem.quantity_reserved },
+              { label: "System committed", value: stockItem.quantity_reserved },
+              {
+                label: "Shopify on hand",
+                value: formatShopifyQuantity(
+                  stockItem.shopify_quantity_on_hand,
+                ),
+              },
+              {
+                label: "Shopify committed",
+                value: formatShopifyQuantity(
+                  stockItem.shopify_quantity_committed,
+                ),
+              },
               {
                 label: "Unavailable",
                 value: stockItem.quantity_unavailable || "-",
               },
-              { label: "Stock", value: stockItem.low_stock ? "Low" : "OK" },
+              {
+                label: "Stock",
+                value: stockItem.shopify_divergence
+                  ? "Diverged"
+                  : stockItem.low_stock
+                    ? "Low"
+                    : "OK",
+              },
             ]}
-            actions={
-              isStockItemReadOnly(stockItem) ? (
-                <span className="inline-flex min-h-10 items-center rounded-md bg-emerald-50 px-3 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
-                  Shopify-managed
-                </span>
-              ) : (
-                <button
-                  onClick={() => openAdjust(stockItem)}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
-                >
-                  Adjust stock
-                </button>
-              )
-            }
           />
         )}
         syncToUrl={false}

@@ -24,6 +24,7 @@ class Inventory::Shopify::StockSyncService
       inventory_item_id = Integer(@payload["inventory_item_id"])
       location_id       = Integer(@payload["location_id"])
       available         = Integer(@payload["available"].to_i)
+      committed         = committed_quantity
 
       variant = Variant.find_by(shopify_inventory_item_id: inventory_item_id)
       return nil unless variant
@@ -35,23 +36,31 @@ class Inventory::Shopify::StockSyncService
           variant_id:   variant.id,
           warehouse_id: warehouse.id
         )
-        before = stock_item.persisted? ? stock_item.quantity_on_hand : 0
-        delta  = available - before
-
-        stock_item.quantity_on_hand = before
+        stock_item.quantity_on_hand ||= 0
         stock_item.save!
 
-        ::Inventory::WriteMovement.call(
+        ::Inventory::WriteShopifyMirrorMovement.call(
           stock_item: stock_item,
-          delta: delta,
           reason: REASON,
-          reference: @reference
+          reference: @reference,
+          on_hand_absolute: available,
+          committed_absolute: committed
         )
+
+        stock_item.update!(shopify_last_synced_at: Time.current)
 
         ::Inventory::Reservations::RecountStockItem.call(stock_item.reload)
 
         stock_item
       end
     end
+  end
+
+  private
+
+  def committed_quantity
+    value = @payload["committed"] || @payload[:committed] ||
+            @payload["committed_quantity"] || @payload[:committed_quantity]
+    value.nil? ? nil : Integer(value.to_i)
   end
 end

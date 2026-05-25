@@ -13,6 +13,16 @@ RSpec.describe "Variants API", type: :request do
     expect(json.fetch("data").map { |row| row.fetch("id") }).to include(variant.id)
   end
 
+  it "accepts q as an alias for search" do
+    product = create(:product, title: "Lookup Hoodie", handle: "lookup-hoodie")
+    variant = create(:variant, product: product, sku: "LOOKUP-1", title: "Small")
+
+    get "/api/v1/variants", params: { q: "lookup", per_page: 15 }, headers: auth_headers(admin)
+
+    expect(response).to have_http_status(:ok)
+    expect(json.fetch("data").map { |row| row.fetch("id") }).to include(variant.id)
+  end
+
   it "filters by warehouse availability when in_stock=true" do
     warehouse = create(:warehouse)
     product = create(:product, title: "Stock Tee")
@@ -48,14 +58,14 @@ RSpec.describe "Variants API", type: :request do
     expect(ids).not_to include(variant.id)
   end
 
-  it "rejects Shopify-origin warehouses with 422" do
+  it "allows filtering by Shopify-origin warehouses" do
     warehouse = create(:warehouse, shopify_location_id: "gid://shopify/Location/123")
 
     get "/api/v1/variants",
         params: { search: "x", warehouse_id: warehouse.id, in_stock: "true" },
         headers: auth_headers(admin)
 
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:ok)
   end
 
   it "returns 404 when warehouse_id does not exist" do

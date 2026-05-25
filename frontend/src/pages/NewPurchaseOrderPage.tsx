@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { productsApi, type Product, type Variant } from "../api/products";
 import { warehousesApi, type Warehouse } from "../api/inventory";
 import { suppliersApi, type Supplier } from "../api/suppliers";
 import { purchaseOrdersApi } from "../api/purchaseOrders";
+import { variantsApi, type VariantLookup } from "../api/variants";
 
 interface Line {
   variant_id: string;
@@ -16,37 +16,59 @@ export default function NewPurchaseOrderPage() {
   const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [variants, setVariants] = useState<
-    Array<Variant & { product_title: string }>
-  >([]);
+  const [variantOptions, setVariantOptions] = useState<VariantLookup[]>([]);
+  const [variantSearch, setVariantSearch] = useState("");
+  const [selectedVariant, setSelectedVariant] = useState<VariantLookup | null>(
+    null,
+  );
   const [supplierId, setSupplierId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [expectedAt, setExpectedAt] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
-  const [selectedVariant, setSelectedVariant] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const variantBoxRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (!variantBoxRef.current) return;
+      if (!variantBoxRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
 
   useEffect(() => {
     (async () => {
-      const [s, w, p] = await Promise.all([
+      const [s, w, variantRows] = await Promise.all([
         suppliersApi.list({ per_page: 100, kind: "factory" }),
         warehousesApi.list(),
-        productsApi.list({ per_page: 100, status: "active" }),
+        variantsApi.list({ per_page: 25 }),
       ]);
       setSuppliers(s.data);
       setWarehouses(w);
-      const all: Array<Variant & { product_title: string }> = [];
-      for (const prod of p.data as Product[]) {
-        const full = await productsApi.get(prod.id);
-        (full.variants || []).forEach((v: Variant) =>
-          all.push({ ...v, product_title: prod.title }),
-        );
-      }
-      setVariants(all);
+      setVariantOptions(variantRows.data);
     })().catch((e) => setError((e as Error).message));
   }, []);
+
+  useEffect(() => {
+    const q = variantSearch.trim();
+    const handle = setTimeout(
+      async () => {
+        const res = await variantsApi.list({
+          search: q || undefined,
+          per_page: q ? 25 : 15,
+        });
+        setVariantOptions(res.data);
+      },
+      q ? 250 : 0,
+    );
+    return () => clearTimeout(handle);
+  }, [variantSearch]);
 
   const totalQty = useMemo(
     () => lines.reduce((s, l) => s + Number(l.quantity_ordered || 0), 0),
@@ -54,18 +76,20 @@ export default function NewPurchaseOrderPage() {
   );
 
   const addLine = () => {
-    const v = variants.find((x) => x.id === selectedVariant);
+    const v = selectedVariant;
     if (!v) return;
     setLines((ls) => [
       ...ls,
       {
         variant_id: v.id,
-        title: `${v.product_title} – ${v.title}`,
+        title: `${v.product_title ?? "Product"} – ${v.title}`,
         sku: v.sku || "",
         quantity_ordered: 1,
       },
     ]);
-    setSelectedVariant("");
+    setSelectedVariant(null);
+    setVariantSearch("");
+    setDropdownOpen(false);
   };
 
   const submit = async () => {
@@ -169,18 +193,44 @@ export default function NewPurchaseOrderPage() {
         <h2 className="font-semibold mb-3">Line items</h2>
 
         <div className="flex gap-2 mb-3">
-          <select
-            value={selectedVariant}
-            onChange={(e) => setSelectedVariant(e.target.value)}
-            className="min-h-11 flex-1 rounded border px-2 py-1"
-          >
-            <option value="">— add variant —</option>
-            {variants.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.product_title} – {v.title} ({v.sku})
-              </option>
-            ))}
-          </select>
+          <div className="relative flex-1" ref={variantBoxRef}>
+            <input
+              value={
+                selectedVariant
+                  ? `${selectedVariant.product_title ?? "Product"} – ${selectedVariant.title}${selectedVariant.sku ? ` (${selectedVariant.sku})` : ""}`
+                  : variantSearch
+              }
+              onChange={(e) => {
+                setSelectedVariant(null);
+                setVariantSearch(e.target.value);
+                setDropdownOpen(true);
+              }}
+              onFocus={() => setDropdownOpen(true)}
+              onClick={() => setDropdownOpen(true)}
+              onKeyDown={(e) => { if (e.key === "Escape") setDropdownOpen(false); }}
+              placeholder="Search SKU, variant, or product title…"
+              className="min-h-11 w-full rounded border px-2 py-1"
+            />
+            {dropdownOpen && !selectedVariant && variantOptions.length > 0 && (
+              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded border border-slate-200 bg-white shadow-lg">
+                {variantOptions.map((v) => (
+                  <button
+                    type="button"
+                    key={v.id}
+                    onClick={() => { setSelectedVariant(v); setDropdownOpen(false); }}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-indigo-50"
+                  >
+                    <span className="font-medium text-slate-900">
+                      {v.product_title} – {v.title}
+                    </span>
+                    <span className="ml-2 font-mono text-xs text-slate-500">
+                      {v.sku || "no SKU"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             onClick={addLine}
             disabled={!selectedVariant}

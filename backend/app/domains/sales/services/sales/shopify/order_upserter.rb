@@ -140,7 +140,9 @@ module Sales
         case order.status
         when "pending", "processing"
           ::Inventory::SyncOrderReservations.call(order)
+          ::Inventory::MirrorShopifyOrderCommitments.call(order)
         when "cancelled", "refunded"
+          ::Inventory::MirrorShopifyOrderReleases.call(order)
           ::Inventory::ReleaseOrderReservations.call(order)
         end
       rescue => e
