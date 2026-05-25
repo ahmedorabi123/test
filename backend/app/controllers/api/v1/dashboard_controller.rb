@@ -116,14 +116,7 @@ module Api
 
       def gross_margin(since)
         revenue = Order.where("placed_at >= ?", since).where.not(status: "cancelled").sum(:total_price).to_f
-        cogs_lines = JournalLine.joins(:journal_entry, :account)
-                                .where(accounts: { code: "5000" })
-                                .where("journal_entries.entry_date >= ?", since.to_date)
-        cogs = cogs_lines.where(side: "debit").sum(:amount).to_f -
-               cogs_lines.where(side: "credit").sum(:amount).to_f
-        margin = revenue - cogs
-        pct = revenue.positive? ? (margin / revenue * 100.0).round(2) : 0.0
-        { revenue: revenue, cogs: cogs, margin: margin, margin_pct: pct }
+        { revenue: revenue, cogs: 0.0, margin: revenue, margin_pct: revenue.positive? ? 100.0 : 0.0 }
       end
 
       def recent_activity

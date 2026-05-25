@@ -78,7 +78,7 @@ module Inventory
       variant = @stock_item.variant
       if cost_result.zero?
         AuditLog.create!(
-          action:       "cogs.write_off_zero_cost",
+          action:       "inventory.write_off_zero_cost",
           subject_type: "StockMovement",
           subject_id:   movement.id,
           diff:         { variant_id: variant&.id, sku: variant&.sku, qty: @delta.abs, source: cost_result.source },

@@ -40,7 +40,7 @@ module Shipping
               tracking_company:   @payload[:tracking_company].presence,
               tracking_number:    @payload[:tracking_number].presence,
               tracking_url:       @payload[:tracking_url].presence,
-              delivery_status:    @payload[:shipment_status].presence || @payload[:delivery_status].presence,
+              delivery_status:    ::Fulfillment.normalize_delivery_status(@payload[:shipment_status].presence || @payload[:delivery_status].presence),
               service:            @payload[:service].presence || infer_service(@payload[:tracking_company]),
               shipped_at:         parse_time(@payload[:created_at]),
               delivered_at:       (@payload[:shipment_status].to_s == "delivered" ? parse_time(@payload[:updated_at]) : nil),
@@ -53,7 +53,6 @@ module Shipping
             # Only consume inventory the first time this fulfillment becomes successful.
             if fulfillment.status == "success" && (was_new || !was_successful)
               consume_inventory(fulfillment)
-              post_cogs_journal(fulfillment)
             end
 
             fulfillment
@@ -133,12 +132,6 @@ module Shipping
           },
           dedupe_key: "shopify-fulfillment:#{fulfillment.shopify_fulfillment_id}:#{kind}:#{fulfillment.shopify_updated_at || Time.current.to_f}"
         )
-      end
-
-      def post_cogs_journal(fulfillment)
-        ::Accounting::PostCogsHandler.call(fulfillment)
-      rescue StandardError => e
-        Rails.logger.warn "[FulfillmentUpserter] COGS posting failed for fulfillment=#{fulfillment.id}: #{e.message}"
       end
 
       def parse_time(v)

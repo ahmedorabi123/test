@@ -70,7 +70,6 @@ module Shipping
           update_order_status: @transition_order
         )
       end
-      ::Accounting::PostCogsHandler.call(fulfillment)
       ::Shipping::RecordShipmentEvent.call(
         fulfillment,
         kind: "created",

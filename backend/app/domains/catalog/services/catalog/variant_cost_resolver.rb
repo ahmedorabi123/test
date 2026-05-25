@@ -1,5 +1,6 @@
 module Catalog
-  # Resolves the unit cost of a variant for COGS postings.
+  # Resolves the unit cost of a variant for inventory valuation
+  # (cost layers, inventory write-offs).
   #
   # Priority (first non-nil, > 0 wins):
   #   1. variant.cost
@@ -8,7 +9,7 @@ module Catalog
   #   4. weighted average of received purchase order line items
   #        SUM(unit_cost * quantity_received) / SUM(quantity_received)
   #   5. 0 (caller MUST handle the zero-cost case — usually by writing an
-  #      AuditLog entry rather than silently dropping the COGS posting)
+  #      AuditLog entry rather than silently dropping the posting)
   #
   # Returns a BigDecimal/Numeric. Never raises.
   class VariantCostResolver

@@ -40,7 +40,7 @@ RSpec.describe Sales::ShowroomSalesReportPoster do
       expect(StockMovement.where(reason: "showroom_sale").count).to eq(1)
     end
 
-    it "posts a balanced sales journal entry and a COGS entry" do
+    it "posts a balanced sales journal entry and no COGS entry" do
       described_class.call(warehouse_id: showroom.id, period: "2025-03", line_items: line_items)
       sale_je = JournalEntry.where(entry_type: "sale", source_type: "order").last
       expect(sale_je).not_to be_nil
@@ -48,7 +48,7 @@ RSpec.describe Sales::ShowroomSalesReportPoster do
         sale_je.journal_lines.where(side: "credit").sum(:amount)
       )
       cogs_je = JournalEntry.where("idempotency_key LIKE 'cogs-order-%'").last
-      expect(cogs_je.journal_lines.where(side: "debit").sum(:amount)).to eq(40.00) # 2 * 20
+      expect(cogs_je).to be_nil
     end
   end
 

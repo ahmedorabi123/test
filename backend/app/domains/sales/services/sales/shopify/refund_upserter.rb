@@ -187,7 +187,6 @@ module Sales
       # more prior partial refund journal entries.
       #
       # RefundReversalHandler is reserved for order CANCELLATION (OrderStateMachine).
-      # COGS reversal is disabled until variant cost tracking is implemented.
       def post_accounting(refund)
         ::Accounting::PartialRefundJournalHandler.call(refund)
       rescue => e

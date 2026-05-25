@@ -15,7 +15,7 @@ module Sales
   # Quantity sign semantics:
   # * quantity > 0  → sales line. Builds an OrderLineItem, deducts stock at
   #   the consignment warehouse (strict — no clamping), feeds the sale
-  #   journal + COGS journal.
+  #   journal.
   # * quantity < 0  → accounting-only sales reversal. Does NOT create an
   #   OrderLineItem, does NOT move physical stock, does NOT create a Refund.
   #   Aggregated into a +ShowroomReversal+ that posts a single reversal
@@ -28,7 +28,7 @@ module Sales
   # note tag AND any existing +ShowroomReversal+ for the period are checked.
   #
   # Atomicity: the order, its line items, all stock movements, the sale
-  # journal, the COGS journal, the reversal record, and the reversal journal
+  # journal, the reversal record, and the reversal journal
   # are wrapped in a single +ActiveRecord::Base.transaction+. Any failure —
   # including journal posting — rolls back the whole report.
   class ShowroomSalesReportPoster
@@ -180,40 +180,11 @@ module Sales
       end
     end
 
-    # Posts the sale journal + COGS journal. Failures are intentionally
-    # allowed to escape so the outer +ActiveRecord::Base.transaction+ rolls
-    # back the entire report (order + line items + movements + journals).
+    # Posts the sale journal. Failures are intentionally allowed to escape so
+    # the outer +ActiveRecord::Base.transaction+ rolls back the entire report
+    # (order + line items + movements + journal).
     def post_sale_journals(order)
       ::Accounting::PostSaleJournalHandler.call(order)
-
-      total_cogs = order.line_items.sum do |li|
-        @line_costs&.[](li.id).presence || begin
-          result = Catalog::VariantCostResolver.call(li.variant)
-          result.cost * li.quantity.to_i
-        end
-      end
-      return if total_cogs <= 0
-
-      idem_key = "cogs-order-#{order.id}"
-      return if JournalEntry.exists?(idempotency_key: idem_key)
-
-      JournalEntry.post!(
-        {
-          entry_date:      order.placed_at&.to_date || Date.current,
-          description:     "COGS – Showroom #{order.customer_name}",
-          currency:        order.currency,
-          source_type:     "order",
-          source_id:       order.id,
-          entry_type:      "sale",
-          idempotency_key: idem_key
-        },
-        [
-          { account_code: "5000", side: "debit",  amount: total_cogs,
-            description: "COGS – #{order.customer_name}" },
-          { account_code: "1200", side: "credit", amount: total_cogs,
-            description: "Inventory consumed – showroom sale" }
-        ]
-      )
     end
 
     def build_reversal(warehouse, reversal_lines)

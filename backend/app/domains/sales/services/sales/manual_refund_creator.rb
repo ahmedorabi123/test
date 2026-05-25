@@ -200,8 +200,6 @@ module Sales
 
     def post_journal(refund)
       ::Accounting::PartialRefundJournalHandler.call(refund)
-      # COGS reversal disabled: PostCogsReversalHandler omitted until
-      # variant cost tracking is enabled.
     end
 
     def flag_order_status(order)

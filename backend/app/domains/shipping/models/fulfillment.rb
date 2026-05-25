@@ -2,7 +2,24 @@ class Fulfillment < ApplicationRecord
   include Shopify::Origin
 
   STATUSES = %w[pending open success cancelled error failure].freeze
-  DELIVERY_STATUSES = %w[pending in_transit delivered failed].freeze
+  DELIVERY_STATUSES = %w[pending label_purchased confirmed in_transit out_for_delivery attempted_delivery ready_for_pickup picked_up delivered failed failure].freeze
+
+  # Map Shopify's shipment_status vocabulary to a value our store accepts.
+  # Shopify uses values like "failure" and "out_for_delivery" that legacy
+  # tests/code didn't allow. We accept the raw Shopify values directly so we
+  # don't lose information; only fully unknown values are normalised.
+  SHOPIFY_DELIVERY_STATUS_ALIASES = {
+    "label_printed"  => "label_purchased",
+    "in transit"     => "in_transit",
+    "out for delivery" => "out_for_delivery"
+  }.freeze
+
+  def self.normalize_delivery_status(raw)
+    return nil if raw.blank?
+    v = raw.to_s.downcase.strip
+    v = SHOPIFY_DELIVERY_STATUS_ALIASES[v] || v
+    DELIVERY_STATUSES.include?(v) ? v : nil
+  end
 
   shopify_origin_via :shopify_fulfillment_id,
     read_only_except: %i[delivery_status in_transit_at delivered_at notes updated_at]

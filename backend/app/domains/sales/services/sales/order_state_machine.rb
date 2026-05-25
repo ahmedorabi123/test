@@ -147,8 +147,6 @@ module Sales
         fulfillment.fulfillment_line_items.each do |fulfillment_line_item|
           ::Inventory::ConsumeReservation.call(fulfillment_line_item)
         end
-        # COGS disabled: cost-per-product tracking not yet implemented.
-        # Re-enable PostCogsHandler here when variant costs are reliable.
       end
     end
 

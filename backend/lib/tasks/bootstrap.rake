@@ -463,8 +463,8 @@ namespace :bootstrap do
 
   # ────────────────────────────────────────────────────────────────────────────
   # bootstrap:backfill_accounting
-  # Idempotent: posts sale / COGS journal entries for every existing
-  # order and fulfillment that is still missing one.
+  # Idempotent: posts sale journal entries for every existing
+  # order that is still missing one.
   # Safe to run multiple times — each handler checks its own idempotency key.
   # ────────────────────────────────────────────────────────────────────────────
   desc "Backfill accounting journal entries for all orders and fulfillments."
@@ -489,25 +489,7 @@ namespace :bootstrap do
     end
     log.call "  sale journals: #{posted_s} posted, #{skipped_s} skipped (zero-amount), #{errors_s} errors"
 
-    # ── 2. COGS journals for successful fulfillments ───────────────────────────
-    # Only posts when variants have cost_per_item configured (total > 0).
-    cogs_scope = Fulfillment.where(status: "success")
-    cogs_total = cogs_scope.count
-    log.call "Checking #{cogs_total} fulfillments for missing COGS journals..."
-    posted_c = 0; skipped_c = 0; errors_c = 0
-    cogs_scope.find_each(batch_size: 200) do |fulfillment|
-      next if JournalEntry.exists?(idempotency_key: "cogs-#{fulfillment.id}")
-      begin
-        result = Accounting::PostCogsHandler.call(fulfillment)
-        result ? (posted_c += 1) : (skipped_c += 1)
-      rescue => e
-        errors_c += 1
-        Rails.logger.warn "[backfill_accounting] cogs #{fulfillment.id}: #{e.message}"
-      end
-    end
-    log.call "  COGS journals: #{posted_c} posted, #{skipped_c} skipped (no cost data), #{errors_c} errors"
-
-    total_new = posted_s + posted_c
+    total_new = posted_s
     log.call "Accounting backfill done. #{total_new} new journal entries created."
   end
 

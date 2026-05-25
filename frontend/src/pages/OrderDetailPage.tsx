@@ -378,16 +378,6 @@ export default function OrderDetailPage() {
             {order.items_count ?? 0} item
             {(order.items_count ?? 0) === 1 ? "" : "s"}
           </div>
-          {order.shopify_order_status_url && (
-            <a
-              href={order.shopify_order_status_url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-indigo-600 hover:underline"
-            >
-              View status page →
-            </a>
-          )}
         </div>
 
         {/* Dates card */}

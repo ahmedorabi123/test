@@ -361,6 +361,21 @@ namespace :db do
             JournalEntry.where(id: je_ids).delete_all
           end
 
+          # 2b. Always purge COGS-touching journal entries (account 5000 / 1200
+          # inventory-consumption pair) and any leftover purchase-type entries
+          # whose PO has been wiped. The system no longer posts COGS at all,
+          # so these are orphans by definition.
+          cogs_account_ids = Account.where(code: ["5000", "1200"]).pluck(:id)
+          cogs_je_ids = cogs_account_ids.any? ?
+            JournalLine.where(account_id: cogs_account_ids).pluck(:journal_entry_id).uniq : []
+          orphan_purchase_je_ids = JournalEntry.where(entry_type: "purchase").pluck(:id)
+          orphan_ids = (cogs_je_ids + orphan_purchase_je_ids).uniq
+          if orphan_ids.any?
+            JournalLine.where(journal_entry_id: orphan_ids).delete_all
+            JournalEntry.where(id: orphan_ids).delete_all
+            puts "[cleanup:manual_only] purged #{orphan_ids.size} orphan/COGS journal entries"
+          end
+
           # 1. Orders + dependents
           if manual_order_ids.any?
             RefundLineItem.where(refund_id: manual_refund_ids).delete_all

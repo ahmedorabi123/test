@@ -113,7 +113,7 @@ module Inventory
       new_status = "processing"  if fulfillment_status == "partial" && new_status == "pending" && !manual_order?
 
       # Use the state machine when the status axis actually changes so that
-      # side-effects (COGS, audit log) are triggered correctly.
+      # side-effects (audit log) are triggered correctly.
       order.update!(fulfillment_status: fulfillment_status)
       if new_status != order.status
         ::Sales::OrderStateMachine.call(order, to: new_status)
